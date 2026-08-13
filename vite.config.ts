@@ -172,7 +172,9 @@ const replaceMapsTransformer: Transformer = {
   onNode: (node) =>
     node.type === "ObjectExpression" &&
     node.properties.length > 0 &&
-    node.properties.every((p) => p.type === "Property" && p.key.type === "Literal" && typeof p.key.value === "number" && p.value.type === "Literal"),
+    node.properties.every(
+      (p) => p.type === "Property" && p.key.type === "Literal" && typeof p.key.value === "number" && p.value.type === "Literal",
+    ),
   transform: (node) => {
     const obj = node as Obj<NumericLiteral, Literal>;
     let best: { value: string | typeof obj; length: number } = { value: obj, length: (obj.end ?? 0) - (obj.start ?? 0) };

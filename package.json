@@ -1,0 +1,48 @@
+{
+  "name": "js13k-base",
+  "version": "1.0.0",
+  "description": "Starter template for js13kGames entries: Vite build with aggressive size optimization, three build modes, zip size tooling, SoundBox audio",
+  "keywords": ["js13k", "js13kgames", "game-template", "gamedev", "vite", "typescript"],
+  "homepage": "https://mxlle.github.io/js13k-base/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mxlle/js13k-base.git"
+  },
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "build-js13k": "vite build -m js13k && npm run package -- --track",
+    "build-js13k-roadroller": "vite build -m js13k && node scripts/roadroll.js && npm run package -- --track",
+    "build-poki": "vite build -m poki && npm run package",
+    "package": "node scripts/package.js",
+    "size": "node scripts/package.js --report-only",
+    "typecheck": "tsc",
+    "lint": "node scripts/lint-invariants.mjs",
+    "clean": "rimraf dist",
+    "prettier": "prettier --write src scripts vite.config.ts"
+  },
+  "devDependencies": {
+    "@babel/types": "^8.0.4",
+    "@rollup/plugin-replace": "^6.0.2",
+    "archiver": "^8.0.0",
+    "ect-bin": "^1.4.1",
+    "lightningcss": "^1.30.1",
+    "prettier": "^3.9.5",
+    "rimraf": "^6.0.1",
+    "roadroller": "^2.1.0",
+    "rollup-plugin-visualizer": "^7.0.1",
+    "sass": "^1.77.8",
+    "terser": "^5.49.0",
+    "type-fest": "^5.8.0",
+    "typescript": "^7.0.2",
+    "unplugin-ast": "^0.17.2",
+    "vite": "^8.1.4",
+    "vite-plugin-html": "^3.2.2"
+  }
+}

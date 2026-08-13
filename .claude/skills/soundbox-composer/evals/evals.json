@@ -1,0 +1,33 @@
+{
+  "skill_name": "soundbox-composer",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Create a short, bright \"coin pickup\" sound effect for the game and render it to a WAV file so the user can listen to it. It must work with the game's existing default audio pipeline.",
+      "expected_output": "A song module in src/audio/songs/ containing a valid SoundBox song object using only sine oscillators (simple-player compatible), rendered to a non-silent WAV of a few seconds via the project's own player (scripts/render-song.mjs), with correct render stats reported.",
+      "files": [],
+      "assertions": [
+        "A song source file with a valid SoundBox song object (songData, rowLen, patternLen, endPattern, numChannels) was created",
+        "A rendered .wav exists and is non-silent (peak > 0)",
+        "Instrument waveforms i[0] and i[4] are 0 (sine), so the default simple player reproduces the designed sound",
+        "The rendered sound is short (<= 4 seconds), appropriate for a pickup sfx",
+        "The render was produced through the project's own player (render-song.mjs or direct use of small-player*.ts), not an unrelated synthesis approach"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "Compose a NEW background music track for the game — calm, slightly mysterious, and loopable, roughly 30-90 seconds. It must NOT reuse the existing song's melodies, and it must work with the game's existing default audio pipeline. Render it to a WAV so the user can listen.",
+      "expected_output": "A new song module with original multi-pattern melodies, sine-only instruments, rendered via the project player to a non-silent, non-clipping WAV of 25-120 seconds.",
+      "files": [],
+      "assertions": [
+        "A song source file with a valid SoundBox song object (songData, rowLen, patternLen, endPattern, numChannels) was created",
+        "A rendered .wav exists and is non-silent (peak > 0), without clipping (peak < 100%)",
+        "Instrument waveforms i[0] and i[4] are 0 (sine), so the default simple player reproduces the designed sound",
+        "The track is music-length (25-120 seconds), not a short blip",
+        "The song uses pattern sequencing (a p array longer than 1 entry), i.e. structured like music rather than one monolithic pattern",
+        "The render was produced through the project's own player (render-song.mjs or direct use of small-player*.ts)",
+        "The melodies are new — note patterns differ from the existing song's patterns in music-and-sounds.ts"
+      ]
+    }
+  ]
+}

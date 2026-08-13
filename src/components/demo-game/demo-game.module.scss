@@ -1,0 +1,62 @@
+@use "../../theme";
+@use "../../names";
+
+$board-size: 5;
+
+.host {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.board {
+  position: relative;
+  width: min(80vw, 55vh);
+  aspect-ratio: 1;
+  border-radius: theme.$border-radius;
+  background:
+    repeating-linear-gradient(to right, transparent 0 calc(100% / #{$board-size} - 1px), theme.$bg-alpha-25 0 calc(100% / #{$board-size})),
+    repeating-linear-gradient(to bottom, transparent 0 calc(100% / #{$board-size} - 1px), theme.$bg-alpha-25 0 calc(100% / #{$board-size})),
+    theme.$bg-alpha-05;
+  outline: 1px solid theme.$bg-alpha-25;
+
+  :global(.#{names.$WON}) & {
+    outline-color: theme.$success-color-light;
+  }
+}
+
+.entity {
+  position: absolute;
+  width: calc(100% / #{$board-size});
+  height: calc(100% / #{$board-size});
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  transition: translate 0.2s;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(3, min-content);
+  justify-content: center;
+  gap: 0.25rem;
+
+  // D-pad: up on top, left/down/right below (button order: ⬆️ ⬅️ ➡️ ⬇️)
+  > :nth-child(1) {
+    grid-area: 1 / 2;
+  }
+
+  > :nth-child(2) {
+    grid-area: 2 / 1;
+  }
+
+  > :nth-child(3) {
+    grid-area: 2 / 3;
+  }
+
+  > :nth-child(4) {
+    grid-area: 2 / 2;
+  }
+}

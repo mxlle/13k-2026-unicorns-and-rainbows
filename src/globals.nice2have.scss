@@ -1,0 +1,15 @@
+// Styles that only ship in the non-js13k builds (loaded conditionally in index.ts).
+// Put polish here that isn't worth bytes in the competition zip.
+
+// webfont for consistent emoji rendering — must NOT be in the js13k build:
+// external requests break the competition's offline rule (and cost bytes)
+@import url("https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap");
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

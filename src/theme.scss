@@ -1,0 +1,67 @@
+@use "./names" as *;
+@use "sass:color";
+
+$main-color: #e02890;
+$main-color-secondary: color.mix($main-color, white, 80%);
+$main-color-tertiary: color.mix($main-color, white, 50%);
+$danger-color: #bd2751;
+$danger-color-contrast: var(--d-clr, #e06d80);
+$success-color: #227744;
+$success-color-light: #44aa77;
+$warning-color: #ffaa00;
+$font-family: sans-serif;
+$font-family-special: monospace;
+$border-radius: 0.4rem;
+
+// dark theme colors
+$text-primary-dark: #f0f0f0;
+$text-secondary-dark: #ccc;
+$text-tertiary-dark: #9ab;
+$dialog-bg-dark: rgba(0, 0, 0, 0.95);
+$overlay-bg-dark: rgba(0, 0, 0, 0.3);
+$alpha-base-dark: white;
+$bg-alpha-05-dark: rgba($alpha-base-dark, 0.05);
+$bg-alpha-10-dark: rgba($alpha-base-dark, 0.1);
+$bg-alpha-25-dark: rgba($alpha-base-dark, 0.25);
+$bg-primary-dark: #0e120c;
+$bg-secondary-dark: #3d5a3a;
+$tile-color-1-dark: #15312a;
+$tile-color-1-dark-alpha: rgba($tile-color-1-dark, 0.75);
+$tile-color-2-dark: #1f271c;
+$table-bg-dark: #563232;
+$table-border-dark: #905d5d;
+
+// theme sass variables
+$text-primary: $text-primary-dark;
+$text-secondary: $text-secondary-dark;
+$text-tertiary: $text-tertiary-dark;
+$dialog-bg: $dialog-bg-dark;
+$overlay-bg: $overlay-bg-dark;
+$bg-alpha-05: $bg-alpha-05-dark;
+$bg-alpha-10: $bg-alpha-10-dark;
+$bg-alpha-25: $bg-alpha-25-dark;
+$bg-primary: $bg-primary-dark;
+$bg-secondary: $bg-secondary-dark;
+$tile-color-1: $tile-color-1-dark;
+$tile-color-2: $tile-color-2-dark;
+$tile-color-alpha: $tile-color-1-dark-alpha;
+
+@mixin hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @content;
+    }
+  }
+}
+
+%centeredAbsolute {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+%gridCentered {
+  display: grid;
+  place-items: center;
+}

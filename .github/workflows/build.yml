@@ -1,0 +1,105 @@
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    name: Typecheck, format, invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Prettier check
+        run: npx prettier --check src scripts vite.config.ts
+
+      - name: Size-machinery invariants
+        run: npm run lint
+
+  build:
+    name: Build (friends & family)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Upload Pages artifact
+        # Skipped on private repos, where Pages is unavailable on the free plan —
+        # so a fork of this template in a private repo stays green instead of
+        # failing here. Deploys automatically once the repo is public.
+        if: github.ref == 'refs/heads/main' && !github.event.repository.private
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    # Same guard as the upload step above: private forks skip the deploy instead
+    # of failing it. Requires Pages to be enabled with "GitHub Actions" as source.
+    if: github.ref == 'refs/heads/main' && !github.event.repository.private
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  js13k-size:
+    name: js13k size check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: Build js13k zip
+        run: npm run build-js13k
+
+      - name: Enforce 13 kB limit
+        run: node scripts/package.js --report-only --check
+
+      - name: Upload js13k zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: js13k-zip
+          path: dist.zip

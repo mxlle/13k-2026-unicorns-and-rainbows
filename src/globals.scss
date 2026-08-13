@@ -1,0 +1,124 @@
+@use "theme" as *;
+@use "names" as *;
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  font-size: 18px;
+
+  @media (min-width: 600px) {
+    font-size: 22px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  background: linear-gradient(to bottom, #020111 60%, #20202c 100%);
+  color: $text-primary;
+  font-family: $font-family-special;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  hyphens: auto;
+  text-wrap: balance;
+  display: grid;
+  grid-template-rows: min-content 1fr;
+  overflow: hidden; // to hide dialogs
+}
+
+button {
+  font-family: inherit;
+  font-size: 1em;
+  cursor: pointer;
+  color: $text-primary;
+  border: 1px solid $bg-alpha-05;
+  border-bottom-width: 3px;
+  background: $bg-alpha-10;
+  backdrop-filter: blur(2px);
+  padding: 0.5rem 1rem;
+  border-radius: $border-radius;
+  hyphens: none;
+
+  @include hover {
+    background: $bg-alpha-10;
+  }
+
+  &.#{$PRIMARY}:not([disabled]) {
+    background: $main-color;
+    border-color: $bg-alpha-25;
+
+    @include hover {
+      background: rgba($main-color, 0.7);
+    }
+  }
+
+  &.#{$SECONDARY} {
+    font-size: 0.8em;
+    color: $text-tertiary;
+    padding: 0.25rem 1rem;
+  }
+
+  &.#{$TERTIARY} {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.8em;
+    color: $main-color-tertiary;
+    text-decoration: underline;
+    cursor: pointer;
+    border-radius: 0;
+    width: fit-content;
+  }
+
+  &[disabled] {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+}
+
+button.#{$ICON_BTN} {
+  font-family: "Noto Color Emoji", sans-serif;
+  width: 2rem;
+  height: 2rem;
+  //display: grid;
+  //place-items: center;
+  border-radius: 50%;
+  padding: 0.5rem;
+  font-size: 0.9em;
+  line-height: 1;
+
+  &.#{$SECONDARY} {
+    background: none;
+
+    @include hover {
+      background-color: $bg-alpha-05;
+    }
+  }
+}
+
+.#{$HIDDEN} {
+  display: none !important;
+}
+
+.#{$OPACITY_HIDDEN} {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.#{$EMOJI} {
+  font-family: "Noto Color Emoji", sans-serif;
+}
+
+.#{$ONE_LINER} {
+  white-space: nowrap;
+}

@@ -23,6 +23,10 @@ implementation support**. Creative decisions stay on Almut's side.
    without an explicit go-ahead.
 4. **No silent scope growth across turns.** A go-ahead covers exactly what was approved; new ideas
    that come up mid-implementation go back through rules 2–3.
+5. **Almut does the committing.** Claude works in the working tree and reports what changed;
+   `git add`, `git commit` and `git push` are Almut's — no exceptions for "small" or obviously
+   safe commits. This **overrides the global preference** that lets Claude commit autonomously.
+   A suggested commit message is welcome as text in the response; running the command is not.
 
 ## Commands
 

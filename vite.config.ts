@@ -17,7 +17,7 @@ import { Direction } from "./src/types";
 // Placeholder favicon: swap the emoji for your game's (see the kickoff checklist
 // in CLAUDE.md). Percent-encoded so the data URI stays valid as an HTML attribute
 // value; keep it in sync with the icon in src/manifest.json.
-const FAVICON_EMOJI = "🐱";
+const FAVICON_EMOJI = "🦄";
 const FAVICON_DATA_URI =
   "data:image/svg+xml," +
   encodeURIComponent(

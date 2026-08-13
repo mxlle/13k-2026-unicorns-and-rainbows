@@ -8,35 +8,35 @@ import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import { createDialog, Dialog } from "../../framework/components/dialog/dialog";
 
-// Placeholder game: move the cat to collect all 3 stars while avoiding the
-// bomb. Replace with the real game, but keep the GAME_START / GAME_END events —
+// Placeholder game: move the unicorn to collect all 3 rainbows while avoiding
+// the storm cloud. Replace with the real game, but keep the GAME_START / GAME_END events —
 // index.ts (sounds, poki hooks) relies on them, and STAR_COLLECT drives the
 // coin pickup sound.
 
 const BOARD_SIZE = 5;
-const STAR_COUNT = 3;
+const RAINBOW_COUNT = 3;
 
 interface Position {
   x: number;
   y: number;
 }
 
-interface Star {
+interface Rainbow {
   position: Position;
   element: HTMLElement;
 }
 
 export function DemoGameComponent(): ComponentDefinition<undefined> {
-  let catPosition: Position;
-  let bombPosition: Position;
-  let stars: Star[];
+  let unicornPosition: Position;
+  let cloudPosition: Position;
+  let rainbows: Rainbow[];
   let collected: number;
   let isRunning = false;
   let endDialog: Dialog | undefined;
 
-  const catElement = createElement({ text: "🦄", cssClass: [styles.entity, CssClass.EMOJI] });
-  const bombElement = createElement({ text: "💣", cssClass: [styles.entity, CssClass.EMOJI] });
-  const board = createElement({ cssClass: styles.board }, [bombElement, catElement]);
+  const unicornElement = createElement({ text: "🦄", cssClass: [styles.entity, CssClass.EMOJI] });
+  const cloudElement = createElement({ text: "🌩️", cssClass: [styles.entity, CssClass.EMOJI] });
+  const board = createElement({ cssClass: styles.board }, [cloudElement, unicornElement]);
 
   const moveButtons: [string, Direction][] = [
     ["⬆️", Direction.UP],
@@ -88,24 +88,24 @@ export function DemoGameComponent(): ComponentDefinition<undefined> {
       [Direction.RIGHT]: { x: 1, y: 0 },
     };
 
-    catPosition = {
-      x: Math.min(BOARD_SIZE - 1, Math.max(0, catPosition.x + delta[direction].x)),
-      y: Math.min(BOARD_SIZE - 1, Math.max(0, catPosition.y + delta[direction].y)),
+    unicornPosition = {
+      x: Math.min(BOARD_SIZE - 1, Math.max(0, unicornPosition.x + delta[direction].x)),
+      y: Math.min(BOARD_SIZE - 1, Math.max(0, unicornPosition.y + delta[direction].y)),
     };
-    placeEntity(catElement, catPosition);
+    placeEntity(unicornElement, unicornPosition);
 
-    if (samePosition(catPosition, bombPosition)) {
+    if (samePosition(unicornPosition, cloudPosition)) {
       endGame(false, TranslationKey.LOST);
       return;
     }
 
-    const star = stars.find((s) => s.element.isConnected && samePosition(s.position, catPosition));
-    if (star) {
-      star.element.remove();
+    const rainbow = rainbows.find((r) => r.element.isConnected && samePosition(r.position, unicornPosition));
+    if (rainbow) {
+      rainbow.element.remove();
       collected++;
       pubSubService.publish(PubSubEvent.STAR_COLLECT);
 
-      if (collected === STAR_COUNT) {
+      if (collected === RAINBOW_COUNT) {
         endGame(true, TranslationKey.WON);
       }
     }
@@ -126,15 +126,15 @@ export function DemoGameComponent(): ComponentDefinition<undefined> {
   });
 
   function startNewGame() {
-    stars?.forEach((s) => s.element.remove());
+    rainbows?.forEach((r) => r.element.remove());
 
-    catPosition = { x: 0, y: 0 };
-    const occupied: Position[] = [catPosition];
+    unicornPosition = { x: 0, y: 0 };
+    const occupied: Position[] = [unicornPosition];
 
-    bombPosition = randomFreePosition(occupied);
-    occupied.push(bombPosition);
+    cloudPosition = randomFreePosition(occupied);
+    occupied.push(cloudPosition);
 
-    stars = Array.from({ length: STAR_COUNT }, () => {
+    rainbows = Array.from({ length: RAINBOW_COUNT }, () => {
       const position = randomFreePosition(occupied);
       occupied.push(position);
       const element = createElement({ text: "🌈", cssClass: [styles.entity, CssClass.EMOJI] });
@@ -144,8 +144,8 @@ export function DemoGameComponent(): ComponentDefinition<undefined> {
     });
 
     collected = 0;
-    placeEntity(catElement, catPosition);
-    placeEntity(bombElement, bombPosition);
+    placeEntity(unicornElement, unicornPosition);
+    placeEntity(cloudElement, cloudPosition);
     isRunning = true;
 
     pubSubService.publish(PubSubEvent.GAME_START);

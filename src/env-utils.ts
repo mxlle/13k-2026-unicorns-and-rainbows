@@ -23,4 +23,4 @@ export const HAS_TEXT_PLACEHOLDERS = true;
 // flag here, a src/translations/fr.ts, and one branch in i18n.ts.
 export const HAS_GERMAN = import.meta.env.LANG_DE_ENABLED === "true";
 
-export const GAME_TITLE = "My js13k Game";
+export const GAME_TITLE = "Unicorns and Rainbows";

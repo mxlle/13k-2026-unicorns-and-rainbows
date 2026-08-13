@@ -1,12 +1,12 @@
 {
-  "name": "js13k-base",
+  "name": "13k-2026-unicorns-and-rainbows",
   "version": "1.0.0",
-  "description": "Starter template for js13kGames entries: Vite build with aggressive size optimization, three build modes, zip size tooling, SoundBox audio",
-  "keywords": ["js13k", "js13kgames", "game-template", "gamedev", "vite", "typescript"],
-  "homepage": "https://mxlle.github.io/js13k-base/",
+  "description": "js13kGames 2026 entry — theme: Unicorns and Rainbows",
+  "keywords": ["js13k", "js13kgames", "gamedev", "vite", "typescript"],
+  "homepage": "https://mxlle.github.io/13k-2026-unicorns-and-rainbows/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mxlle/js13k-base.git"
+    "url": "git+https://github.com/mxlle/13k-2026-unicorns-and-rainbows.git"
   },
   "type": "module",
   "license": "MIT",

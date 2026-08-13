@@ -1,11 +1,10 @@
 import { defineEnum } from "./enums";
 
-// ⚠️ CHANGE ME before shipping. All js13k entries are served from the same
-// origin (js13kgames.com), so they share one localStorage — js13k therefore
-// recommends namespacing your keys, conventionally with your GitHub handle.
-// Keep it unique to you but short: it is prepended to every key, so each
-// character costs bytes in the zip.
-const LOCAL_STORAGE_PREFIX = "your-handle";
+// All js13k entries are served from the same origin (js13kgames.com), so they
+// share one localStorage — js13k therefore recommends namespacing your keys,
+// conventionally with your GitHub handle. Kept short: it is prepended to every
+// key, so each character costs bytes in the zip.
+const LOCAL_STORAGE_PREFIX = "mxlle";
 
 export type LocalStorageKey = defineEnum<typeof LocalStorageKey>;
 export const LocalStorageKey = defineEnum({

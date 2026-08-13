@@ -34,7 +34,7 @@ export function DemoGameComponent(): ComponentDefinition<undefined> {
   let isRunning = false;
   let endDialog: Dialog | undefined;
 
-  const catElement = createElement({ text: "🐱", cssClass: [styles.entity, CssClass.EMOJI] });
+  const catElement = createElement({ text: "🦄", cssClass: [styles.entity, CssClass.EMOJI] });
   const bombElement = createElement({ text: "💣", cssClass: [styles.entity, CssClass.EMOJI] });
   const board = createElement({ cssClass: styles.board }, [bombElement, catElement]);
 
@@ -137,7 +137,7 @@ export function DemoGameComponent(): ComponentDefinition<undefined> {
     stars = Array.from({ length: STAR_COUNT }, () => {
       const position = randomFreePosition(occupied);
       occupied.push(position);
-      const element = createElement({ text: "⭐", cssClass: [styles.entity, CssClass.EMOJI] });
+      const element = createElement({ text: "🌈", cssClass: [styles.entity, CssClass.EMOJI] });
       placeEntity(element, position);
       board.append(element);
       return { position, element };

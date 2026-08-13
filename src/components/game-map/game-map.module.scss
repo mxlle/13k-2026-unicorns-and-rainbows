@@ -1,7 +1,9 @@
 @use "../../theme";
 @use "../../names";
 
-$board-size: 5;
+// --s (the map size) is set from MAP_SIZE in the component, so the grid and the
+// emoji size follow the map size without duplicating it here.
+$board-width: min(92vw, 62vh);
 
 .host {
   display: grid;
@@ -12,14 +14,15 @@ $board-size: 5;
 }
 
 .board {
-  position: relative;
-  width: min(80vw, 55vh);
+  display: grid;
+  grid-template-columns: repeat(var(--s), 1fr);
+  gap: 1px; // the board background shows through as grid lines
+  width: $board-width;
   aspect-ratio: 1;
+  font-size: calc(#{$board-width} / var(--s) * 0.62);
   border-radius: theme.$border-radius;
-  background:
-    repeating-linear-gradient(to right, transparent 0 calc(100% / #{$board-size} - 1px), theme.$bg-alpha-25 0 calc(100% / #{$board-size})),
-    repeating-linear-gradient(to bottom, transparent 0 calc(100% / #{$board-size} - 1px), theme.$bg-alpha-25 0 calc(100% / #{$board-size})),
-    theme.$bg-alpha-05;
+  overflow: hidden;
+  background: theme.$bg-alpha-25;
   outline: 1px solid theme.$bg-alpha-25;
 
   :global(.#{names.$WON}) & {
@@ -27,14 +30,16 @@ $board-size: 5;
   }
 }
 
-.entity {
-  position: absolute;
-  width: calc(100% / #{$board-size});
-  height: calc(100% / #{$board-size});
-  display: grid;
-  place-items: center;
-  font-size: 1.5rem;
-  transition: translate 0.2s;
+.tile {
+  @extend %gridCentered;
+  aspect-ratio: 1;
+  line-height: 1;
+  background: theme.$tile-color-alpha;
+  transition: background-color 0.2s;
+
+  &.revealed {
+    background: theme.$bg-alpha-05;
+  }
 }
 
 .controls {

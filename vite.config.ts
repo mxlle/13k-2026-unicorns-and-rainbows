@@ -13,6 +13,7 @@ import { PubSubEvent } from "./src/utils/pub-sub-service";
 import { LocalStorageKey } from "./src/utils/local-storage";
 import { mapEntries, memoize } from "./src/utils/utils";
 import { Direction } from "./src/types";
+import { GameObjectType, ObjectCategory } from "./src/game/game-objects";
 
 // Placeholder favicon: swap the emoji for your game's (see the kickoff checklist
 // in CLAUDE.md). Percent-encoded so the data URI stays valid as an HTML attribute
@@ -96,6 +97,8 @@ export default defineConfig(({ mode, command }) => {
             PubSubEvent,
             LocalStorageKey,
             Direction,
+            GameObjectType,
+            ObjectCategory,
           }),
           ...mapEntries(CssClass, ([, name]) => [name, getCssIdentifier(name)]),
         }),

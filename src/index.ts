@@ -10,7 +10,7 @@ import { coinSoundSrcUrl, initWinLoseSoundEffects, loseSoundSrcUrl, winSoundSrcU
 import { playSound } from "./audio/sound-control/sound-control";
 import { HeaderComponent } from "./framework/components/header/header.component";
 import { MuteButton } from "./components/mute-button/mute-button";
-import { DemoGameComponent } from "./components/demo-game/demo-game.component";
+import { GameMapComponent } from "./components/game-map/game-map.component";
 
 if (HAS_VISUAL_NICE_TO_HAVES) {
   import("./globals.nice2have.scss");
@@ -24,7 +24,7 @@ function init() {
   if (isInitialized) return;
   isInitialized = true;
 
-  const [gameArea, startNewGame] = DemoGameComponent();
+  const [gameArea, startNewGame] = GameMapComponent();
 
   document.body.append(HeaderComponent(GAME_TITLE, [MuteButton()]), gameArea);
 

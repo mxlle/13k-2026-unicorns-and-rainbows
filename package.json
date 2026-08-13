@@ -2,7 +2,13 @@
   "name": "13k-2026-unicorns-and-rainbows",
   "version": "1.0.0",
   "description": "js13kGames 2026 entry — theme: Unicorns and Rainbows",
-  "keywords": ["js13k", "js13kgames", "gamedev", "vite", "typescript"],
+  "keywords": [
+    "js13k",
+    "js13kgames",
+    "gamedev",
+    "vite",
+    "typescript"
+  ],
   "homepage": "https://mxlle.github.io/13k-2026-unicorns-and-rainbows/",
   "repository": {
     "type": "git",
@@ -28,7 +34,6 @@
     "prettier": "prettier --write src scripts vite.config.ts"
   },
   "devDependencies": {
-    "@babel/types": "^8.0.4",
     "@rollup/plugin-replace": "^6.0.2",
     "archiver": "^8.0.0",
     "ect-bin": "^1.4.1",
@@ -41,7 +46,7 @@
     "terser": "^5.49.0",
     "type-fest": "^5.8.0",
     "typescript": "^7.0.2",
-    "unplugin-ast": "^0.17.2",
+    "unplugin-ast": "^0.18.1",
     "vite": "^8.1.4",
     "vite-plugin-html": "^3.2.2"
   }

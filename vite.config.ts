@@ -5,7 +5,7 @@ import { visualizer } from "rollup-plugin-visualizer";
 
 import AST from "unplugin-ast/vite";
 import { Transformer } from "unplugin-ast";
-import { Literal, NumericLiteral, ObjectExpression, ObjectProperty } from "@babel/types";
+import type { Literal, NumericLiteral, ObjectExpression, ObjectProperty } from "yuku-parser";
 
 import { TranslationKey } from "./src/translations/translationKey";
 import { CssClass } from "./src/utils/css-class";
@@ -169,7 +169,7 @@ const replaceMapsTransformer: Transformer = {
   onNode: (node) =>
     node.type === "ObjectExpression" &&
     node.properties.length > 0 &&
-    node.properties.every((p) => p.type === "ObjectProperty" && p.key.type === "NumericLiteral" && p.value.type.endsWith("Literal")),
+    node.properties.every((p) => p.type === "Property" && p.key.type === "Literal" && typeof p.key.value === "number" && p.value.type === "Literal"),
   transform: (node) => {
     const obj = node as Obj<NumericLiteral, Literal>;
     let best: { value: string | typeof obj; length: number } = { value: obj, length: (obj.end ?? 0) - (obj.start ?? 0) };
@@ -182,7 +182,7 @@ const replaceMapsTransformer: Transformer = {
     addCandidate(JSON.stringify(arr).replaceAll("null,", ","));
 
     // try "a|b|c".split("|")
-    if (obj.properties.every((p) => p.value.type === "StringLiteral")) {
+    if (obj.properties.every((p) => typeof p.value.value === "string")) {
       const str = arr.join("");
       const sep = [..."0123456789|,"].find((sep) => !str.includes(sep));
       if (sep !== undefined) {

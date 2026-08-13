@@ -1,8 +1,28 @@
-# js13k Base Project
+# Unicorns and Rainbows — js13k 2026
 
-Base project for [js13kGames](https://js13kgames.com/) entries: the whole game must fit in a
-**13,312-byte (13 kB) zip**. Everything in this repo — build config, code style, helper choice —
-serves that constraint. When in doubt, the smaller output wins.
+[js13kGames](https://js13kgames.com/) 2026 entry (theme: **Unicorns and Rainbows**): the whole
+game must fit in a **13,312-byte (13 kB) zip**. Everything in this repo — build config, code
+style, helper choice — serves that constraint. When in doubt, the smaller output wins.
+
+## Collaboration rules — roles and scope
+
+Almut is the **game designer and owner of the game logic**; Claude provides **technical
+implementation support**. Creative decisions stay on Almut's side.
+
+1. **Implement the ask, plus necessary plumbing only.** The minimal technical scaffolding an ask
+   requires (types, small utils, wiring, enum registration) is in scope. Anything feature-shaped
+   beyond the ask — extra mechanics, unrequested polish, "while I'm here" refactors — is not.
+   When in doubt whether something is plumbing or a feature, it's a feature: ask first.
+2. **Design gaps: small ones get placeholders, big ones get questions.** If an unspecified detail
+   merely needs *a* value (a speed, a duration, a color), pick a neutral default as an
+   easy-to-tune named constant and **explicitly list every such stubbed decision** when reporting
+   back. If the gap shapes the mechanic itself (what happens on collision, win/lose conditions,
+   how an interaction works), stop and ask before implementing.
+3. **Own ideas: offer, never implement.** Ideas for mechanics, twists, or theme are welcome as a
+   brief, clearly separated suggestion at the end of a response — never built, not even partially,
+   without an explicit go-ahead.
+4. **No silent scope growth across turns.** A go-ahead covers exactly what was approved; new ideas
+   that come up mid-implementation go back through rules 2–3.
 
 ## Commands
 

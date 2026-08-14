@@ -37,9 +37,9 @@ const WIN_EMOJI = "🎉";
 const LOSE_EMOJI = "😢";
 const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
 
-// The usual [host, update] tuple plus the counters that belong in the header — they are
-// part of the game state, so the game owns them; only their place in the DOM is elsewhere.
-export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () => void, statusElements: HTMLElement[]] {
+// The usual [host, update] tuple plus the status chip that belongs in the header — it is
+// part of the game state, so the game owns it; only its place in the DOM is elsewhere.
+export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () => void, statusChip: HTMLElement] {
   let map: GameMap;
   let isRunning = false;
   // Two-tap navigation: tap an object to select it, then — if it is a character that
@@ -75,11 +75,10 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
   // One button for both ends of a run: end the turn while playing, start over once it is over.
   const endTurnButton = createButton({ onClick: () => (isRunning ? endTurn() : startNewGame()) });
   const turnBar = createElement({ cssClass: styles.turnBar }, [counter(TURN_EMOJI, turnCounter), endTurnButton]);
-  // What the run is about — drops to spend and rainbows still needed — goes into the
-  // header, in view wherever the player is looking. The purse comes first: it is the
-  // only one that changes width, and the header pins the group to its right edge, so
-  // only the purse's own left edge moves as it fills and empties.
-  const statusElements = [purse, counter(OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, goal)];
+  // What the run is about — drops to spend and rainbows still needed — as one chip in the
+  // middle of the header, in view wherever the player is looking. Its width never changes
+  // (the purse holds a fixed slot), so the chip stays put as drops come and go.
+  const status = createElement({ cssClass: styles.status }, [purse, counter(OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, goal)]);
 
   // Object info: a permanent row of its own between map and turn bar, so it can never
   // cover the board and never shifts it either. Empty selection shows a hint instead.
@@ -276,5 +275,5 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
     pubSubService.publish(PubSubEvent.GAME_START);
   }
 
-  return [hostElement, startNewGame, statusElements];
+  return [hostElement, startNewGame, status];
 }

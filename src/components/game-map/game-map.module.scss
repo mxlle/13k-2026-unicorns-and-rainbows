@@ -96,6 +96,22 @@ $beam-width: 0.08em;
   white-space: nowrap; // the purse's row of drops never wraps into a second line
 }
 
+// The run's live numbers as one chip. Absolutely centred on the header — not laid out
+// between the title and the mute button — so it sits in the same place at every screen
+// width, and its own width can never push anything around.
+.status {
+  position: absolute; // against the header: the nearest positioned ancestor
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px; // pill, whatever the chip's height turns out to be
+  background: theme.$bg-alpha-15;
+}
+
 // A drop sits a little inside its neighbour, so the row reads as one puddle and stays
 // narrow. --n is MAX_PIPS, set from the component.
 $pip-width: 0.85em;

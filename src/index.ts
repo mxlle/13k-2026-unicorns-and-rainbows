@@ -24,9 +24,10 @@ function init() {
   if (isInitialized) return;
   isInitialized = true;
 
-  const [gameArea, startNewGame, statusElements] = GameMapComponent();
+  const [gameArea, startNewGame, statusChip] = GameMapComponent();
 
-  document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [...statusElements, MuteButton()]), gameArea);
+  // the chip takes itself out of the flow and centres on the header — see its styles
+  document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [statusChip, MuteButton()]), gameArea);
 
   startNewGame();
 

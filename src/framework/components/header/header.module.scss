@@ -2,9 +2,12 @@
 @use "../../../names";
 
 .host {
+  position: relative; // an end element may take itself out of the flow and centre on this
   display: flex;
   justify-content: space-between;
-  padding: 0.5rem 1rem 0;
+  // Symmetric on purpose: an absolutely centred end element resolves 50% against the
+  // padding box, so uneven padding would put it off-centre against the rest of the row.
+  padding: 0.5rem 1rem;
   align-items: center;
   gap: 1rem;
   font-family: theme.$font-family-special;
@@ -26,7 +29,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 
-  @media (max-width: 599px) {
+  // Below this the centred status chip is close enough to the words to crowd them, so
+  // the emoji carries the header alone.
+  @media (max-width: 999px) {
     display: none;
   }
 }

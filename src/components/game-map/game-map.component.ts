@@ -5,7 +5,6 @@ import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
-import { createDialog, Dialog } from "../../framework/components/dialog/dialog";
 import {
   createGameMap,
   GameMap,
@@ -28,13 +27,16 @@ import { GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
 const FOG_EMOJI = "☁️";
 const COIN_EMOJI = "🪙";
 const TURN_EMOJI = "⏳";
-const HINT_EMOJI = "👆"; // stands in for the object emoji while nothing is selected
+// Stand-ins for the object emoji in the info panel, for the things that are not objects.
+const HINT_EMOJI = "👆";
+const EMPTY_EMOJI = "🌱";
+const WIN_EMOJI = "🎉";
+const LOSE_EMOJI = "😢";
 const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
 
 export function GameMapComponent(): ComponentDefinition<undefined> {
   let map: GameMap;
   let isRunning = false;
-  let endDialog: Dialog | undefined;
   // Two-tap navigation: tap an object to select it, then — if it is a character that
   // can afford a step — tap one of its highlighted neighbours to move there.
   let selected: Position | undefined;
@@ -52,7 +54,8 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   const turnCounter = createElement({ cssClass: [styles.count, CssClass.EMOJI] });
   const purse = createElement({ cssClass: [styles.count, CssClass.EMOJI] });
   const goal = createElement({ cssClass: [styles.count, CssClass.EMOJI] });
-  const endTurnButton = createButton({ text: getTranslation(TranslationKey.END_TURN), onClick: endTurn });
+  // One button for both ends of a run: end the turn while playing, start over once it is over.
+  const endTurnButton = createButton({ onClick: () => (isRunning ? endTurn() : startNewGame()) });
   const turnBar = createElement({ cssClass: styles.turnBar }, [turnCounter, purse, goal, endTurnButton]);
 
   // Object info: a permanent row of its own between map and turn bar, so it can never
@@ -72,15 +75,16 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     const targetIndices = targets.map(getIndex);
     // Guidance: an empty purse makes the income the only way on, so ending the turn
     // becomes the next step. Before that, on the opening turn, it is picking a character.
+    // Once the run is over the same button is the only thing left to press.
     const needsIncome = map.coins < MOVE_COST;
-    const hintCharacters = !needsIncome && !selected && map.turn === FIRST_TURN;
+    const isOver = !isRunning;
+    const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
 
     map.tiles.forEach((tile, index) => {
       const element = tileElements[index];
       const objectType = getObject(index);
       const isSelectedTile = index === selectedIndex;
       element.classList.toggle(styles.revealed, tile.isRevealed);
-      element.classList.toggle(styles.character, objectType !== undefined);
       element.classList.toggle(CssClass.HINT, hintCharacters && tile.isRevealed && tile.living !== undefined);
       element.classList.toggle(styles.selected, isSelectedTile);
       // no steps lit means the selection is only being looked at — see select()
@@ -92,17 +96,27 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     turnCounter.textContent = TURN_EMOJI + map.turn;
     purse.textContent = COIN_EMOJI + map.coins;
     goal.textContent = `${OBJECT_CONFIG[GameObjectType.RAINBOW].emoji}${map.rainbowCount}/${RAINBOW_GOAL}`;
-    endTurnButton.classList.toggle(CssClass.PRIMARY, needsIncome);
-    endTurnButton.classList.toggle(CssClass.HINT, needsIncome);
+    endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
+    endTurnButton.classList.toggle(CssClass.PRIMARY, needsIncome || isOver);
+    endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver);
   }
 
-  /** Fills the info panel with an object, or with the "tap something" hint when nothing is selected. */
-  function showInfo(objectType?: GameObjectType) {
-    const config = objectType === undefined ? undefined : OBJECT_CONFIG[objectType];
-    const [name, description] = getTranslation(config ? config.info : TranslationKey.INFO_HINT).split("|");
-    infoEmoji.textContent = config ? config.emoji : HINT_EMOJI;
+  /** The info panel is one line: an emoji plus a "Name|Description" text. */
+  function setInfo(key: TranslationKey, emoji: string) {
+    const [name, description] = getTranslation(key).split("|");
+    infoEmoji.textContent = emoji;
     infoName.textContent = name; // empty for the hint, which has no name
     infoText.textContent = description;
+  }
+
+  /** Whatever the player tapped explains itself — an object, bare ground, or the fog. */
+  function showInfo(index?: number) {
+    const objectType = index === undefined ? undefined : getObject(index);
+
+    if (objectType !== undefined) setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
+    else if (index === undefined) setInfo(TranslationKey.INFO_HINT, HINT_EMOJI);
+    else if (map.tiles[index].isRevealed) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
+    else setInfo(TranslationKey.INFO_FOG, FOG_EMOJI);
   }
 
   /** What is visible on a tile — the living layer wins, the ground object stays underneath. */
@@ -119,7 +133,7 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     // character and one with an empty purse all end up with no targets, which is what
     // render() draws as the neutral selection.
     targets = index !== undefined && map.coins >= MOVE_COST && map.tiles[index].living !== undefined ? getMoveTargets(map, position!) : [];
-    showInfo(index === undefined ? undefined : getObject(index));
+    showInfo(index);
   }
 
   function onTileClick(index: number) {
@@ -128,10 +142,9 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     if (targets.some((target) => getIndex(target) === index)) {
       move(getPosition(index));
     } else {
-      // every visible object can be picked up and explains itself; tapping it again —
-      // or tapping fog or bare ground — drops the selection and folds the panel away
-      const isNew = getObject(index) !== undefined && index !== (selected && getIndex(selected));
-      select(isNew ? getPosition(index) : undefined);
+      // every tile can be picked up and explains itself, fog and bare ground included;
+      // tapping the selected one again drops it and the panel falls back to its hint
+      select(index === (selected && getIndex(selected)) ? undefined : getPosition(index));
       render();
     }
   }
@@ -153,8 +166,6 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
 
   /** Collect the income, then hand the board back — a run only ever ends here or on a win. */
   function endTurn() {
-    if (!isRunning) return;
-
     startTurn(map);
     select(selected); // steps that were unaffordable a moment ago may be back
     render();
@@ -162,23 +173,22 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     if (isLost(map)) endGame(false);
   }
 
+  /** The result takes over the info panel and the turn button — no dialog on top of the board. */
   function endGame(hasWon: boolean) {
     isRunning = false;
-    pubSubService.publish(PubSubEvent.GAME_END, { isWon: hasWon });
+    select(undefined); // drops the board highlights; the panel now carries the result
+    setInfo(hasWon ? TranslationKey.WON : TranslationKey.LOST, hasWon ? WIN_EMOJI : LOSE_EMOJI);
+    render();
 
-    endDialog?.destroy();
-    endDialog = createDialog(createElement({ text: getTranslation(hasWon ? TranslationKey.WON : TranslationKey.LOST) }), () =>
-      startNewGame(),
-    );
-    void endDialog.open();
+    pubSubService.publish(PubSubEvent.GAME_END, { isWon: hasWon });
   }
 
   function startNewGame() {
     map = createGameMap();
     startTurn(map); // the sun's two rainbows are the opening purse
+    isRunning = true; // before render(), which reads it for the turn button
     select(undefined);
     render();
-    isRunning = true;
 
     pubSubService.publish(PubSubEvent.GAME_START);
   }

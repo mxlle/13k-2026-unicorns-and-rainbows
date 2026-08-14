@@ -93,6 +93,7 @@ $info-height: 3.8rem;
   @extend %gridCentered;
   aspect-ratio: 1;
   line-height: 1;
+  cursor: pointer; // every tile is tappable, fog and bare ground included
   background: theme.$tile-color-alpha;
   transition:
     background-color 0.2s,
@@ -104,11 +105,6 @@ $info-height: 3.8rem;
 
   // PLACEHOLDER selection visuals — a tinted ring on the picked object and on every
   // tile it may step onto. Meant to be replaced by proper art later.
-  &.character,
-  &.target {
-    cursor: pointer;
-  }
-
   &.selected {
     background: rgba(theme.$main-color, 0.35);
     box-shadow: inset 0 0 0 2px theme.$main-color;

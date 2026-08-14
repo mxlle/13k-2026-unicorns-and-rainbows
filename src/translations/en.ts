@@ -18,6 +18,7 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_FOUNTAIN]: "Fountain|Light comes out the other side as a rainbow: 🦄⛲🌈",
   [TranslationKey.INFO_SUN]: "Sun|It never moves, so its rainbows never go out: ☀️⛲🌈",
   [TranslationKey.INFO_HINT]: "|Tap anything on the map to find out what it does.",
+  [TranslationKey.INFO_GOAL]: "|Explore the clouds, find friends and fountains, make rainbows: 🦄⛲🌈",
   [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
   [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
 };

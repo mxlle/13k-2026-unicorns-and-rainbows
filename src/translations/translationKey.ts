@@ -18,4 +18,5 @@ export const TranslationKey = defineEnum({
   INFO_FOG: 9,
   INFO_EMPTY: 10,
   NEW_GAME: 11,
+  INFO_GOAL: 12, // what the run is about, in place of INFO_HINT on the opening turn — no name either
 });

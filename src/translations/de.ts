@@ -15,6 +15,7 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_FOUNTAIN]: "Brunnen|Auf der anderen Seite kommt ein Regenbogen heraus: 🦄⛲🌈",
     [TranslationKey.INFO_SUN]: "Sonne|Sie bewegt sich nie. Ihre Regenbögen verschwinden nie: ☀️⛲🌈",
     [TranslationKey.INFO_HINT]: "|Tippe etwas auf der Karte an, um zu erfahren, was es tut.",
+    [TranslationKey.INFO_GOAL]: "|Erkunde die Wolken, finde Freunde und Brunnen, zaubere Regenbögen: 🦄⛲🌈",
     [TranslationKey.INFO_FOG]: "Wolke|Hier kannst du noch nichts sehen. Lauf mit einem Einhorn näher heran.",
     [TranslationKey.INFO_EMPTY]: "Wiese|Freier Platz. Hier kann ein Regenbogen entstehen.",
   };

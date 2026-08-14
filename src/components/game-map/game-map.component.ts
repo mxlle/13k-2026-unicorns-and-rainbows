@@ -192,9 +192,16 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
   /** Whatever the player tapped explains itself — an object, bare ground, or the fog. */
   function showInfo(index?: number) {
     const objectType = index === undefined ? undefined : getObject(index);
+    // with nothing picked up, the opening turn spells out what the run is about;
+    // from then on the nudge to tap around is enough
+    const isOpening = map.turn === FIRST_TURN;
 
     if (objectType !== undefined) setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
-    else if (index === undefined) setInfo(TranslationKey.INFO_HINT, HINT_EMOJI);
+    else if (index === undefined)
+      setInfo(
+        isOpening ? TranslationKey.INFO_GOAL : TranslationKey.INFO_HINT,
+        isOpening ? OBJECT_CONFIG[GameObjectType.RAINBOW].emoji : HINT_EMOJI,
+      );
     else if (map.tiles[index].isRevealed) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
     else setInfo(TranslationKey.INFO_FOG, FOG_EMOJI);
   }

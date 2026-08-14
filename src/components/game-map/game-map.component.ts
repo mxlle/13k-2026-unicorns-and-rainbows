@@ -56,12 +56,20 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   board.style.setProperty("--s", String(MAP_SIZE)); // keeps MAP_SIZE the single source of truth
 
   // PLACEHOLDER turn bar: turn count, purse and goal on the left, end-turn button on the right
-  const turnCounter = createElement({ cssClass: [styles.count, CssClass.EMOJI] });
-  const purse = createElement({ cssClass: [styles.count, CssClass.EMOJI] });
-  const goal = createElement({ cssClass: [styles.count, CssClass.EMOJI] });
+  // Only the emoji gets the emoji font — digits inside it would render as emoji glyphs too.
+  const turnCounter = createElement({ tag: "span" });
+  const purse = createElement({ tag: "span" });
+  const goal = createElement({ tag: "span" });
+  const counter = (emoji: string, value: HTMLElement) =>
+    createElement({ cssClass: styles.count }, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }), value]);
   // One button for both ends of a run: end the turn while playing, start over once it is over.
   const endTurnButton = createButton({ onClick: () => (isRunning ? endTurn() : startNewGame()) });
-  const turnBar = createElement({ cssClass: styles.turnBar }, [turnCounter, purse, goal, endTurnButton]);
+  const turnBar = createElement({ cssClass: styles.turnBar }, [
+    counter(TURN_EMOJI, turnCounter),
+    counter(COIN_EMOJI, purse),
+    counter(OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, goal),
+    endTurnButton,
+  ]);
 
   // Object info: a permanent row of its own between map and turn bar, so it can never
   // cover the board and never shifts it either. Empty selection shows a hint instead.
@@ -99,9 +107,9 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
       element.textContent = tile.isRevealed ? (objectType === undefined ? "" : OBJECT_CONFIG[objectType].emoji) : FOG_EMOJI;
     });
 
-    turnCounter.textContent = TURN_EMOJI + map.turn;
-    purse.textContent = COIN_EMOJI + map.coins;
-    goal.textContent = `${OBJECT_CONFIG[GameObjectType.RAINBOW].emoji}${map.rainbowCount}/${RAINBOW_GOAL}`;
+    turnCounter.textContent = `${map.turn}`;
+    purse.textContent = `${map.coins}`;
+    goal.textContent = `${map.rainbowCount}/${RAINBOW_GOAL}`;
     renderBeams();
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);

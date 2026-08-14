@@ -1,4 +1,3 @@
-import { Direction } from "../types";
 import { getRandomInt } from "../utils/random-utils";
 import { GameObjectType, ObjectCategory, OBJECT_CONFIG } from "./game-objects";
 
@@ -23,31 +22,34 @@ export interface Tile {
 
 export interface GameMap {
   tiles: Tile[]; // flat, row-major: index = y * MAP_SIZE + x
-  unicornPosition: Position;
   revealedGoalCount: number;
 }
 
-const MOVE_DELTA: Record<Direction, Position> = {
-  [Direction.UP]: { x: 0, y: -1 },
-  [Direction.DOWN]: { x: 0, y: 1 },
-  [Direction.LEFT]: { x: -1, y: 0 },
-  [Direction.RIGHT]: { x: 1, y: 0 },
-};
+export const MOVE_RADIUS = 1; // Chebyshev, like VISION_RADIUS: radius 1 = a step into any of the 8 neighbours
+
+/** Flat tile index of a position — the bridge between the model and the tile elements. */
+export function getIndex({ x, y }: Position): number {
+  return y * MAP_SIZE + x;
+}
+
+export function getPosition(index: number): Position {
+  return { x: index % MAP_SIZE, y: Math.floor(index / MAP_SIZE) };
+}
 
 // Bounds-checked so a step off the left edge doesn't wrap into the row above.
-export function getTile(map: GameMap, { x, y }: Position): Tile | undefined {
-  return x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE ? undefined : map.tiles[y * MAP_SIZE + x];
+export function getTile(map: GameMap, position: Position): Tile | undefined {
+  const { x, y } = position;
+  return x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE ? undefined : map.tiles[getIndex(position)];
 }
 
 export function createGameMap(): GameMap {
   const map: GameMap = {
     tiles: Array.from({ length: MAP_SIZE * MAP_SIZE }, () => ({ isRevealed: false })),
-    unicornPosition: { ...UNICORN_START },
     revealedGoalCount: 0,
   };
 
-  getTile(map, map.unicornPosition)!.living = GameObjectType.UNICORN;
-  revealAroundUnicorn(map);
+  getTile(map, UNICORN_START)!.living = GameObjectType.UNICORN;
+  revealAround(map, UNICORN_START);
 
   // Placed after the starting vision is applied, so a rainbow can never spawn on
   // an already-revealed tile — all three really do start hidden under clouds.
@@ -62,9 +64,8 @@ export function createGameMap(): GameMap {
   return map;
 }
 
-/** Uncovers the vision square around the unicorn. Revealed tiles stay revealed. Returns how many goals were newly uncovered. */
-export function revealAroundUnicorn(map: GameMap): number {
-  const { x, y } = map.unicornPosition;
+/** Uncovers the vision square around a position. Revealed tiles stay revealed. Returns how many goals were newly uncovered. */
+export function revealAround(map: GameMap, { x, y }: Position): number {
   let newGoals = 0;
 
   for (let dy = -VISION_RADIUS; dy <= VISION_RADIUS; dy++) {
@@ -85,19 +86,26 @@ function blocksMove(objectType: GameObjectType | undefined): boolean {
   return objectType !== undefined && OBJECT_CONFIG[objectType].blocksMove;
 }
 
-/** One step onto an orthogonally adjacent tile. Returns false if the move was blocked or off the map. */
-export function moveUnicorn(map: GameMap, direction: Direction): boolean {
-  const delta = MOVE_DELTA[direction];
-  const target: Position = { x: map.unicornPosition.x + delta.x, y: map.unicornPosition.y + delta.y };
-  const targetTile = getTile(map, target);
+/** The neighbouring tiles a character standing on `from` may step onto — diagonals included, on the map and not blocked. */
+export function getMoveTargets(map: GameMap, { x, y }: Position): Position[] {
+  const targets: Position[] = [];
 
-  if (!targetTile || blocksMove(targetTile.object) || blocksMove(targetTile.living)) return false;
+  for (let dy = -MOVE_RADIUS; dy <= MOVE_RADIUS; dy++) {
+    for (let dx = -MOVE_RADIUS; dx <= MOVE_RADIUS; dx++) {
+      const target = { x: x + dx, y: y + dy };
+      const tile = getTile(map, target);
+      if ((dx || dy) && tile && !blocksMove(tile.object) && !blocksMove(tile.living)) targets.push(target);
+    }
+  }
 
-  getTile(map, map.unicornPosition)!.living = undefined;
-  targetTile.living = GameObjectType.UNICORN;
-  map.unicornPosition = target;
+  return targets;
+}
 
-  return true;
+/** Steps the character on `from` onto `to` — `to` must come from getMoveTargets. */
+export function moveCharacter(map: GameMap, from: Position, to: Position) {
+  const fromTile = getTile(map, from)!;
+  getTile(map, to)!.living = fromTile.living;
+  fromTile.living = undefined;
 }
 
 export function isWon(map: GameMap): boolean {

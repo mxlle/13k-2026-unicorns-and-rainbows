@@ -35,33 +35,33 @@ $board-width: min(92vw, 62vh);
   aspect-ratio: 1;
   line-height: 1;
   background: theme.$tile-color-alpha;
-  transition: background-color 0.2s;
+  transition:
+    background-color 0.2s,
+    transform 0.2s;
 
   &.revealed {
     background: theme.$bg-alpha-05;
   }
-}
 
-.controls {
-  display: grid;
-  grid-template-columns: repeat(3, min-content);
-  justify-content: center;
-  gap: 0.25rem;
-
-  // D-pad: up on top, left/down/right below (button order: ⬆️ ⬅️ ➡️ ⬇️)
-  > :nth-child(1) {
-    grid-area: 1 / 2;
+  // PLACEHOLDER selection visuals — a tinted ring on the picked character and on
+  // every tile it may step onto. Meant to be replaced by proper art later.
+  &.character,
+  &.target {
+    cursor: pointer;
   }
 
-  > :nth-child(2) {
-    grid-area: 2 / 1;
+  &.selected {
+    background: rgba(theme.$main-color, 0.35);
+    box-shadow: inset 0 0 0 2px theme.$main-color;
+    transform: scale(1.12);
   }
 
-  > :nth-child(3) {
-    grid-area: 2 / 3;
-  }
+  &.target {
+    background: rgba(theme.$main-color, 0.12);
+    box-shadow: inset 0 0 0 2px rgba(theme.$main-color, 0.45);
 
-  > :nth-child(4) {
-    grid-area: 2 / 2;
+    @include theme.hover {
+      background: rgba(theme.$main-color, 0.3);
+    }
   }
 }

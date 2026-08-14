@@ -12,7 +12,6 @@ import { CssClass } from "./src/utils/css-class";
 import { PubSubEvent } from "./src/utils/pub-sub-service";
 import { LocalStorageKey } from "./src/utils/local-storage";
 import { mapEntries, memoize } from "./src/utils/utils";
-import { Direction } from "./src/types";
 import { GameObjectType, ObjectCategory } from "./src/game/game-objects";
 
 // Placeholder favicon: swap the emoji for your game's (see the kickoff checklist
@@ -88,7 +87,7 @@ export default defineConfig(({ mode, command }) => {
         replace({
           preventAssignment: true,
           delimiters: ["\\b", "\\b"],
-          // Inline all enum member accesses (e.g. `Direction.UP` -> `0`) so the
+          // Inline all enum member accesses (e.g. `GameObjectType.UNICORN` -> `0`) so the
           // enum objects themselves can be tree-shaken away.
           // Register every enum created with defineEnum here!
           ...replaceEnums({
@@ -96,7 +95,6 @@ export default defineConfig(({ mode, command }) => {
             TranslationKey,
             PubSubEvent,
             LocalStorageKey,
-            Direction,
             GameObjectType,
             ObjectCategory,
           }),

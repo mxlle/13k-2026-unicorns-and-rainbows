@@ -30,6 +30,21 @@ $board-width: min(92vw, 62vh);
   }
 }
 
+.turnBar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: $board-width;
+
+  > button {
+    margin-left: auto; // counters left, the button on the far right
+  }
+}
+
+.count {
+  font-size: 1.2rem;
+}
+
 .tile {
   @extend %gridCentered;
   aspect-ratio: 1;

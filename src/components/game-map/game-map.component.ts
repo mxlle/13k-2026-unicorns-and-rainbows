@@ -1,5 +1,5 @@
 import styles from "./game-map.module.scss";
-import { createElement, createElements } from "../../utils/html-utils";
+import { createButton, createElement, createElements } from "../../utils/html-utils";
 import { ComponentDefinition } from "../../types";
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
@@ -12,16 +12,22 @@ import {
   getIndex,
   getMoveTargets,
   getPosition,
+  isLost,
   isWon,
   MAP_SIZE,
   moveCharacter,
+  MOVE_COST,
   Position,
+  RAINBOW_GOAL,
   revealAround,
+  startTurn,
   updateRainbows,
 } from "../../game/game-map";
-import { OBJECT_CONFIG } from "../../game/game-objects";
+import { GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
 
 const FOG_EMOJI = "☁️";
+const COIN_EMOJI = "🪙";
+const TURN_EMOJI = "⏳";
 
 export function GameMapComponent(): ComponentDefinition<undefined> {
   let map: GameMap;
@@ -40,7 +46,14 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   );
   board.style.setProperty("--s", String(MAP_SIZE)); // keeps MAP_SIZE the single source of truth
 
-  const hostElement = createElement({ cssClass: styles.host }, [board]);
+  // PLACEHOLDER turn bar: turn count, purse and goal on the left, end-turn button on the right
+  const turnCounter = createElement({ cssClass: [styles.count, CssClass.EMOJI] });
+  const purse = createElement({ cssClass: [styles.count, CssClass.EMOJI] });
+  const goal = createElement({ cssClass: [styles.count, CssClass.EMOJI] });
+  const endTurnButton = createButton({ text: getTranslation(TranslationKey.END_TURN), onClick: endTurn });
+  const turnBar = createElement({ cssClass: styles.turnBar }, [turnCounter, purse, goal, endTurnButton]);
+
+  const hostElement = createElement({ cssClass: styles.host }, [board, turnBar]);
 
   function render() {
     const selectedIndex = selected && getIndex(selected);
@@ -56,6 +69,12 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
       element.classList.toggle(styles.target, targetIndices.includes(index));
       element.textContent = tile.isRevealed ? (objectType === undefined ? "" : OBJECT_CONFIG[objectType].emoji) : FOG_EMOJI;
     });
+
+    turnCounter.textContent = TURN_EMOJI + map.turn;
+    purse.textContent = COIN_EMOJI + map.coins;
+    goal.textContent = `${OBJECT_CONFIG[GameObjectType.RAINBOW].emoji}${map.rainbowCount}/${RAINBOW_GOAL}`;
+    // an empty purse makes ending the turn the only way on — highlight it as the next step
+    endTurnButton.classList.toggle(CssClass.PRIMARY, map.coins < MOVE_COST);
   }
 
   /** A character can be picked up only where it is actually visible. */
@@ -66,7 +85,8 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
 
   function select(position?: Position) {
     selected = position;
-    targets = position ? getMoveTargets(map, position) : [];
+    // an empty purse buys no steps, so nothing lights up until the next income
+    targets = position && map.coins >= MOVE_COST ? getMoveTargets(map, position) : [];
   }
 
   function onTileClick(index: number) {
@@ -82,6 +102,7 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   }
 
   function move(target: Position) {
+    map.coins -= MOVE_COST;
     moveCharacter(map, selected!, target);
     select(target); // stays selected, so walking on is a single tap per step
 
@@ -91,20 +112,34 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     render();
 
     if (map.rainbowCount > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
-    if (isWon(map)) endGame();
+    if (isWon(map)) endGame(true);
   }
 
-  function endGame() {
+  /** Collect the income, then hand the board back — a run only ever ends here or on a win. */
+  function endTurn() {
+    if (!isRunning) return;
+
+    startTurn(map);
+    select(selected); // steps that were unaffordable a moment ago may be back
+    render();
+
+    if (isLost(map)) endGame(false);
+  }
+
+  function endGame(hasWon: boolean) {
     isRunning = false;
-    pubSubService.publish(PubSubEvent.GAME_END, { isWon: true });
+    pubSubService.publish(PubSubEvent.GAME_END, { isWon: hasWon });
 
     endDialog?.destroy();
-    endDialog = createDialog(createElement({ text: getTranslation(TranslationKey.WON) }), () => startNewGame());
+    endDialog = createDialog(createElement({ text: getTranslation(hasWon ? TranslationKey.WON : TranslationKey.LOST) }), () =>
+      startNewGame(),
+    );
     void endDialog.open();
   }
 
   function startNewGame() {
     map = createGameMap();
+    startTurn(map); // the sun's two rainbows are the opening purse
     select(undefined);
     render();
     isRunning = true;

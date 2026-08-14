@@ -8,5 +8,6 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.CONTINUE]: "Weiter",
     [TranslationKey.WON]: "Gewonnen!",
     [TranslationKey.LOST]: "Oh nein!",
+    [TranslationKey.END_TURN]: "Zug beenden",
   };
 }

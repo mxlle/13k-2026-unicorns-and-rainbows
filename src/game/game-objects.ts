@@ -15,6 +15,7 @@ export const GameObjectType = defineEnum({
   UNICORN: 0,
   RAINBOW: 1,
   FOUNTAIN: 2,
+  SUN: 3,
 });
 
 interface GameObjectConfig {
@@ -22,11 +23,13 @@ interface GameObjectConfig {
   category: ObjectCategory;
   blocksMove: boolean;
   blocksVision: boolean;
+  glows: boolean; // a light source: casts a rainbow through a fountain it stands next to
 }
 
 // One row per object type — enum-keyed lookup instead of branching (CLAUDE.md).
 export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
-  [GameObjectType.UNICORN]: { emoji: "🦄", category: ObjectCategory.LIVING, blocksMove: true, blocksVision: false },
-  [GameObjectType.RAINBOW]: { emoji: "🌈", category: ObjectCategory.GOAL, blocksMove: false, blocksVision: false },
-  [GameObjectType.FOUNTAIN]: { emoji: "⛲", category: ObjectCategory.STATIC, blocksMove: true, blocksVision: false },
+  [GameObjectType.UNICORN]: { emoji: "🦄", category: ObjectCategory.LIVING, blocksMove: true, blocksVision: false, glows: true },
+  [GameObjectType.RAINBOW]: { emoji: "🌈", category: ObjectCategory.GOAL, blocksMove: false, blocksVision: false, glows: false },
+  [GameObjectType.FOUNTAIN]: { emoji: "⛲", category: ObjectCategory.STATIC, blocksMove: true, blocksVision: false, glows: false },
+  [GameObjectType.SUN]: { emoji: "☀️", category: ObjectCategory.STATIC, blocksMove: true, blocksVision: false, glows: true },
 };

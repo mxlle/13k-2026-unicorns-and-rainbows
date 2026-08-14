@@ -7,4 +7,5 @@ export const TranslationKey = defineEnum({
   CONTINUE: 0,
   WON: 1,
   LOST: 2,
+  END_TURN: 3,
 });

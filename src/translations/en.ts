@@ -7,4 +7,5 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.CONTINUE]: "Continue",
   [TranslationKey.WON]: "You won!",
   [TranslationKey.LOST]: "Oh no!",
+  [TranslationKey.END_TURN]: "End turn",
 };

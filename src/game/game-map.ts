@@ -2,12 +2,14 @@ import { getRandomInt } from "../utils/random-utils";
 import { GameObjectType, OBJECT_CONFIG } from "./game-objects";
 
 // Tunables — all meant to become per-level values later.
-export const MAP_SIZE = 13;
+export const MAP_SIZE = 9;
 export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
-export const FOUNTAIN_COUNT = 3;
+export const FOUNTAIN_COUNT = 3; // hidden ones, on top of the two flanking the sun
 export const UNICORN_COUNT = 3; // one at the start position, the others hidden in the fog
-export const RAINBOW_GOAL = 3; // rainbows that have to shine at the same time to win
-export const UNICORN_START: Position = { x: 0, y: 0 };
+export const RAINBOW_GOAL = 5; // rainbows that have to shine at the same time to win
+export const MOVE_COST = 1; // gold coins per step
+export const SUN_POSITION: Position = { x: 0, y: 0 };
+export const UNICORN_START: Position = { x: 1, y: 1 }; // the sun's diagonal neighbour
 
 export interface Position {
   x: number;
@@ -25,6 +27,8 @@ export interface Tile {
 export interface GameMap {
   tiles: Tile[]; // flat, row-major: index = y * MAP_SIZE + x
   rainbowCount: number; // rainbows shining right now — recomputed after every move
+  coins: number; // gold coins in the purse; they buy steps and are banked across turns
+  turn: number; // turns played so far, counted up as each income is collected
 }
 
 export const MOVE_RADIUS = 1; // Chebyshev, like VISION_RADIUS: radius 1 = a step into any of the 8 neighbours
@@ -48,7 +52,15 @@ export function createGameMap(): GameMap {
   const map: GameMap = {
     tiles: Array.from({ length: MAP_SIZE * MAP_SIZE }, () => ({ isRevealed: false })),
     rainbowCount: 0,
+    coins: 0,
+    turn: 0,
   };
+
+  // The sun is a light source that never moves. With a fountain on each of its two
+  // open sides it keeps two rainbows lit in the corner — that is the starting income.
+  getTile(map, SUN_POSITION)!.object = GameObjectType.SUN;
+  getTile(map, { x: SUN_POSITION.x + 1, y: SUN_POSITION.y })!.object = GameObjectType.FOUNTAIN;
+  getTile(map, { x: SUN_POSITION.x, y: SUN_POSITION.y + 1 })!.object = GameObjectType.FOUNTAIN;
 
   getTile(map, UNICORN_START)!.living = GameObjectType.UNICORN;
   revealAround(map, UNICORN_START);
@@ -93,11 +105,16 @@ export function revealAround(map: GameMap, { x, y }: Position) {
   }
 }
 
+function glows(objectType: GameObjectType | undefined): boolean {
+  return objectType !== undefined && OBJECT_CONFIG[objectType].glows;
+}
+
 /**
- * Rainbows are pure light, not scenery: a unicorn's glow refracts through a fountain it
- * stands next to and lands on the tile directly opposite. Recomputed from scratch after
- * every move, so a rainbow fades the moment its unicorn walks away. A tile that is off
- * the map or already taken swallows the light — that angle simply produces nothing.
+ * Rainbows are pure light, not scenery: the glow of a unicorn (or of the sun) refracts
+ * through a fountain it stands next to and lands on the tile directly opposite.
+ * Recomputed from scratch after every move, so a rainbow fades the moment its unicorn
+ * walks away. A tile that is off the map or already taken swallows the light — that
+ * angle simply produces nothing.
  */
 export function updateRainbows(map: GameMap) {
   map.tiles.forEach((tile) => {
@@ -107,7 +124,7 @@ export function updateRainbows(map: GameMap) {
   map.rainbowCount = 0;
 
   map.tiles.forEach((tile, index) => {
-    if (tile.living !== GameObjectType.UNICORN) return;
+    if (!glows(tile.living) && !glows(tile.object)) return;
     const { x, y } = getPosition(index);
 
     for (let dy = -1; dy <= 1; dy++) {
@@ -152,6 +169,17 @@ export function moveCharacter(map: GameMap, from: Position, to: Position) {
   fromTile.living = undefined;
 }
 
+/** Income at the start of a turn: one gold coin per shining rainbow. Unspent coins stay in the purse. */
+export function startTurn(map: GameMap) {
+  map.coins += map.rainbowCount;
+  map.turn++;
+}
+
 export function isWon(map: GameMap): boolean {
   return map.rainbowCount >= RAINBOW_GOAL;
+}
+
+/** No coins and no rainbows left to earn any: nothing can ever move again. */
+export function isLost(map: GameMap): boolean {
+  return map.coins < MOVE_COST;
 }

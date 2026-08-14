@@ -1,10 +1,12 @@
 import { getRandomInt } from "../utils/random-utils";
-import { GameObjectType, ObjectCategory, OBJECT_CONFIG } from "./game-objects";
+import { GameObjectType, OBJECT_CONFIG } from "./game-objects";
 
 // Tunables — all meant to become per-level values later.
 export const MAP_SIZE = 13;
 export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
-export const RAINBOW_COUNT = 3;
+export const FOUNTAIN_COUNT = 3;
+export const UNICORN_COUNT = 3; // one at the start position, the others hidden in the fog
+export const RAINBOW_GOAL = 3; // rainbows that have to shine at the same time to win
 export const UNICORN_START: Position = { x: 0, y: 0 };
 
 export interface Position {
@@ -22,7 +24,7 @@ export interface Tile {
 
 export interface GameMap {
   tiles: Tile[]; // flat, row-major: index = y * MAP_SIZE + x
-  revealedGoalCount: number;
+  rainbowCount: number; // rainbows shining right now — recomputed after every move
 }
 
 export const MOVE_RADIUS = 1; // Chebyshev, like VISION_RADIUS: radius 1 = a step into any of the 8 neighbours
@@ -45,41 +47,83 @@ export function getTile(map: GameMap, position: Position): Tile | undefined {
 export function createGameMap(): GameMap {
   const map: GameMap = {
     tiles: Array.from({ length: MAP_SIZE * MAP_SIZE }, () => ({ isRevealed: false })),
-    revealedGoalCount: 0,
+    rainbowCount: 0,
   };
 
   getTile(map, UNICORN_START)!.living = GameObjectType.UNICORN;
   revealAround(map, UNICORN_START);
 
-  // Placed after the starting vision is applied, so a rainbow can never spawn on
-  // an already-revealed tile — all three really do start hidden under clouds.
-  for (let i = 0; i < RAINBOW_COUNT; i++) {
-    let tile: Tile;
-    do {
-      tile = map.tiles[getRandomInt(map.tiles.length)];
-    } while (tile.isRevealed || tile.object !== undefined);
-    tile.object = GameObjectType.RAINBOW;
-  }
+  // Everything is placed after the starting vision is applied, so nothing can spawn
+  // on an already-revealed tile — it all starts hidden under the clouds.
+  // Fountains keep one tile of distance to the border, so every side of a fountain
+  // has an opposite tile to cast a rainbow onto.
+  for (let i = 0; i < FOUNTAIN_COUNT; i++) getFreeTile(map, 1).object = GameObjectType.FOUNTAIN;
+  for (let i = 1; i < UNICORN_COUNT; i++) getFreeTile(map).living = GameObjectType.UNICORN;
+
+  updateRainbows(map);
 
   return map;
 }
 
-/** Uncovers the vision square around a position. Revealed tiles stay revealed. Returns how many goals were newly uncovered. */
-export function revealAround(map: GameMap, { x, y }: Position): number {
-  let newGoals = 0;
+/** A random still-hidden, empty tile. `margin` keeps that many tiles of distance to the border. */
+function getFreeTile(map: GameMap, margin = 0): Tile {
+  let tile: Tile;
+  do {
+    const size = MAP_SIZE - 2 * margin;
+    tile = getTile(map, { x: margin + getRandomInt(size), y: margin + getRandomInt(size) })!;
+  } while (tile.isRevealed || tile.object !== undefined || tile.living !== undefined);
 
+  return tile;
+}
+
+/** Uncovers the vision square around a position. Revealed tiles stay revealed. */
+export function revealAround(map: GameMap, { x, y }: Position) {
   for (let dy = -VISION_RADIUS; dy <= VISION_RADIUS; dy++) {
     for (let dx = -VISION_RADIUS; dx <= VISION_RADIUS; dx++) {
-      const tile = getTile(map, { x: x + dx, y: y + dy });
+      const position = { x: x + dx, y: y + dy };
+      const tile = getTile(map, position);
+
       if (tile && !tile.isRevealed) {
         tile.isRevealed = true;
-        if (tile.object !== undefined && OBJECT_CONFIG[tile.object].category === ObjectCategory.GOAL) newGoals++;
+        // a character coming out of the fog opens its own vision right away — and may
+        // in turn uncover the next one (the recursion ends, tiles only ever un-fog once)
+        if (tile.living !== undefined) revealAround(map, position);
       }
     }
   }
+}
 
-  map.revealedGoalCount += newGoals;
-  return newGoals;
+/**
+ * Rainbows are pure light, not scenery: a unicorn's glow refracts through a fountain it
+ * stands next to and lands on the tile directly opposite. Recomputed from scratch after
+ * every move, so a rainbow fades the moment its unicorn walks away. A tile that is off
+ * the map or already taken swallows the light — that angle simply produces nothing.
+ */
+export function updateRainbows(map: GameMap) {
+  map.tiles.forEach((tile) => {
+    if (tile.object === GameObjectType.RAINBOW) tile.object = undefined;
+  });
+
+  map.rainbowCount = 0;
+
+  map.tiles.forEach((tile, index) => {
+    if (tile.living !== GameObjectType.UNICORN) return;
+    const { x, y } = getPosition(index);
+
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        // the fountain sits one step away, the rainbow one further along the same line
+        if (getTile(map, { x: x + dx, y: y + dy })?.object !== GameObjectType.FOUNTAIN) continue;
+        const target = getTile(map, { x: x + 2 * dx, y: y + 2 * dy });
+
+        if (target && target.object === undefined && target.living === undefined) {
+          target.object = GameObjectType.RAINBOW;
+          target.isRevealed = true; // its own light lifts the fog over it
+          map.rainbowCount++;
+        }
+      }
+    }
+  });
 }
 
 function blocksMove(objectType: GameObjectType | undefined): boolean {
@@ -109,5 +153,5 @@ export function moveCharacter(map: GameMap, from: Position, to: Position) {
 }
 
 export function isWon(map: GameMap): boolean {
-  return map.revealedGoalCount === RAINBOW_COUNT;
+  return map.rainbowCount >= RAINBOW_GOAL;
 }

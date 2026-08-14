@@ -17,6 +17,7 @@ import {
   moveCharacter,
   Position,
   revealAround,
+  updateRainbows,
 } from "../../game/game-map";
 import { OBJECT_CONFIG } from "../../game/game-objects";
 
@@ -84,10 +85,12 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     moveCharacter(map, selected!, target);
     select(target); // stays selected, so walking on is a single tap per step
 
-    const newlyFoundRainbows = revealAround(map, target);
+    const previousRainbowCount = map.rainbowCount;
+    revealAround(map, target);
+    updateRainbows(map);
     render();
 
-    if (newlyFoundRainbows) pubSubService.publish(PubSubEvent.STAR_COLLECT);
+    if (map.rainbowCount > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
     if (isWon(map)) endGame();
   }
 

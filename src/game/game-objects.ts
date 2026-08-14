@@ -14,6 +14,7 @@ export type GameObjectType = defineEnum<typeof GameObjectType>;
 export const GameObjectType = defineEnum({
   UNICORN: 0,
   RAINBOW: 1,
+  FOUNTAIN: 2,
 });
 
 interface GameObjectConfig {
@@ -27,4 +28,5 @@ interface GameObjectConfig {
 export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   [GameObjectType.UNICORN]: { emoji: "🦄", category: ObjectCategory.LIVING, blocksMove: true, blocksVision: false },
   [GameObjectType.RAINBOW]: { emoji: "🌈", category: ObjectCategory.GOAL, blocksMove: false, blocksVision: false },
+  [GameObjectType.FOUNTAIN]: { emoji: "⛲", category: ObjectCategory.STATIC, blocksMove: true, blocksVision: false },
 };

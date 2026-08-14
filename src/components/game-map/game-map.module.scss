@@ -8,6 +8,8 @@ $board-width: min(92vw, 55vh);
 // Tall enough for the longest description, so switching objects never resizes the row
 // and the board never moves. Raise it if a description ever wraps to a fourth line.
 $info-height: 3.8rem;
+// Beam thickness, in em against the board font-size — a fraction of a tile, whatever the screen.
+$beam-width: 0.08em;
 
 // Map / info panel / turn bar, top to bottom. The info row is always there — that is
 // what keeps it from ever covering the board or shifting it when the selection changes.
@@ -32,6 +34,7 @@ $info-height: 3.8rem;
 }
 
 .board {
+  position: relative; // the beam layer is positioned against it
   display: grid;
   grid-template-columns: repeat(var(--s), 1fr);
   gap: 1px; // the board background shows through as grid lines
@@ -45,6 +48,30 @@ $info-height: 3.8rem;
 
   :global(.#{names.$WON}) & {
     outline-color: theme.$success-color-light;
+  }
+}
+
+// Light beams, drawn under the tiles. Sizes are in em, which resolves against the board's
+// own font-size, so the beams scale with the tiles instead of needing their own maths.
+.beams {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; // clicks belong to the tiles above
+}
+
+.beam {
+  position: absolute;
+  height: $beam-width;
+  margin-top: -0.5 * $beam-width; // centres the beam on the tile it leaves from
+  transform-origin: 0 50%; // it grows out of that centre, in the direction it is rotated to
+  border-radius: $beam-width;
+  // fades in and out instead of starting and stopping flat, so it reads as light, not a bar
+  background: linear-gradient(90deg, transparent, theme.$light-color 25%, theme.$light-color 75%, transparent);
+
+  // the light died in the fountain — nothing at the far end, so it just peters out
+  &.unlit {
+    opacity: 0.4;
+    background: linear-gradient(90deg, theme.$light-color, transparent);
   }
 }
 
@@ -91,6 +118,7 @@ $info-height: 3.8rem;
 
 .tile {
   @extend %gridCentered;
+  position: relative; // paints over the beam layer, so light never hides an emoji
   aspect-ratio: 1;
   line-height: 1;
   cursor: pointer; // every tile is tappable, fog and bare ground included
@@ -101,6 +129,11 @@ $info-height: 3.8rem;
 
   &.revealed {
     background: theme.$bg-alpha-05;
+  }
+
+  // a light source: the emoji itself haloes, so it reads as the thing giving off the beams
+  &.glowing {
+    text-shadow: 0 0 0.3em theme.$light-color;
   }
 
   // PLACEHOLDER selection visuals — a tinted ring on the picked object and on every

@@ -43,11 +43,16 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   let targets: Position[] = [];
 
   const tileElements = createElements({ cssClass: [styles.tile, CssClass.EMOJI] }, MAP_SIZE * MAP_SIZE);
+  // Light beams live in their own layer above the tiles: a tile can carry several at
+  // once (the sun's does), which a per-tile pseudo-element could not draw.
+  const beamLayer = createElement({ cssClass: styles.beams });
   // one delegated listener instead of one per tile
-  const board = createElement(
-    { cssClass: styles.board, onClick: (event) => onTileClick(tileElements.indexOf(event.target)) },
-    tileElements,
-  );
+  // beam layer first: the tiles are positioned too, so they paint over it and an emoji
+  // is never hidden by the light passing through it
+  const board = createElement({ cssClass: styles.board, onClick: (event) => onTileClick(tileElements.indexOf(event.target)) }, [
+    beamLayer,
+    ...tileElements,
+  ]);
   board.style.setProperty("--s", String(MAP_SIZE)); // keeps MAP_SIZE the single source of truth
 
   // PLACEHOLDER turn bar: turn count, purse and goal on the left, end-turn button on the right
@@ -85,6 +90,7 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
       const objectType = getObject(index);
       const isSelectedTile = index === selectedIndex;
       element.classList.toggle(styles.revealed, tile.isRevealed);
+      element.classList.toggle(styles.glowing, objectType !== undefined && OBJECT_CONFIG[objectType].glows);
       element.classList.toggle(CssClass.HINT, hintCharacters && tile.isRevealed && tile.living !== undefined);
       element.classList.toggle(styles.selected, isSelectedTile);
       // no steps lit means the selection is only being looked at — see select()
@@ -96,9 +102,36 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     turnCounter.textContent = TURN_EMOJI + map.turn;
     purse.textContent = COIN_EMOJI + map.coins;
     goal.textContent = `${OBJECT_CONFIG[GameObjectType.RAINBOW].emoji}${map.rainbowCount}/${RAINBOW_GOAL}`;
+    renderBeams();
+
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
     endTurnButton.classList.toggle(CssClass.PRIMARY, needsIncome || isOver);
     endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver);
+  }
+
+  /**
+   * One element per beam, laid out in percentages of the board so it follows MAP_SIZE and
+   * the responsive board width on its own. A lit beam runs the full two tiles to its
+   * rainbow; an unlit one stops halfway, inside the fountain that swallowed the light.
+   * Beams from a glower still under the fog are left out — they would give its position away.
+   */
+  function renderBeams() {
+    beamLayer.replaceChildren(
+      ...map.beams
+        .filter((beam) => map.tiles[getIndex(beam)].isRevealed)
+        .map(({ x, y, dx, dy, isLit }) => {
+          const element = createElement({ cssClass: [styles.beam, isLit ? "" : styles.unlit] });
+          const tileSize = 100 / MAP_SIZE; // one tile as a percentage of the board
+
+          element.style.left = `${(x + 0.5) * tileSize}%`;
+          element.style.top = `${(y + 0.5) * tileSize}%`;
+          // diagonals are longer by exactly the hypotenuse of a 1x1 tile
+          element.style.width = `${(isLit ? 2 : 1) * Math.hypot(dx, dy) * tileSize}%`;
+          element.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+
+          return element;
+        }),
+    );
   }
 
   /** The info panel is one line: an emoji plus a "Name|Description" text. */

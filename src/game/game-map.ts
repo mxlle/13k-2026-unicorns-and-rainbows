@@ -24,9 +24,17 @@ export interface Tile {
   living?: GameObjectType; // entity layer — LIVING
 }
 
+/** A ray of light leaving a glowing tile towards the fountain one step away in (dx, dy). */
+export interface Beam extends Position {
+  dx: number;
+  dy: number;
+  isLit: boolean; // the light got through and made a rainbow, instead of dying in the fountain
+}
+
 export interface GameMap {
   tiles: Tile[]; // flat, row-major: index = y * MAP_SIZE + x
   rainbowCount: number; // rainbows shining right now — recomputed after every move
+  beams: Beam[]; // what the light is doing, recomputed alongside the rainbows
   coins: number; // gold coins in the purse; they buy steps and are banked across turns
   turn: number; // turns played so far, counted up as each income is collected
 }
@@ -52,6 +60,7 @@ export function createGameMap(): GameMap {
   const map: GameMap = {
     tiles: Array.from({ length: MAP_SIZE * MAP_SIZE }, () => ({ isRevealed: false })),
     rainbowCount: 0,
+    beams: [],
     coins: 0,
     turn: 0,
   };
@@ -114,7 +123,7 @@ function glows(objectType: GameObjectType | undefined): boolean {
  * through a fountain it stands next to and lands on the tile directly opposite.
  * Recomputed from scratch after every move, so a rainbow fades the moment its unicorn
  * walks away. A tile that is off the map or already taken swallows the light — that
- * angle simply produces nothing.
+ * angle produces no rainbow, only an unlit beam that stops inside the fountain.
  */
 export function updateRainbows(map: GameMap) {
   map.tiles.forEach((tile) => {
@@ -122,6 +131,7 @@ export function updateRainbows(map: GameMap) {
   });
 
   map.rainbowCount = 0;
+  map.beams = [];
 
   map.tiles.forEach((tile, index) => {
     if (!glows(tile.living) && !glows(tile.object)) return;
@@ -130,14 +140,17 @@ export function updateRainbows(map: GameMap) {
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
         // the fountain sits one step away, the rainbow one further along the same line
-        if (getTile(map, { x: x + dx, y: y + dy })?.object !== GameObjectType.FOUNTAIN) continue;
+        if ((!dx && !dy) || getTile(map, { x: x + dx, y: y + dy })?.object !== GameObjectType.FOUNTAIN) continue;
         const target = getTile(map, { x: x + 2 * dx, y: y + 2 * dy });
+        const isLit = !!target && target.object === undefined && target.living === undefined;
 
-        if (target && target.object === undefined && target.living === undefined) {
+        if (isLit) {
           target.object = GameObjectType.RAINBOW;
           target.isRevealed = true; // its own light lifts the fog over it
           map.rainbowCount++;
         }
+
+        map.beams.push({ x, y, dx, dy, isLit });
       }
     }
   });

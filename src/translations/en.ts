@@ -6,16 +6,18 @@ import { TranslationKey } from "./translationKey";
 export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.CONTINUE]: "Continue",
   // The end-of-run texts share the info panel's "Name|Description" shape.
-  [TranslationKey.WON]: "You won!|Every rainbow you needed is shining at once.",
-  [TranslationKey.LOST]: "Oh no!|No coins and no rainbow left to earn any — nothing can move.",
+  [TranslationKey.WON]: "You won!|All the rainbows you needed are shining at once.",
+  [TranslationKey.LOST]: "Oh no!|No coins and no rainbows left. Nothing can move.",
   [TranslationKey.END_TURN]: "End turn",
   [TranslationKey.NEW_GAME]: "New game",
-  // PLACEHOLDER wording — "Name|Description", split at the pipe by the info popup.
-  [TranslationKey.INFO_UNICORN]: "Unicorn|Glows. Step it next to a fountain to cast a rainbow.",
-  [TranslationKey.INFO_RAINBOW]: "Rainbow|Pays one coin per turn while it shines. Light 5 at once to win.",
-  [TranslationKey.INFO_FOUNTAIN]: "Fountain|Refracts a glow from the tile beside it into a rainbow on the tile opposite.",
-  [TranslationKey.INFO_SUN]: "Sun|Always glows, never moves. Its two fountains are your starting income.",
+  // PLACEHOLDER wording — "Name|Description", split at the pipe by the info panel.
+  // Plain, short words: many players will not be native speakers. The 🦄⛲🌈 pattern
+  // carries the line-up rule without language, and repeats, so it costs almost nothing.
+  [TranslationKey.INFO_UNICORN]: "Unicorn|It shines. Line it up like this: 🦄⛲🌈",
+  [TranslationKey.INFO_RAINBOW]: "Rainbow|One coin every turn. Have 5 at once to win.",
+  [TranslationKey.INFO_FOUNTAIN]: "Fountain|Light comes out the other side as a rainbow: 🦄⛲🌈",
+  [TranslationKey.INFO_SUN]: "Sun|It never moves, so its rainbows never go out: ☀️⛲🌈",
   [TranslationKey.INFO_HINT]: "|Tap anything on the map to find out what it does.",
-  [TranslationKey.INFO_FOG]: "Cloud|Unexplored. Walk a unicorn close by to lift the fog.",
-  [TranslationKey.INFO_EMPTY]: "Meadow|Open ground. A fountain can cast a rainbow onto it.",
+  [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
+  [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
 };

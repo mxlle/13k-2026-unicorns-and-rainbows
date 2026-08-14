@@ -162,24 +162,22 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
    * One element per beam, laid out in percentages of the board so it follows MAP_SIZE and
    * the responsive board width on its own. A lit beam runs the full two tiles to its
    * rainbow; an unlit one stops halfway, inside the fountain that swallowed the light.
-   * Beams from a glower still under the fog are left out — they would give its position away.
+   * Every beam is safe to draw — only a revealed glower casts one in the first place.
    */
   function renderBeams() {
     beamLayer.replaceChildren(
-      ...map.beams
-        .filter((beam) => map.tiles[getIndex(beam)].isRevealed)
-        .map(({ x, y, dx, dy, isLit }) => {
-          const element = createElement({ cssClass: [styles.beam, isLit ? "" : styles.unlit] });
-          const tileSize = 100 / MAP_SIZE; // one tile as a percentage of the board
+      ...map.beams.map(({ x, y, dx, dy, isLit }) => {
+        const element = createElement({ cssClass: [styles.beam, isLit ? "" : styles.unlit] });
+        const tileSize = 100 / MAP_SIZE; // one tile as a percentage of the board
 
-          element.style.left = `${(x + 0.5) * tileSize}%`;
-          element.style.top = `${(y + 0.5) * tileSize}%`;
-          // diagonals are longer by exactly the hypotenuse of a 1x1 tile
-          element.style.width = `${(isLit ? 2 : 1) * Math.hypot(dx, dy) * tileSize}%`;
-          element.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+        element.style.left = `${(x + 0.5) * tileSize}%`;
+        element.style.top = `${(y + 0.5) * tileSize}%`;
+        // diagonals are longer by exactly the hypotenuse of a 1x1 tile
+        element.style.width = `${(isLit ? 2 : 1) * Math.hypot(dx, dy) * tileSize}%`;
+        element.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
 
-          return element;
-        }),
+        return element;
+      }),
     );
   }
 

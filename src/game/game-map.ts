@@ -124,6 +124,7 @@ function glows(objectType: GameObjectType | undefined): boolean {
  * Recomputed from scratch after every move, so a rainbow fades the moment its unicorn
  * walks away. A tile that is off the map or already taken swallows the light — that
  * angle produces no rainbow, only an unlit beam that stops inside the fountain.
+ * A glower still under the fog stays dark: its light only starts once it is revealed.
  */
 export function updateRainbows(map: GameMap) {
   map.tiles.forEach((tile) => {
@@ -134,7 +135,7 @@ export function updateRainbows(map: GameMap) {
   map.beams = [];
 
   map.tiles.forEach((tile, index) => {
-    if (!glows(tile.living) && !glows(tile.object)) return;
+    if (!tile.isRevealed || (!glows(tile.living) && !glows(tile.object))) return;
     const { x, y } = getPosition(index);
 
     for (let dy = -1; dy <= 1; dy++) {

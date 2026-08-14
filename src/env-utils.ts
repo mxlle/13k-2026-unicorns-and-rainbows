@@ -24,3 +24,5 @@ export const HAS_TEXT_PLACEHOLDERS = true;
 export const HAS_GERMAN = import.meta.env.LANG_DE_ENABLED === "true";
 
 export const GAME_TITLE = "Unicorns and Rainbows";
+// The header shows the emoji at every size and the words only when there is room for them.
+export const GAME_EMOJI = "🦄";

@@ -5,7 +5,7 @@ import { CssClass } from "./utils/css-class";
 import { sleep } from "./utils/promise-utils";
 import { initAudio } from "./audio/music-control";
 import { getLocalStorageItem, LocalStorageKey } from "./utils/local-storage";
-import { GAME_TITLE, HAS_SIMPLE_SOUND_EFFECTS, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
+import { GAME_EMOJI, GAME_TITLE, HAS_SIMPLE_SOUND_EFFECTS, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
 import { coinSoundSrcUrl, initWinLoseSoundEffects, loseSoundSrcUrl, winSoundSrcUrl } from "./audio/sound-control/sound-control-box";
 import { playSound } from "./audio/sound-control/sound-control";
 import { HeaderComponent } from "./framework/components/header/header.component";
@@ -24,11 +24,11 @@ function init() {
   if (isInitialized) return;
   isInitialized = true;
 
-  const [gameArea, startNewGame] = GameMapComponent();
+  const [gameArea, startNewGame, statusElements] = GameMapComponent();
 
-  document.body.append(HeaderComponent(GAME_TITLE, [MuteButton()]), gameArea);
+  document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [...statusElements, MuteButton()]), gameArea);
 
-  startNewGame!();
+  startNewGame();
 
   pubSubService.subscribe(PubSubEvent.GAME_START, () => {
     document.body.classList.remove(CssClass.WON);

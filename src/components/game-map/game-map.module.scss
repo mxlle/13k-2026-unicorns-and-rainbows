@@ -79,13 +79,13 @@ $beam-width: 0.08em;
   grid-area: 3 / 1;
   display: flex;
   align-items: center;
-  gap: 0.5rem; // narrow, so a full purse still has room next to the button on a phone
+  gap: 0.5rem;
   width: $board-width;
 
   > button {
-    margin-left: auto; // counters left, the button on the far right
-    // A growing purse must not squeeze the button: wrapping its label to a second
-    // line would change the height of the whole bar and shift the board above it.
+    margin-left: auto; // turn count left, the button on the far right
+    // Its label must never wrap to a second line: that would change the height of the
+    // bar and shift the board above it.
     flex-shrink: 0;
     white-space: nowrap;
   }
@@ -96,16 +96,54 @@ $beam-width: 0.08em;
   white-space: nowrap; // the purse's row of drops never wraps into a second line
 }
 
-.purse {
-  // The drops sit slightly inside each other, both to read as one puddle and to keep
-  // a full purse narrow. Last in the row and the only part allowed to give way, so
-  // if a screen is ever too narrow it is a drop that goes, never the button.
-  letter-spacing: -0.15em;
-  min-width: 0;
-  overflow: hidden;
+// A drop sits a little inside its neighbour, so the row reads as one puddle and stays
+// narrow. --n is MAX_PIPS, set from the component.
+$pip-width: 0.85em;
 
-  > :last-child {
-    letter-spacing: normal; // the number past MAX_PIPS is not a pip row — no overlap
+.purse {
+  position: relative; // the frame a spent drop is pinned to while it falls out
+  // A fixed slot, wide enough for a full purse. The header pins its end elements to the
+  // right edge, so a purse that changed width would slide its own drops sideways — and
+  // a drop already falling with them. Every drop now has a place that never moves.
+  width: calc(var(--n) * #{$pip-width});
+  flex-shrink: 0;
+}
+
+// PLACEHOLDER timings — earned drops rain in one after the other, a spent one drops
+// out of the purse and bursts.
+$drop-in-duration: 0.3s;
+$drop-stagger: 0.12s; // gap between two drops of the same income
+$drop-spend-duration: 0.5s; // keep in sync with DROP_SPEND_MS in the component
+$drop-fall: 0.6rem; // how far a spent drop falls before it goes
+
+.pip {
+  display: inline-block; // so it can be moved, scaled, and given a place of its own
+  width: $pip-width; // narrower than the glyph — that overlap is what makes it a puddle
+  text-align: center;
+  animation: dropIn $drop-in-duration calc(var(--i) * #{$drop-stagger}) backwards;
+
+  // Out of the flow the moment it is spent: the row closes up right away and the drop
+  // falls from where it stood, instead of the purse waiting for the animation to end.
+  &.spent {
+    position: absolute;
+    animation: dropSpend $drop-spend-duration forwards;
+  }
+}
+
+@keyframes dropIn {
+  from {
+    transform: translateY(-$drop-fall) scale(0.4);
+    opacity: 0;
+  }
+}
+
+@keyframes dropSpend {
+  60% {
+    transform: translateY($drop-fall);
+  }
+  to {
+    transform: translateY($drop-fall) scale(1.8);
+    opacity: 0;
   }
 }
 

@@ -1,6 +1,5 @@
 import styles from "./game-map.module.scss";
 import { createButton, createElement, createElements } from "../../utils/html-utils";
-import { ComponentDefinition } from "../../types";
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
 import { getTranslation } from "../../translations/i18n";
@@ -28,8 +27,9 @@ const FOG_EMOJI = "☁️";
 const DROP_EMOJI = "💧";
 const TURN_EMOJI = "⏳";
 // PLACEHOLDER: how many drops the purse still draws one by one. Above that it falls
-// back to "💧n" — a pip row long enough to reach the button would break the turn bar.
+// back to "💧n" — a pip row long enough to fill the header would crowd out the title.
 const MAX_PIPS = 8;
+const DROP_SPEND_MS = 500; // keep in sync with $drop-spend-duration in the stylesheet
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
 const EMPTY_EMOJI = "🌱";
@@ -37,7 +37,9 @@ const WIN_EMOJI = "🎉";
 const LOSE_EMOJI = "😢";
 const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
 
-export function GameMapComponent(): ComponentDefinition<undefined> {
+// The usual [host, update] tuple plus the counters that belong in the header — they are
+// part of the game state, so the game owns them; only their place in the DOM is elsewhere.
+export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () => void, statusElements: HTMLElement[]] {
   let map: GameMap;
   let isRunning = false;
   // Two-tap navigation: tap an object to select it, then — if it is a character that
@@ -58,27 +60,26 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   ]);
   board.style.setProperty("--s", String(MAP_SIZE)); // keeps MAP_SIZE the single source of truth
 
-  // PLACEHOLDER turn bar: turn count, goal and purse on the left, end-turn button on the right
+  // PLACEHOLDER turn bar: turn count on the left, end-turn button on the right.
   // Only the emoji gets the emoji font — digits inside it would render as emoji glyphs too.
   const turnCounter = createElement({ tag: "span" });
   const goal = createElement({ tag: "span" });
   const counter = (emoji: string, value: HTMLElement) =>
     createElement({ cssClass: styles.count }, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }), value]);
   // The purse is drawn as one drop per step the player can still take, so the cost of a
-  // step needs no number anywhere. Its own emoji is what changes, hence not a counter().
+  // step needs no number anywhere. One element per drop, so a single one can be animated.
   const dropPips = createElement({ tag: "span", cssClass: CssClass.EMOJI });
   const dropCount = createElement({ tag: "span" }); // only used past MAX_PIPS
   const purse = createElement({ cssClass: [styles.count, styles.purse] }, [dropPips, dropCount]);
+  purse.style.setProperty("--n", `${MAX_PIPS}`); // its slot is as wide as a full purse
   // One button for both ends of a run: end the turn while playing, start over once it is over.
   const endTurnButton = createButton({ onClick: () => (isRunning ? endTurn() : startNewGame()) });
-  // Purse last of the three: it is the only one that changes width, and everything
-  // left of it stays put while it grows into the gap before the button.
-  const turnBar = createElement({ cssClass: styles.turnBar }, [
-    counter(TURN_EMOJI, turnCounter),
-    counter(OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, goal),
-    purse,
-    endTurnButton,
-  ]);
+  const turnBar = createElement({ cssClass: styles.turnBar }, [counter(TURN_EMOJI, turnCounter), endTurnButton]);
+  // What the run is about — drops to spend and rainbows still needed — goes into the
+  // header, in view wherever the player is looking. The purse comes first: it is the
+  // only one that changes width, and the header pins the group to its right edge, so
+  // only the purse's own left edge moves as it fills and empties.
+  const statusElements = [purse, counter(OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, goal)];
 
   // Object info: a permanent row of its own between map and turn bar, so it can never
   // cover the board and never shifts it either. Empty selection shows a hint instead.
@@ -118,14 +119,44 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
 
     turnCounter.textContent = `${map.turn}`;
     goal.textContent = `${map.rainbowCount}/${RAINBOW_GOAL}`;
-    const asPips = map.drops <= MAX_PIPS;
-    dropPips.textContent = DROP_EMOJI.repeat(asPips ? map.drops : 1);
-    dropCount.textContent = asPips ? "" : `${map.drops}`;
+    renderPurse();
     renderBeams();
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
     endTurnButton.classList.toggle(CssClass.PRIMARY, needsIncome || isOver);
     endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver);
+  }
+
+  /**
+   * The purse is reconciled, not rewritten: drops that stay keep their element, so only
+   * what actually changed moves. Earned drops rain in one after the other (the stagger is
+   * a CSS delay per new drop), a spent one leaves the row at once and falls out below it.
+   */
+  function renderPurse() {
+    const asPips = map.drops <= MAX_PIPS;
+    dropCount.textContent = asPips ? "" : `${map.drops}`;
+    const wanted = asPips ? map.drops : 1; // past MAX_PIPS a single drop labels the number
+    // drops already on their way out do not count — their place in the row is gone
+    const shown = ([...dropPips.children] as HTMLElement[]).filter((pip) => !pip.classList.contains(styles.spent));
+
+    for (let i = shown.length; i < wanted; i++) {
+      const pip = createElement({ tag: "span", cssClass: styles.pip, text: DROP_EMOJI });
+      pip.style.setProperty("--i", `${i - shown.length}`); // its place in the stagger
+      dropPips.append(pip);
+    }
+
+    // Spending takes the last drops off the row. Every position is measured first: a drop
+    // that has already left the flow would pull the next one along and mismeasure it.
+    const spent = shown.slice(wanted).map((pip) => [pip, pip.offsetLeft, pip.offsetTop] as const);
+
+    spent.forEach(([pip, left, top]) => {
+      pip.style.left = `${left}px`; // pinned where it stood, so leaving the flow does not move it
+      pip.style.top = `${top}px`;
+      pip.classList.add(styles.spent);
+      // not "animationend": with prefers-reduced-motion the animation never runs and the
+      // drop would be stranded on top of the header forever
+      setTimeout(() => pip.remove(), DROP_SPEND_MS);
+    });
   }
 
   /**
@@ -245,5 +276,5 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     pubSubService.publish(PubSubEvent.GAME_START);
   }
 
-  return [hostElement, startNewGame];
+  return [hostElement, startNewGame, statusElements];
 }

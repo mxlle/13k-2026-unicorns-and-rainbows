@@ -11,7 +11,24 @@
 }
 
 .title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0; // the title is what gives way when the end elements need the room
   color: theme.$main-color;
+}
+
+.titleText {
+  // The end elements carry live counters that change width; the words shorten rather
+  // than wrap — a second line would change the header height and push the board down
+  // mid-game — and below the breakpoint they step aside entirely, leaving the emoji.
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @media (max-width: 599px) {
+    display: none;
+  }
 }
 
 .endElements {

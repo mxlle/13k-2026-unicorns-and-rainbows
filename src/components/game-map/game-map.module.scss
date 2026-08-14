@@ -5,12 +5,27 @@
 // emoji size follow the map size without duplicating it here.
 $board-width: min(92vw, 62vh);
 
+// Two rows: the map fills what is left, the turn bar is pinned to the bottom of the
+// screen. The info panel is placed into the map row as well and hovers at its bottom
+// edge — sharing the cell means opening it overlays the map instead of shifting it.
 .host {
   display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 1.5rem;
+  grid-template-rows: 1fr min-content;
+  justify-items: center;
+  gap: 1rem;
   padding: 1rem;
+  min-height: 0;
+  overflow: hidden; // only the map row scrolls, never the page
+}
+
+.mapArea {
+  grid-area: 1 / 1;
+  display: grid;
+  // `safe` keeps the top-left of an oversized board reachable instead of clipping it
+  place-items: safe center;
+  width: 100%;
+  min-height: 0;
+  overflow: auto;
 }
 
 .board {
@@ -31,6 +46,7 @@ $board-width: min(92vw, 62vh);
 }
 
 .turnBar {
+  grid-area: 2 / 1;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -43,6 +59,35 @@ $board-width: min(92vw, 62vh);
 
 .count {
   font-size: 1.2rem;
+}
+
+// Object info panel: emoji, name, one line of explanation. Shares the map's grid cell
+// and hangs at its bottom edge, right above the turn bar, so it costs no layout space.
+.info {
+  grid-area: 1 / 1;
+  align-self: end;
+  pointer-events: none; // the tiles it covers stay clickable
+  display: grid;
+  gap: 0.3rem;
+  justify-items: center;
+  max-width: $board-width;
+  padding: 0.6rem 1rem;
+  border-radius: theme.$border-radius;
+  background: theme.$dialog-bg;
+  outline: 1px solid theme.$bg-alpha-25;
+  text-align: center;
+  font-size: 0.8rem;
+  color: theme.$text-secondary;
+}
+
+.infoEmoji {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.infoName {
+  font-size: 1.1rem;
+  color: theme.$text-primary;
 }
 
 .tile {
@@ -58,8 +103,8 @@ $board-width: min(92vw, 62vh);
     background: theme.$bg-alpha-05;
   }
 
-  // PLACEHOLDER selection visuals — a tinted ring on the picked character and on
-  // every tile it may step onto. Meant to be replaced by proper art later.
+  // PLACEHOLDER selection visuals — a tinted ring on the picked object and on every
+  // tile it may step onto. Meant to be replaced by proper art later.
   &.character,
   &.target {
     cursor: pointer;
@@ -69,6 +114,13 @@ $board-width: min(92vw, 62vh);
     background: rgba(theme.$main-color, 0.35);
     box-shadow: inset 0 0 0 2px theme.$main-color;
     transform: scale(1.12);
+
+    // Same ring in a neutral colour for a selection that leads nowhere: scenery, and
+    // a character that cannot step anywhere (blocked in, or an empty purse).
+    &.neutral {
+      background: theme.$bg-alpha-25;
+      box-shadow: inset 0 0 0 2px theme.$text-tertiary;
+    }
   }
 
   &.target {

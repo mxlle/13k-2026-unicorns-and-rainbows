@@ -1,4 +1,5 @@
 import { defineEnum } from "../utils/enums";
+import { TranslationKey } from "../translations/translationKey";
 
 // What a thing *is* — purely semantic. The behavioural bits (blocksMove /
 // blocksVision) are separate flags below, so a future "living but harmless" or
@@ -24,12 +25,41 @@ interface GameObjectConfig {
   blocksMove: boolean;
   blocksVision: boolean;
   glows: boolean; // a light source: casts a rainbow through a fountain it stands next to
+  info: TranslationKey; // "Name|Description" for the info popup
 }
 
 // One row per object type — enum-keyed lookup instead of branching (CLAUDE.md).
 export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
-  [GameObjectType.UNICORN]: { emoji: "🦄", category: ObjectCategory.LIVING, blocksMove: true, blocksVision: false, glows: true },
-  [GameObjectType.RAINBOW]: { emoji: "🌈", category: ObjectCategory.GOAL, blocksMove: false, blocksVision: false, glows: false },
-  [GameObjectType.FOUNTAIN]: { emoji: "⛲", category: ObjectCategory.STATIC, blocksMove: true, blocksVision: false, glows: false },
-  [GameObjectType.SUN]: { emoji: "☀️", category: ObjectCategory.STATIC, blocksMove: true, blocksVision: false, glows: true },
+  [GameObjectType.UNICORN]: {
+    emoji: "🦄",
+    category: ObjectCategory.LIVING,
+    blocksMove: true,
+    blocksVision: false,
+    glows: true,
+    info: TranslationKey.INFO_UNICORN,
+  },
+  [GameObjectType.RAINBOW]: {
+    emoji: "🌈",
+    category: ObjectCategory.GOAL,
+    blocksMove: false,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_RAINBOW,
+  },
+  [GameObjectType.FOUNTAIN]: {
+    emoji: "⛲",
+    category: ObjectCategory.STATIC,
+    blocksMove: true,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_FOUNTAIN,
+  },
+  [GameObjectType.SUN]: {
+    emoji: "☀️",
+    category: ObjectCategory.STATIC,
+    blocksMove: true,
+    blocksVision: false,
+    glows: true,
+    info: TranslationKey.INFO_SUN,
+  },
 };

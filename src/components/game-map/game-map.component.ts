@@ -28,13 +28,14 @@ import { GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
 const FOG_EMOJI = "☁️";
 const COIN_EMOJI = "🪙";
 const TURN_EMOJI = "⏳";
+const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
 
 export function GameMapComponent(): ComponentDefinition<undefined> {
   let map: GameMap;
   let isRunning = false;
   let endDialog: Dialog | undefined;
-  // Two-tap navigation: tap a character to select it, then tap one of its
-  // highlighted neighbours to move there.
+  // Two-tap navigation: tap an object to select it, then — if it is a character that
+  // can afford a step — tap one of its highlighted neighbours to move there.
   let selected: Position | undefined;
   let targets: Position[] = [];
 
@@ -53,19 +54,35 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   const endTurnButton = createButton({ text: getTranslation(TranslationKey.END_TURN), onClick: endTurn });
   const turnBar = createElement({ cssClass: styles.turnBar }, [turnCounter, purse, goal, endTurnButton]);
 
-  const hostElement = createElement({ cssClass: styles.host }, [board, turnBar]);
+  // Object info: hovers over the bottom of the map, just above the turn bar. It shares
+  // the map's grid cell, so opening it overlays the board instead of shifting anything.
+  const infoEmoji = createElement({ cssClass: [styles.infoEmoji, CssClass.EMOJI] });
+  const infoName = createElement({ cssClass: styles.infoName });
+  const infoText = createElement();
+  const infoPanel = createElement({ cssClass: styles.info }, [infoEmoji, infoName, infoText]);
+
+  // The board keeps its size whatever the screen does; this row scrolls to reach it.
+  const mapArea = createElement({ cssClass: styles.mapArea }, [board]);
+  const hostElement = createElement({ cssClass: styles.host }, [mapArea, infoPanel, turnBar]);
 
   function render() {
     const selectedIndex = selected && getIndex(selected);
     const targetIndices = targets.map(getIndex);
+    // Guidance: an empty purse makes the income the only way on, so ending the turn
+    // becomes the next step. Before that, on the opening turn, it is picking a character.
+    const needsIncome = map.coins < MOVE_COST;
+    const hintCharacters = !needsIncome && !selected && map.turn === FIRST_TURN;
 
     map.tiles.forEach((tile, index) => {
       const element = tileElements[index];
-      // living layer wins the tile — the ground object stays on the map underneath
-      const objectType = tile.living ?? tile.object;
+      const objectType = getObject(index);
+      const isSelectedTile = index === selectedIndex;
       element.classList.toggle(styles.revealed, tile.isRevealed);
-      element.classList.toggle(styles.character, isSelectable(index));
-      element.classList.toggle(styles.selected, index === selectedIndex);
+      element.classList.toggle(styles.character, objectType !== undefined);
+      element.classList.toggle(CssClass.HINT, hintCharacters && tile.isRevealed && tile.living !== undefined);
+      element.classList.toggle(styles.selected, isSelectedTile);
+      // no steps lit means the selection is only being looked at — see select()
+      element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
       element.classList.toggle(styles.target, targetIndices.includes(index));
       element.textContent = tile.isRevealed ? (objectType === undefined ? "" : OBJECT_CONFIG[objectType].emoji) : FOG_EMOJI;
     });
@@ -73,30 +90,49 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     turnCounter.textContent = TURN_EMOJI + map.turn;
     purse.textContent = COIN_EMOJI + map.coins;
     goal.textContent = `${OBJECT_CONFIG[GameObjectType.RAINBOW].emoji}${map.rainbowCount}/${RAINBOW_GOAL}`;
-    // an empty purse makes ending the turn the only way on — highlight it as the next step
-    endTurnButton.classList.toggle(CssClass.PRIMARY, map.coins < MOVE_COST);
+    endTurnButton.classList.toggle(CssClass.PRIMARY, needsIncome);
+    endTurnButton.classList.toggle(CssClass.HINT, needsIncome);
   }
 
-  /** A character can be picked up only where it is actually visible. */
-  function isSelectable(index: number): boolean {
+  /** Opens the info panel on an object, or folds it away when there is nothing to tell. */
+  function showInfo(objectType?: GameObjectType) {
+    infoPanel.classList.toggle(CssClass.HIDDEN, objectType === undefined);
+    if (objectType === undefined) return;
+
+    const config = OBJECT_CONFIG[objectType];
+    const [name, description] = getTranslation(config.info).split("|");
+    infoEmoji.textContent = config.emoji;
+    infoName.textContent = name;
+    infoText.textContent = description;
+  }
+
+  /** What is visible on a tile — the living layer wins, the ground object stays underneath. */
+  function getObject(index: number): GameObjectType | undefined {
     const tile = map.tiles[index];
-    return tile.isRevealed && tile.living !== undefined;
+    return tile.isRevealed ? (tile.living ?? tile.object) : undefined;
   }
 
+  /** Selection is "what the player is looking at" — the info panel follows it exactly. */
   function select(position?: Position) {
     selected = position;
-    // an empty purse buys no steps, so nothing lights up until the next income
-    targets = position && map.coins >= MOVE_COST ? getMoveTargets(map, position) : [];
+    const index = position && getIndex(position);
+    // Steps only light up for a character that can afford one. Scenery, a blocked-in
+    // character and one with an empty purse all end up with no targets, which is what
+    // render() draws as the neutral selection.
+    targets = index !== undefined && map.coins >= MOVE_COST && map.tiles[index].living !== undefined ? getMoveTargets(map, position!) : [];
+    showInfo(index === undefined ? undefined : getObject(index));
   }
 
   function onTileClick(index: number) {
     if (!isRunning || index < 0) return;
 
-    if (selected && targets.some((target) => getIndex(target) === index)) {
+    if (targets.some((target) => getIndex(target) === index)) {
       move(getPosition(index));
     } else {
-      // tapping a character selects it, tapping it again (or anywhere else) clears the selection
-      select(isSelectable(index) && index !== (selected && getIndex(selected)) ? getPosition(index) : undefined);
+      // every visible object can be picked up and explains itself; tapping it again —
+      // or tapping fog or bare ground — drops the selection and folds the panel away
+      const isNew = getObject(index) !== undefined && index !== (selected && getIndex(selected));
+      select(isNew ? getPosition(index) : undefined);
       render();
     }
   }
@@ -104,11 +140,12 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   function move(target: Position) {
     map.coins -= MOVE_COST;
     moveCharacter(map, selected!, target);
-    select(target); // stays selected, so walking on is a single tap per step
 
     const previousRainbowCount = map.rainbowCount;
     revealAround(map, target);
     updateRainbows(map);
+    // after the fog lifts, so a step into the unknown still reads its own tile
+    select(target); // stays selected, so walking on is a single tap per step
     render();
 
     if (map.rainbowCount > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);

@@ -122,3 +122,15 @@ button.#{$ICON_BTN} {
 .#{$ONE_LINER} {
   white-space: nowrap;
 }
+
+// Nudges the player towards the next step — put it on whatever is the obvious
+// thing to do right now (a character to pick up, the end-turn button).
+.#{$HINT} {
+  animation: pulse 1.4s infinite;
+}
+
+@keyframes pulse {
+  50% {
+    transform: scale(1.12);
+  }
+}

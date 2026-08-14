@@ -12,4 +12,5 @@ export const CssClass = defineEnum({
   OPACITY_HIDDEN: "global__opacity_hidden",
   EMOJI: "global__emoji",
   ONE_LINER: "global__one_liner",
+  HINT: "global__hint", // pulses whatever the player should do next
 });

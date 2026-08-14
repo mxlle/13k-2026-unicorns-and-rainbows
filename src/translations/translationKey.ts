@@ -8,4 +8,10 @@ export const TranslationKey = defineEnum({
   WON: 1,
   LOST: 2,
   END_TURN: 3,
+  // Object info, one key per object type: "Name|One-line description". One string
+  // instead of two keys per object — the component splits it at the pipe.
+  INFO_UNICORN: 4,
+  INFO_RAINBOW: 5,
+  INFO_FOUNTAIN: 6,
+  INFO_SUN: 7,
 });

@@ -7,7 +7,7 @@ export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
 export const FOUNTAIN_COUNT = 3; // hidden ones, on top of the two flanking the sun
 export const UNICORN_COUNT = 3; // one at the start position, the others hidden in the fog
 export const RAINBOW_GOAL = 5; // rainbows that have to shine at the same time to win
-export const MOVE_COST = 1; // gold coins per step
+export const MOVE_COST = 1; // water drops per step
 export const SUN_POSITION: Position = { x: 0, y: 0 };
 export const UNICORN_START: Position = { x: 1, y: 1 }; // the sun's diagonal neighbour
 
@@ -35,7 +35,7 @@ export interface GameMap {
   tiles: Tile[]; // flat, row-major: index = y * MAP_SIZE + x
   rainbowCount: number; // rainbows shining right now — recomputed after every move
   beams: Beam[]; // what the light is doing, recomputed alongside the rainbows
-  coins: number; // gold coins in the purse; they buy steps and are banked across turns
+  drops: number; // water drops in the purse; they buy steps and are banked across turns
   turn: number; // turns played so far, counted up as each income is collected
 }
 
@@ -61,7 +61,7 @@ export function createGameMap(): GameMap {
     tiles: Array.from({ length: MAP_SIZE * MAP_SIZE }, () => ({ isRevealed: false })),
     rainbowCount: 0,
     beams: [],
-    coins: 0,
+    drops: 0,
     turn: 0,
   };
 
@@ -182,9 +182,9 @@ export function moveCharacter(map: GameMap, from: Position, to: Position) {
   fromTile.living = undefined;
 }
 
-/** Income at the start of a turn: one gold coin per shining rainbow. Unspent coins stay in the purse. */
+/** Income at the start of a turn: one water drop per shining rainbow. Unspent drops stay in the purse. */
 export function startTurn(map: GameMap) {
-  map.coins += map.rainbowCount;
+  map.drops += map.rainbowCount;
   map.turn++;
 }
 
@@ -192,7 +192,7 @@ export function isWon(map: GameMap): boolean {
   return map.rainbowCount >= RAINBOW_GOAL;
 }
 
-/** No coins and no rainbows left to earn any: nothing can ever move again. */
+/** No drops and no rainbows left to earn any: nothing can ever move again. */
 export function isLost(map: GameMap): boolean {
-  return map.coins < MOVE_COST;
+  return map.drops < MOVE_COST;
 }

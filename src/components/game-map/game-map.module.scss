@@ -79,16 +79,34 @@ $beam-width: 0.08em;
   grid-area: 3 / 1;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem; // narrow, so a full purse still has room next to the button on a phone
   width: $board-width;
 
   > button {
     margin-left: auto; // counters left, the button on the far right
+    // A growing purse must not squeeze the button: wrapping its label to a second
+    // line would change the height of the whole bar and shift the board above it.
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 }
 
 .count {
   font-size: 1.2rem;
+  white-space: nowrap; // the purse's row of drops never wraps into a second line
+}
+
+.purse {
+  // The drops sit slightly inside each other, both to read as one puddle and to keep
+  // a full purse narrow. Last in the row and the only part allowed to give way, so
+  // if a screen is ever too narrow it is a drop that goes, never the button.
+  letter-spacing: -0.15em;
+  min-width: 0;
+  overflow: hidden;
+
+  > :last-child {
+    letter-spacing: normal; // the number past MAX_PIPS is not a pip row — no overlap
+  }
 }
 
 // Object info panel: emoji, name and description as one wrapping line, in a slot of

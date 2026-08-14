@@ -25,8 +25,11 @@ import {
 import { GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
 
 const FOG_EMOJI = "☁️";
-const COIN_EMOJI = "🪙";
+const DROP_EMOJI = "💧";
 const TURN_EMOJI = "⏳";
+// PLACEHOLDER: how many drops the purse still draws one by one. Above that it falls
+// back to "💧n" — a pip row long enough to reach the button would break the turn bar.
+const MAX_PIPS = 8;
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
 const EMPTY_EMOJI = "🌱";
@@ -55,19 +58,25 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   ]);
   board.style.setProperty("--s", String(MAP_SIZE)); // keeps MAP_SIZE the single source of truth
 
-  // PLACEHOLDER turn bar: turn count, purse and goal on the left, end-turn button on the right
+  // PLACEHOLDER turn bar: turn count, goal and purse on the left, end-turn button on the right
   // Only the emoji gets the emoji font — digits inside it would render as emoji glyphs too.
   const turnCounter = createElement({ tag: "span" });
-  const purse = createElement({ tag: "span" });
   const goal = createElement({ tag: "span" });
   const counter = (emoji: string, value: HTMLElement) =>
     createElement({ cssClass: styles.count }, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }), value]);
+  // The purse is drawn as one drop per step the player can still take, so the cost of a
+  // step needs no number anywhere. Its own emoji is what changes, hence not a counter().
+  const dropPips = createElement({ tag: "span", cssClass: CssClass.EMOJI });
+  const dropCount = createElement({ tag: "span" }); // only used past MAX_PIPS
+  const purse = createElement({ cssClass: [styles.count, styles.purse] }, [dropPips, dropCount]);
   // One button for both ends of a run: end the turn while playing, start over once it is over.
   const endTurnButton = createButton({ onClick: () => (isRunning ? endTurn() : startNewGame()) });
+  // Purse last of the three: it is the only one that changes width, and everything
+  // left of it stays put while it grows into the gap before the button.
   const turnBar = createElement({ cssClass: styles.turnBar }, [
     counter(TURN_EMOJI, turnCounter),
-    counter(COIN_EMOJI, purse),
     counter(OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, goal),
+    purse,
     endTurnButton,
   ]);
 
@@ -89,7 +98,7 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     // Guidance: an empty purse makes the income the only way on, so ending the turn
     // becomes the next step. Before that, on the opening turn, it is picking a character.
     // Once the run is over the same button is the only thing left to press.
-    const needsIncome = map.coins < MOVE_COST;
+    const needsIncome = map.drops < MOVE_COST;
     const isOver = !isRunning;
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
 
@@ -108,8 +117,10 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     });
 
     turnCounter.textContent = `${map.turn}`;
-    purse.textContent = `${map.coins}`;
     goal.textContent = `${map.rainbowCount}/${RAINBOW_GOAL}`;
+    const asPips = map.drops <= MAX_PIPS;
+    dropPips.textContent = DROP_EMOJI.repeat(asPips ? map.drops : 1);
+    dropCount.textContent = asPips ? "" : `${map.drops}`;
     renderBeams();
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
@@ -173,7 +184,7 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     // Steps only light up for a character that can afford one. Scenery, a blocked-in
     // character and one with an empty purse all end up with no targets, which is what
     // render() draws as the neutral selection.
-    targets = index !== undefined && map.coins >= MOVE_COST && map.tiles[index].living !== undefined ? getMoveTargets(map, position!) : [];
+    targets = index !== undefined && map.drops >= MOVE_COST && map.tiles[index].living !== undefined ? getMoveTargets(map, position!) : [];
     showInfo(index);
   }
 
@@ -191,7 +202,7 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   }
 
   function move(target: Position) {
-    map.coins -= MOVE_COST;
+    map.drops -= MOVE_COST;
     moveCharacter(map, selected!, target);
 
     const previousRainbowCount = map.rainbowCount;

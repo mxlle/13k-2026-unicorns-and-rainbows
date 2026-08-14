@@ -13,5 +13,6 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_RAINBOW]: "Regenbogen|Bringt jede Runde eine Münze, solange er leuchtet. 5 gleichzeitig gewinnen.",
     [TranslationKey.INFO_FOUNTAIN]: "Brunnen|Bricht Licht von der Nachbarkachel zu einem Regenbogen auf der Kachel gegenüber.",
     [TranslationKey.INFO_SUN]: "Sonne|Leuchtet immer, bewegt sich nie. Ihre zwei Brunnen sind dein Startkapital.",
+    [TranslationKey.INFO_HINT]: "|Tippe etwas auf der Karte an, um zu erfahren, was es tut.",
   };
 }

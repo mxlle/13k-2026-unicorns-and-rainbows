@@ -3,14 +3,17 @@
 
 // --s (the map size) is set from MAP_SIZE in the component, so the grid and the
 // emoji size follow the map size without duplicating it here.
-$board-width: min(92vw, 62vh);
+// The height budget leaves room for the permanent info row below the board.
+$board-width: min(92vw, 55vh);
+// Tall enough for the longest description, so switching objects never resizes the row
+// and the board never moves. Raise it if a description ever wraps to a fourth line.
+$info-height: 3.8rem;
 
-// Two rows: the map fills what is left, the turn bar is pinned to the bottom of the
-// screen. The info panel is placed into the map row as well and hovers at its bottom
-// edge — sharing the cell means opening it overlays the map instead of shifting it.
+// Map / info panel / turn bar, top to bottom. The info row is always there — that is
+// what keeps it from ever covering the board or shifting it when the selection changes.
 .host {
   display: grid;
-  grid-template-rows: 1fr min-content;
+  grid-template-rows: 1fr min-content min-content;
   justify-items: center;
   gap: 1rem;
   padding: 1rem;
@@ -46,7 +49,7 @@ $board-width: min(92vw, 62vh);
 }
 
 .turnBar {
-  grid-area: 2 / 1;
+  grid-area: 3 / 1;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -61,32 +64,28 @@ $board-width: min(92vw, 62vh);
   font-size: 1.2rem;
 }
 
-// Object info panel: emoji, name, one line of explanation. Shares the map's grid cell
-// and hangs at its bottom edge, right above the turn bar, so it costs no layout space.
+// Object info panel: emoji, name and description as one wrapping line, in a slot of
+// fixed height so its content can change without nudging anything above it.
 .info {
-  grid-area: 1 / 1;
-  align-self: end;
-  pointer-events: none; // the tiles it covers stay clickable
-  display: grid;
-  gap: 0.3rem;
-  justify-items: center;
-  max-width: $board-width;
-  padding: 0.6rem 1rem;
+  grid-area: 2 / 1;
+  @extend %gridCentered;
+  width: $board-width;
+  min-height: $info-height;
+  padding: 0.4rem 0.8rem;
   border-radius: theme.$border-radius;
-  background: theme.$dialog-bg;
-  outline: 1px solid theme.$bg-alpha-25;
+  background: theme.$bg-alpha-10;
   text-align: center;
   font-size: 0.8rem;
   color: theme.$text-secondary;
 }
 
 .infoEmoji {
-  font-size: 2rem;
-  line-height: 1;
+  font-size: 1.1rem;
 }
 
 .infoName {
-  font-size: 1.1rem;
+  margin: 0 0.4em; // the only separator between emoji, name and description
+  font-size: 1rem;
   color: theme.$text-primary;
 }
 

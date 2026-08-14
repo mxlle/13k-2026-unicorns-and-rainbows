@@ -28,6 +28,7 @@ import { GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
 const FOG_EMOJI = "☁️";
 const COIN_EMOJI = "🪙";
 const TURN_EMOJI = "⏳";
+const HINT_EMOJI = "👆"; // stands in for the object emoji while nothing is selected
 const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
 
 export function GameMapComponent(): ComponentDefinition<undefined> {
@@ -54,12 +55,13 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
   const endTurnButton = createButton({ text: getTranslation(TranslationKey.END_TURN), onClick: endTurn });
   const turnBar = createElement({ cssClass: styles.turnBar }, [turnCounter, purse, goal, endTurnButton]);
 
-  // Object info: hovers over the bottom of the map, just above the turn bar. It shares
-  // the map's grid cell, so opening it overlays the board instead of shifting anything.
-  const infoEmoji = createElement({ cssClass: [styles.infoEmoji, CssClass.EMOJI] });
-  const infoName = createElement({ cssClass: styles.infoName });
-  const infoText = createElement();
-  const infoPanel = createElement({ cssClass: styles.info }, [infoEmoji, infoName, infoText]);
+  // Object info: a permanent row of its own between map and turn bar, so it can never
+  // cover the board and never shifts it either. Empty selection shows a hint instead.
+  // Spans, not divs: emoji, name and description flow as one wrapping line of text.
+  const infoEmoji = createElement({ tag: "span", cssClass: [styles.infoEmoji, CssClass.EMOJI] });
+  const infoName = createElement({ tag: "span", cssClass: styles.infoName });
+  const infoText = createElement({ tag: "span" });
+  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText])]);
 
   // The board keeps its size whatever the screen does; this row scrolls to reach it.
   const mapArea = createElement({ cssClass: styles.mapArea }, [board]);
@@ -94,15 +96,12 @@ export function GameMapComponent(): ComponentDefinition<undefined> {
     endTurnButton.classList.toggle(CssClass.HINT, needsIncome);
   }
 
-  /** Opens the info panel on an object, or folds it away when there is nothing to tell. */
+  /** Fills the info panel with an object, or with the "tap something" hint when nothing is selected. */
   function showInfo(objectType?: GameObjectType) {
-    infoPanel.classList.toggle(CssClass.HIDDEN, objectType === undefined);
-    if (objectType === undefined) return;
-
-    const config = OBJECT_CONFIG[objectType];
-    const [name, description] = getTranslation(config.info).split("|");
-    infoEmoji.textContent = config.emoji;
-    infoName.textContent = name;
+    const config = objectType === undefined ? undefined : OBJECT_CONFIG[objectType];
+    const [name, description] = getTranslation(config ? config.info : TranslationKey.INFO_HINT).split("|");
+    infoEmoji.textContent = config ? config.emoji : HINT_EMOJI;
+    infoName.textContent = name; // empty for the hint, which has no name
     infoText.textContent = description;
   }
 

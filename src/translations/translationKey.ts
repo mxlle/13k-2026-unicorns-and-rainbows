@@ -14,4 +14,5 @@ export const TranslationKey = defineEnum({
   INFO_RAINBOW: 5,
   INFO_FOUNTAIN: 6,
   INFO_SUN: 7,
+  INFO_HINT: 8, // shown in the info panel while nothing is selected — no name, hence the leading "|"
 });

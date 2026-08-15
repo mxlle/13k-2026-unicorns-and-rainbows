@@ -9,6 +9,8 @@ import {
   BASE_INCOME,
   buyUnicorn,
   canUsePortal,
+  CHEST_CANDY,
+  CHEST_DROPS,
   createGameMap,
   createSeed,
   GameMap,
@@ -29,13 +31,14 @@ import {
   MAP_SIZES,
   moveCharacter,
   MOVE_COST,
+  openChest,
   PORTAL_COST,
   Position,
   revealAround,
   TURN_LIMIT,
   updateRainbows,
 } from "../../game/game-map";
-import { GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
+import { ChestLoot, GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
 
 const FOG_EMOJI = "☁️";
 const DROP_EMOJI = "💧";
@@ -97,6 +100,10 @@ const SPEND_COLOR = "#e06d80";
 // the payout speaks in. The rise is in em, so it scales with the glyph rather than the zoom.
 const SPEND_DURATION = 700;
 const SPEND_STAGGER = 120;
+// The window every departure shares, the same shape as FLY_SPREAD and for the same reason:
+// a unicorn now costs one sweet per head of the herd, so an unbounded stagger would make a
+// purchase take longer to watch the bigger the herd got.
+const SPEND_SPREAD = 400;
 const SPEND_RISE = 2.2;
 // Every counter reaction is this same beat, whichever direction the money went.
 const POP_OPTIONS: KeyframeAnimationOptions = { "duration": POP_DURATION, "direction": "alternate", "iterations": 2 };
@@ -559,6 +566,10 @@ export function GameMapComponent(): [
   function move(target: Position, cost = getMoveCost(map, target)) {
     map.drops -= cost;
     moveCharacter(map, selected!, target);
+    // Stepping on is the whole of opening one, so this runs on every step and comes back
+    // empty-handed on all but a few of them. Before the fog and the rainbows: a chest can
+    // hold a unicorn, and that unicorn has its own vision and its own light to bring.
+    const loot = openChest(map, target);
 
     const previousRainbowCount = map.rainbowCount;
     revealAround(map, target);
@@ -567,6 +578,7 @@ export function GameMapComponent(): [
     select(target); // stays selected, so walking on is a single tap per step
     render();
     showSpending(target, cost); // after render(), which is what puts the tile where it is measured
+    if (loot !== undefined) showLoot(target, loot);
 
     if (map.rainbowCount > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
   }
@@ -610,6 +622,7 @@ export function GameMapComponent(): [
     if (!cost) return;
 
     const from = centre(tileElements[getIndex(position)]);
+    const stagger = Math.min(SPEND_STAGGER, SPEND_SPREAD / cost);
 
     for (let i = 0; i < cost; i++) {
       flyGlyph(
@@ -618,13 +631,51 @@ export function GameMapComponent(): [
         { "transform": `translateY(-${SPEND_RISE}em)`, "opacity": 0 },
         {
           "duration": SPEND_DURATION,
-          "delay": i * SPEND_STAGGER,
+          "delay": i * stagger,
           "easing": "ease-out", // off it goes, then it drifts — the opposite of the payout's dive
         },
       );
     }
 
     pop(currency, SPEND_COLOR);
+  }
+
+  /**
+   * One unit of money on its way in: a glyph of `currency` leaves `from` and lands on the
+   * counter it pays into, popping it as it arrives — so a busy board reads as a run of
+   * payments rather than one number quietly changing. Only the trip is animated; the centring
+   * on the tile is a CSS `translate` on the glyph itself, and the two compose rather than
+   * overwrite each other.
+   *
+   * `to` is passed in rather than measured here: a busy board sends thirty of these to the
+   * same place, and measuring is the one thing that makes the browser stop and think.
+   */
+  function flyToCounter(currency: number, from: number[], to: number[], delay: number) {
+    flyGlyph(
+      [DROP_EMOJI, CANDY_EMOJI][currency],
+      from,
+      { "transform": `translate(${to[0] - from[0]}px, ${to[1] - from[1]}px) scale(0.5)`, "opacity": 0.5 },
+      { "duration": FLY_DURATION, "delay": delay, "easing": "ease-in" },
+      () => pop(currency),
+    );
+  }
+
+  /**
+   * A chest paying out. It flies the same glyphs the same way the turn's income does — money
+   * coming in always moves towards the purse, whether it was earned or found — so a chest
+   * needs no explaining beyond the trip the player has already watched every turn.
+   * A unicorn is its own announcement: it is standing on the board, so nothing flies for it.
+   */
+  function showLoot(position: Position, loot: ChestLoot) {
+    if (loot === ChestLoot.UNICORN) return;
+
+    // A loot value doubles as its currency index — see the ChestLoot comment in game-objects.
+    const from = centre(tileElements[getIndex(position)]);
+    const to = centre(currencyDisplays[loot]);
+    const count = [CHEST_DROPS, CHEST_CANDY][loot];
+    const stagger = Math.min(FLY_STAGGER, FLY_SPREAD / count);
+
+    for (let i = 0; i < count; i++) flyToCounter(loot, from, to, i * stagger);
   }
 
   /**
@@ -670,22 +721,8 @@ export function GameMapComponent(): [
       const stagger = Math.min(FLY_STAGGER, FLY_SPREAD / group.length);
       const [toX, toY] = centres[currency];
 
-      group.forEach((index, i) => {
-        const [fromX, fromY] = centre(tileElements[index]);
-
-        // Only the trip is animated — the centring on the tile is a CSS `translate` on the
-        // glyph itself, and the two compose rather than overwrite each other. The delay is
-        // what lets the sweets wait on their trees while the drops are being collected.
-        flyGlyph(
-          [DROP_EMOJI, CANDY_EMOJI][currency],
-          [fromX, fromY],
-          { "transform": `translate(${toX - fromX}px, ${toY - fromY}px) scale(0.5)`, "opacity": 0.5 },
-          { "duration": FLY_DURATION, "delay": start + i * stagger, "easing": "ease-in" },
-          // The counter takes the hit: each arrival pops it, so a busy board reads as a run
-          // of payments rather than one number quietly changing.
-          () => pop(currency),
-        );
-      });
+      // The delay is what lets the sweets wait on their trees while the drops are collected.
+      group.forEach((index, i) => flyToCounter(currency, centre(tileElements[index]), [toX, toY], start + i * stagger));
 
       end = start + (group.length - 1) * stagger + FLY_DURATION;
       start = end + CURRENCY_GAP; // the next currency waits for this one to be in the purse

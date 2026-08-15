@@ -1,6 +1,6 @@
 import { setSeed } from "../utils/random-utils";
 import { getRandomItem } from "../utils/array-utils";
-import { GameObjectType, ObjectCategory, OBJECT_CONFIG } from "./game-objects";
+import { ChestLoot, GameObjectType, ObjectCategory, OBJECT_CONFIG } from "./game-objects";
 
 // PLACEHOLDER: the boards on offer. Odd numbers so a board has a true middle, and spaced
 // far enough apart that picking one is a real choice rather than a nudge.
@@ -16,6 +16,7 @@ export let MAP_SIZE = MAP_SIZES[0];
 export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are none in the open any more
 export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every fountain
 export let FLOWER_COUNT = 0; // free stepping stones scattered over the meadow
+export let CHEST_COUNT = 0; // what the fog is worth walking into
 export let TURN_LIMIT = 0; // the whole run — as many turns as the board is wide
 export let MIN_PORTAL_DISTANCE = 0; // along both axes, so the pair sits diagonally across the board
 
@@ -33,6 +34,9 @@ function setMapSize(size: number) {
   MAP_SIZE = size;
   FOUNTAIN_COUNT = TREE_COUNT = (tiles / 27 + 0.5) | 0;
   FLOWER_COUNT = (tiles / 12 + 0.5) | 0;
+  // Rarer than anything else on the board, and the divisor is picked to land inside the
+  // hand-set targets for the three boards: 1 on the 7x7, 3 on the 13x13, 7 on the 21x21.
+  CHEST_COUNT = (tiles / 60 + 0.5) | 0;
   TURN_LIMIT = size;
   // Half the width, on both axes. Absolute distances stop meaning anything once the board
   // can be three times wider: four tiles apart is across the map at 7 and a stroll at 21.
@@ -60,6 +64,16 @@ export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs
 // floor under the economy — with it, a run can never seize up, which is why there is no
 // losing any more. Every tub on the board pays it, so a second one doubles the base.
 export const BASE_INCOME = 2;
+// PLACEHOLDER chest contents. Flat rather than scaled by the turn, which makes them worth
+// most in the opening — five drops is two and a half turns' income while the tub is the whole
+// economy, and barely half a turn's once the rainbows are up. That decay is the point: the
+// slow part of a run is the start, and this is what shortens it.
+export const CHEST_DROPS = 5;
+export const CHEST_CANDY = 2;
+// What is inside, rolled from this list: writing the two common outcomes twice is the whole
+// weighting — 40% drops, 40% candy, 20% a unicorn. A unicorn is worth far more than either
+// pile, so it comes up half as often as they do.
+const LOOT_TABLE = [ChestLoot.DROPS, ChestLoot.DROPS, ChestLoot.CANDY, ChestLoot.CANDY, ChestLoot.UNICORN];
 // PLACEHOLDER: the range a "give me any map" seed is drawn from. Short enough to stay
 // readable, which matters once maps are handpicked by their number.
 const SEED_RANGE = 1e6;
@@ -77,6 +91,10 @@ export interface Tile {
   // on top of it, so a rainbow stays put when the unicorn steps onto its tile.
   object?: GameObjectType; // ground layer — GOAL / STATIC
   living?: GameObjectType; // entity layer — LIVING
+  // What the chest on this tile is holding, on the handful of tiles that have one. Rolled
+  // when the board is built rather than when the chest is opened, so a seed determines its
+  // prizes as completely as it determines where they are.
+  loot?: ChestLoot;
 }
 
 /** A ray of light leaving a glowing tile towards the fountain one step away in (dx, dy). */
@@ -187,6 +205,13 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // begins with, and every other one is bought from a tub. Nothing waits in the fog.
   for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, SPACING);
   for (let i = 0; i < FLOWER_COUNT; i++) placeObject(map, GameObjectType.FLOWER, SPACING);
+
+  // Chests last, and they can only land under the fog like everything else — which is the
+  // rule that makes them a reward for exploring rather than a handout in the corner.
+  for (let i = 0; i < CHEST_COUNT; i++) {
+    const position = placeObject(map, GameObjectType.CHEST, SPACING);
+    if (position) getTile(map, position)!.loot = getRandomItem(LOOT_TABLE);
+  }
 
   updateRainbows(map);
   map.drops = map.dropIncome; // the opening purse is one turn's income — the tub's, since nothing shines yet
@@ -473,6 +498,39 @@ export function moveCharacter(map: GameMap, from: Position, to: Position) {
   const fromTile = getTile(map, from)!;
   getTile(map, to)!.living = fromTile.living;
   fromTile.living = undefined;
+}
+
+/**
+ * Opens the chest a character has just stepped onto and reports what was inside, or undefined
+ * if there was no chest there — which is what lets the caller run it on every step without
+ * asking first. The chest is spent either way: the ground goes back to plain meadow, so the
+ * tile can take a rainbow from then on.
+ *
+ * A unicorn needs somewhere to stand, and there is always somewhere: the tile the opener came
+ * from is a neighbour of this one and it was vacated a moment ago, so the list is never empty
+ * and the prize can never be lost for want of room. It lights its own surroundings on arrival,
+ * the same as any character stepping out of the fog.
+ *
+ * Called before the rainbows are recomputed — a unicorn out of a chest may be standing next to
+ * a fountain, and a chest lifted off a tile may have been in a rainbow's way.
+ */
+export function openChest(map: GameMap, position: Position): ChestLoot | undefined {
+  const tile = getTile(map, position)!;
+  const loot = tile.loot;
+
+  if (loot === undefined) return undefined;
+
+  tile.object = tile.loot = undefined;
+
+  if (loot === ChestLoot.DROPS) map.drops += CHEST_DROPS;
+  else if (loot === ChestLoot.CANDY) map.candy += CHEST_CANDY;
+  else {
+    const spot = getRandomItem(getMoveTargets(map, position));
+    getTile(map, spot)!.living = GameObjectType.UNICORN;
+    revealAround(map, spot);
+  }
+
+  return loot;
 }
 
 /**

@@ -30,4 +30,6 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.JUMP]: "Jump",
   // Says both halves of the trade: the free step, and the rainbow spot it takes up.
   [TranslationKey.INFO_FLOWER]: "Flower|Stepping on it is free. But no rainbow can appear here.",
+  // Says what it is for without saying what is in it: the three outcomes, and the one action.
+  [TranslationKey.INFO_CHEST]: "Present|Step on it to open. Inside is 💧, 🍬 or a new 🦄.",
 };

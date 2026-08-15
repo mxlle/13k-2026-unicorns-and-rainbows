@@ -20,6 +20,18 @@ export const GameObjectType = defineEnum({
   TREE: 4,
   DONUT: 5,
   FLOWER: 6,
+  CHEST: 7,
+});
+
+// What a chest turns out to have been holding. DROPS and CANDY are deliberately numbered to
+// match the two currency indices the interface already sorts everything by — the emoji that
+// flies, the counter it lands in, the counter that pops — so a loot value doubles as a
+// currency and no lookup is needed to turn one into the other.
+export type ChestLoot = defineEnum<typeof ChestLoot>;
+export const ChestLoot = defineEnum({
+  DROPS: 0,
+  CANDY: 1,
+  UNICORN: 2,
 });
 
 interface GameObjectConfig {
@@ -86,6 +98,18 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
     blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_DONUT,
+  },
+  // PLACEHOLDER art: there is no chest emoji, so the present stands in for one — it says
+  // "something is inside" without saying what, which is the whole of it.
+  // Walk-through, because stepping on is how it is opened. It owns the ground layer only
+  // until then: an opened chest leaves plain meadow behind, rainbows and all.
+  [GameObjectType.CHEST]: {
+    emoji: "🎁",
+    category: ObjectCategory.STATIC,
+    blocksMove: false,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_CHEST,
   },
   // Walk-through like the donut, and the only tile that is free to step onto. It still
   // owns the ground layer, so the free path it offers costs a rainbow spot in return.

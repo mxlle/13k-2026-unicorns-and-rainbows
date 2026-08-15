@@ -19,5 +19,7 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_FOG]: "Wolke|Hier kannst du noch nichts sehen. Lauf mit einem Einhorn näher heran.",
     [TranslationKey.INFO_EMPTY]: "Wiese|Freier Platz. Hier kann ein Regenbogen entstehen.",
     [TranslationKey.INFO_TREE]: "Lollibaum|Süß, aber im Weg. Hier kann kein Regenbogen entstehen.",
+    [TranslationKey.INFO_DONUT]: "Donut|Ein Portal zum anderen Donut. Der Sprung kostet ein 💧 extra.",
+    [TranslationKey.JUMP]: "Springen",
   };
 }

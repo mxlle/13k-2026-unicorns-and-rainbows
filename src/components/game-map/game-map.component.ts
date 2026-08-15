@@ -5,16 +5,19 @@ import { CssClass } from "../../utils/css-class";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
+  canUsePortal,
   createGameMap,
   GameMap,
   getIndex,
   getMoveTargets,
+  getPortalTarget,
   getPosition,
   isLost,
   isWon,
   MAP_SIZE,
   moveCharacter,
   MOVE_COST,
+  PORTAL_COST,
   Position,
   RAINBOW_GOAL,
   revealAround,
@@ -46,12 +49,22 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
   // can afford a step — tap one of its highlighted neighbours to move there.
   let selected: Position | undefined;
   let targets: Position[] = [];
+  // The far donut, when the selection is a character standing on the near one. It is an
+  // action rather than a highlighted tile, so taking the portal never gives the far end
+  // away before the player has walked there.
+  let portalTarget: Position | undefined;
 
-  // The emoji sits in a span of its own so a single glyph can be transformed — the
+  // Two stacked glyph layers per tile, mirroring the two layers of the model: the ground
+  // first, the character standing on it painted over it (later sibling, same grid cell).
+  // A character therefore never hides what it stands on — the donut under a unicorn still
+  // shows. Glyphs live in spans of their own so one can be transformed on its own — the
   // lollipop tree is drawn tilted and gets stood upright — without turning the tile's
   // background, its selection ring, or the grid cell with it.
-  const tileGlyphs = createElements({ tag: "span" }, MAP_SIZE * MAP_SIZE);
-  const tileElements = tileGlyphs.map((glyph) => createElement({ cssClass: [styles.tile, CssClass.EMOJI] }, [glyph]));
+  const groundGlyphs = createElements({ tag: "span" }, MAP_SIZE * MAP_SIZE);
+  const livingGlyphs = createElements({ tag: "span" }, MAP_SIZE * MAP_SIZE);
+  const tileElements = groundGlyphs.map((ground, index) =>
+    createElement({ cssClass: [styles.tile, CssClass.EMOJI] }, [ground, livingGlyphs[index]]),
+  );
   // Light beams live in their own layer above the tiles: a tile can carry several at
   // once (the sun's does), which a per-tile pseudo-element could not draw.
   const beamLayer = createElement({ cssClass: styles.beams });
@@ -90,7 +103,13 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
   const infoEmoji = createElement({ tag: "span", cssClass: [styles.infoEmoji, CssClass.EMOJI] });
   const infoName = createElement({ tag: "span", cssClass: styles.infoName });
   const infoText = createElement({ tag: "span" });
-  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText])]);
+  // The portal action sits in the same line that explains it, so the offer and the
+  // description arrive together. Hidden unless the selection is standing on a donut.
+  const jumpButton = createButton({ cssClass: [CssClass.SECONDARY, styles.jump], onClick: () => move(portalTarget!, PORTAL_COST) }, [
+    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: OBJECT_CONFIG[GameObjectType.DONUT].emoji }),
+    ` ${getTranslation(TranslationKey.JUMP)}`,
+  ]);
+  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText, jumpButton])]);
 
   // The board keeps its size whatever the screen does; this row scrolls to reach it.
   const mapArea = createElement({ cssClass: styles.mapArea }, [board]);
@@ -118,15 +137,30 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
       element.classList.toggle(styles.target, targetIndices.includes(index));
 
-      const glyph = tileGlyphs[index];
-      glyph.classList.toggle(styles.tree, objectType === GameObjectType.TREE);
-      glyph.textContent = tile.isRevealed ? (objectType === undefined ? "" : OBJECT_CONFIG[objectType].emoji) : FOG_EMOJI;
+      // The fog belongs to the ground layer: under it there is nothing else to show.
+      const hasLiving = tile.isRevealed && tile.living !== undefined;
+      const ground = groundGlyphs[index];
+      // guarded on isRevealed, or the fog cloud hiding a tree would be turned instead
+      ground.classList.toggle(styles.tree, tile.isRevealed && tile.object === GameObjectType.TREE);
+      ground.classList.toggle(styles.covered, hasLiving); // steps back behind the character
+      ground.textContent = tile.isRevealed ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
+
+      const living = livingGlyphs[index];
+      // only makes room when there is actually something underneath to show
+      living.classList.toggle(styles.stacked, hasLiving && tile.object !== undefined);
+      living.textContent = hasLiving ? OBJECT_CONFIG[tile.living!].emoji : "";
     });
 
     turnCounter.textContent = `${map.turn}`;
     goal.textContent = `${map.rainbowCount}/${RAINBOW_GOAL}`;
     renderPurse();
     renderBeams();
+
+    // Offered wherever the character stands, but greyed out when it cannot be paid for or
+    // somebody else is already standing on the far donut.
+    jumpButton.classList.toggle(CssClass.HIDDEN, !portalTarget);
+    jumpButton.classList.toggle(CssClass.HINT, !!portalTarget && canUsePortal(map, portalTarget));
+    jumpButton.disabled = !portalTarget || !canUsePortal(map, portalTarget);
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
     endTurnButton.classList.toggle(CssClass.PRIMARY, needsIncome || isOver);
@@ -203,7 +237,10 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
     // from then on the nudge to tap around is enough
     const isOpening = map.turn === FIRST_TURN;
 
-    if (objectType !== undefined) setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
+    // Standing on a donut, the portal is what there is to act on — it takes the line over
+    // the character's own description, right beside the button that uses it.
+    if (portalTarget) setInfo(TranslationKey.INFO_DONUT, OBJECT_CONFIG[GameObjectType.DONUT].emoji);
+    else if (objectType !== undefined) setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
     else if (index === undefined)
       setInfo(
         isOpening ? TranslationKey.INFO_GOAL : TranslationKey.INFO_HINT,
@@ -223,11 +260,14 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
   function select(position?: Position) {
     selected = position;
     const index = position && getIndex(position);
+    const isCharacter = index !== undefined && map.tiles[index].living !== undefined;
     // Steps only light up for a character that can afford one. Scenery, a blocked-in
     // character and one with an empty purse all end up with no targets, which is what
     // render() draws as the neutral selection.
-    targets = index !== undefined && map.drops >= MOVE_COST && map.tiles[index].living !== undefined ? getMoveTargets(map, position!) : [];
-    showInfo(index);
+    targets = isCharacter && map.drops >= MOVE_COST ? getMoveTargets(map, position!) : [];
+    // only a character can take the portal, and only from the donut it is standing on
+    portalTarget = isCharacter ? getPortalTarget(map, position!) : undefined;
+    showInfo(index); // reads portalTarget, so it comes last
   }
 
   function onTileClick(index: number) {
@@ -243,8 +283,9 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
     }
   }
 
-  function move(target: Position) {
-    map.drops -= MOVE_COST;
+  /** One step, or — at the portal's price — a jump straight to the far donut. */
+  function move(target: Position, cost = MOVE_COST) {
+    map.drops -= cost;
     moveCharacter(map, selected!, target);
 
     const previousRainbowCount = map.rainbowCount;

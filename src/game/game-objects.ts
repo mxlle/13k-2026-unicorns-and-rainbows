@@ -18,6 +18,7 @@ export const GameObjectType = defineEnum({
   FOUNTAIN: 2,
   SUN: 3,
   TREE: 4,
+  DONUT: 5,
 });
 
 interface GameObjectConfig {
@@ -72,5 +73,15 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
     blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_TREE,
+  },
+  // Half of the portal pair — walk-through, so a character can stand on it and jump.
+  // It still owns the ground layer, so a rainbow can never land on a donut.
+  [GameObjectType.DONUT]: {
+    emoji: "🍩",
+    category: ObjectCategory.STATIC,
+    blocksMove: false,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_DONUT,
   },
 };

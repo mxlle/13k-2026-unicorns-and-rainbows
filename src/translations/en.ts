@@ -22,4 +22,6 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
   [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
   [TranslationKey.INFO_TREE]: "Lollipop tree|Sweet, but in the way. No rainbow can appear here.",
+  [TranslationKey.INFO_DONUT]: "Donut|A portal to the other donut. Jumping costs one 💧 extra.",
+  [TranslationKey.JUMP]: "Jump",
 };

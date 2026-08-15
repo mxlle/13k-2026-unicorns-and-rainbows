@@ -10,6 +10,8 @@ export const TREE_COUNT = 3; // free-roaming ones, on top of the one growing nex
 export const UNICORN_COUNT = 3; // one at the start position, the others hidden in the fog
 export const RAINBOW_GOAL = 5; // rainbows that have to shine at the same time to win
 export const MOVE_COST = 1; // water drops per step
+export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs one drop more than a step
+export const MIN_PORTAL_DISTANCE = 4; // Chebyshev, so the pair is always at least half the board apart
 export const SUN_POSITION: Position = { x: 0, y: 0 };
 export const UNICORN_START: Position = { x: 1, y: 1 }; // the sun's diagonal neighbour
 
@@ -91,6 +93,15 @@ export function createGameMap(): GameMap {
   }
   for (let i = 1; i < UNICORN_COUNT; i++) getTile(map, getFreePosition(map))!.living = GameObjectType.UNICORN;
   for (let i = 0; i < TREE_COUNT; i++) getTile(map, getFreePosition(map))!.object = GameObjectType.TREE;
+
+  // The portal pair. Both ends land on free tiles, so a character can never start on one,
+  // and they are kept far apart — a jump costs more than a step and has to be worth it.
+  const entry = getFreePosition(map);
+  getTile(map, entry)!.object = GameObjectType.DONUT; // taken first, so the far end cannot land on it
+  let exit: Position;
+  do exit = getFreePosition(map);
+  while (Math.max(Math.abs(exit.x - entry.x), Math.abs(exit.y - entry.y)) < MIN_PORTAL_DISTANCE);
+  getTile(map, exit)!.object = GameObjectType.DONUT;
 
   updateRainbows(map);
 
@@ -204,6 +215,24 @@ export function getMoveTargets(map: GameMap, { x, y }: Position): Position[] {
   }
 
   return targets;
+}
+
+/**
+ * The far end of the portal for a character standing on `from` — undefined if it is not
+ * standing on a donut. The target may still be under the fog: the jump is offered as an
+ * action rather than a highlighted tile precisely so it does not give its place away.
+ */
+export function getPortalTarget(map: GameMap, from: Position): Position | undefined {
+  const fromIndex = getIndex(from);
+  if (map.tiles[fromIndex].object !== GameObjectType.DONUT) return undefined;
+  const index = map.tiles.findIndex((tile, i) => i !== fromIndex && tile.object === GameObjectType.DONUT);
+
+  return index < 0 ? undefined : getPosition(index);
+}
+
+/** A jump is on only if it is paid for and nobody else is standing on the far donut. */
+export function canUsePortal(map: GameMap, target: Position): boolean {
+  return map.drops >= PORTAL_COST && getTile(map, target)!.living === undefined;
 }
 
 /** Steps the character on `from` onto `to` — `to` must come from getMoveTargets. */

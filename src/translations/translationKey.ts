@@ -20,4 +20,6 @@ export const TranslationKey = defineEnum({
   NEW_GAME: 11,
   INFO_GOAL: 12, // what the run is about, in place of INFO_HINT on the opening turn — no name either
   INFO_TREE: 13,
+  INFO_DONUT: 14,
+  JUMP: 15, // the portal action offered in the info panel
 });

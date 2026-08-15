@@ -6,10 +6,16 @@
 // The height budget leaves room for the permanent info row below the board.
 $board-width: min(92vw, 55vh);
 // Tall enough for the longest description, so switching objects never resizes the row
-// and the board never moves. Raise it if a description ever wraps to a fourth line.
-$info-height: 3.8rem;
+// and the board never moves. Raise it if a description ever wraps to a fourth line — or
+// if an action button is added to a line and pushes it past this.
+$info-height: 4.6rem;
 // Beam thickness, in em against the board font-size — a fraction of a tile, whatever the screen.
 $beam-width: 0.08em;
+// PLACEHOLDER: how far the ground glyph peeks out from behind a character standing on it.
+// The character gives way, not the ground — it shrinks, so the ground shows as a ring
+// around it and the character still reads as the thing on top.
+$stacked-scale: 0.72;
+$covered-opacity: 0.55;
 
 // Map / info panel / turn bar, top to bottom. The info row is always there — that is
 // what keeps it from ever covering the board or shifting it when the selection changes.
@@ -182,6 +188,13 @@ $drop-fall: 0.6rem; // how far a spent drop falls before it goes
   font-size: 1.1rem;
 }
 
+// The portal action, flowing inline at the end of the info line it belongs to.
+.jump {
+  margin-left: 0.6em;
+  vertical-align: middle;
+  white-space: nowrap; // never breaks between the donut and its label
+}
+
 .infoName {
   margin: 0 0.4em; // the only separator between emoji, name and description
   font-size: 1rem;
@@ -232,15 +245,27 @@ $drop-fall: 0.6rem; // how far a spent drop falls before it goes
     }
   }
 
-  // The glyph layer. `rotate` is used instead of `transform` on purpose: it composes
-  // with the tile's own scale instead of overwriting it.
+  // The two glyph layers, sharing the one centred cell so they stack. `rotate` and
+  // `scale` are used instead of `transform` on purpose: they compose with the tile's
+  // own scale instead of overwriting it.
   > span {
+    grid-area: 1 / 1;
     pointer-events: none; // a click belongs to the tile, whatever glyph is drawn on it
 
     // PLACEHOLDER art: the lollipop emoji is drawn on a 45° stick, so it is turned
     // upright to read as a tree until it gets art of its own.
     &.tree {
       rotate: 45deg;
+    }
+
+    // Ground under a character: dimmed, so it reads as the floor and not a second actor.
+    &.covered {
+      opacity: $covered-opacity;
+    }
+
+    // A character with something under it steps down a size, uncovering a ring of it.
+    &.stacked {
+      scale: $stacked-scale;
     }
   }
 }

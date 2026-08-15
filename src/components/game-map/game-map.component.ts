@@ -87,8 +87,55 @@ const CURRENCY_GAP = 400;
 // twice this. Short enough that a stagger's worth of payments still reads as separate hits.
 const POP_DURATION = 120;
 const POP_SCALE = 1.35;
-// The start field's flat index has to be worked out per run rather than once: it depends on
-// MAP_SIZE, which is now whatever board the player picked.
+// The colour the drop counter takes while it is being spent from — the same pop as income,
+// in the negative. A literal because a keyframe cannot read a stylesheet: keep it in step
+// with theme.scss's $danger-color-contrast by hand.
+const SPEND_COLOR = "#e06d80";
+// PLACEHOLDER spend-feedback timings. One drop rises off the tile per drop paid, so a portal
+// jump throws two and a free step over a flower throws none — the same "one glyph, one unit"
+// the payout speaks in. The rise is in em, so it scales with the glyph rather than the zoom.
+const SPEND_DURATION = 700;
+const SPEND_STAGGER = 120;
+const SPEND_RISE = 2.2;
+// Every counter reaction is this same beat, whichever direction the money went.
+const POP_OPTIONS: KeyframeAnimationOptions = { "duration": POP_DURATION, "direction": "alternate", "iterations": 2 };
+
+/**
+ * Where an element sits on the screen, as its centre — a tile a glyph leaves from and a
+ * counter it flies to are both aimed at by their middle.
+ *
+ * NOTE for everything below that animates: the keys of a keyframe and of an options object
+ * are properties terser is free to rename, and `easing` and `iterations` are not on its list
+ * of known browser names — they were silently mangled and quietly stopped working. Every key
+ * handed to `animate` is therefore quoted, which is what `keep_quoted` protects.
+ */
+function centre(element: HTMLElement): number[] {
+  const { x, y, width, height } = element.getBoundingClientRect();
+  return [x + width / 2, y + height / 2];
+}
+
+/**
+ * A glyph that flies and is gone: dropped on the page at `from`, animated to `keyframe`, and
+ * taken off again when it lands. It is positioned by its centre — see the `translate` in the
+ * stylesheet — so `from` is the middle of whatever it is leaving.
+ */
+function flyGlyph(emoji: string, [x, y]: number[], keyframe: Keyframe, options: KeyframeAnimationOptions, onLand?: () => void) {
+  const element = createElement({ cssClass: [styles.fly, CssClass.EMOJI], text: emoji });
+
+  element.style.left = `${x}px`;
+  element.style.top = `${y}px`;
+  document.body.append(element);
+
+  // A single keyframe on purpose: the missing one is filled in from the element as it stands,
+  // which is exactly where it starts. With no `fill`, a glyph waiting for its turn simply
+  // sits where it was put until its delay is up.
+  const animation = element.animate([keyframe], options);
+
+  animation.onfinish = () => {
+    element.remove();
+    onLand?.();
+  };
+}
 
 // The usual [host, update] tuple plus the status chip that belongs in the header — it is
 // part of the game state, so the game owns it; only its place in the DOM is elsewhere.
@@ -471,6 +518,7 @@ export function GameMapComponent(): [
     // after the fog lifts, so a step into the unknown still reads its own tile
     select(target); // stays selected, so walking on is a single tap per step
     render();
+    showSpending(target, cost); // after render(), which is what puts the tile where it is measured
 
     if (map.rainbowCount > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
   }
@@ -480,8 +528,54 @@ export function GameMapComponent(): [
     buyUnicorn(map);
     select(selected); // the offer is spent and the field taken, so the panel has to follow
     render();
+    // The jar empties the same way the purse does, from the field the unicorn appeared on —
+    // three sweets rather than one drop, but the same gesture, so a price is always counted
+    // out in the currency that paid it.
+    showSpending(UNICORN_START, CANDY_PRICE, 1);
 
     pubSubService.publish(PubSubEvent.STAR_COLLECT);
+  }
+
+  /**
+   * A currency counter reacting to its number changing: it swells and settles back. `colour`
+   * tints it for the length of the pop, which is what tells the two directions apart — money
+   * coming in leaves the counter its own colour, money going out turns it red.
+   * `scale` rather than a `transform`, so it cannot overwrite a transform the counter may be
+   * carrying, and alternated back to nothing so there is nothing to clean up afterwards.
+   */
+  function pop(currency: number, colour?: string) {
+    // The tint is spread in rather than set to undefined: a keyframe value the browser cannot
+    // parse is dropped silently, and "silently" is how the mangled options below went unnoticed.
+    currencyDisplays[currency].animate([{ "scale": POP_SCALE, ...(colour && { "color": colour }) }], POP_OPTIONS);
+  }
+
+  /**
+   * What something just cost, said where the player is looking: one glyph of the currency
+   * rises off the tile it was paid on and fades, per unit paid. Counting in glyphs rather
+   * than printing a number is what makes a higher price legible without explaining it — the
+   * portal throws two drops, a unicorn three sweets — and it is the same language the payout
+   * speaks in. A free step over a flower pays nothing and so shows nothing, which says "free"
+   * by itself.
+   */
+  function showSpending(position: Position, cost: number, currency = 0) {
+    if (!cost) return;
+
+    const from = centre(tileElements[getIndex(position)]);
+
+    for (let i = 0; i < cost; i++) {
+      flyGlyph(
+        [DROP_EMOJI, CANDY_EMOJI][currency],
+        from,
+        { "transform": `translateY(-${SPEND_RISE}em)`, "opacity": 0 },
+        {
+          "duration": SPEND_DURATION,
+          "delay": i * SPEND_STAGGER,
+          "easing": "ease-out", // off it goes, then it drifts — the opposite of the payout's dive
+        },
+      );
+    }
+
+    pop(currency, SPEND_COLOR);
   }
 
   /**
@@ -501,13 +595,8 @@ export function GameMapComponent(): [
    * Returns how long the whole payout takes, which is what finishTurn waits out.
    */
   function flyIncome(): number {
-    // Where an element sits on the screen, as its centre — the tile a glyph leaves from and
-    // the counter it flies to are both aimed at by their middle. The two counters are
-    // measured once here rather than per flight: thirty drops all land in the same place.
-    const centre = (element: HTMLElement): number[] => {
-      const { x, y, width, height } = element.getBoundingClientRect();
-      return [x + width / 2, y + height / 2];
-    };
+    // The counters are measured once here rather than per flight: thirty drops all land in
+    // the same place, and measuring is the one thing that makes the browser stop and think.
     const centres = currencyDisplays.map(centre);
     // The paying tiles, grouped by the currency they pay — which is also the index everything
     // else is keyed by: the emoji that flies, the counter it lands on, and the one that pops.
@@ -531,32 +620,19 @@ export function GameMapComponent(): [
 
       group.forEach((index, i) => {
         const [fromX, fromY] = centre(tileElements[index]);
-        const element = createElement({ cssClass: [styles.fly, CssClass.EMOJI], text: [DROP_EMOJI, CANDY_EMOJI][currency] });
-
-        element.style.left = `${fromX}px`;
-        element.style.top = `${fromY}px`;
-        document.body.append(element);
 
         // Only the trip is animated — the centring on the tile is a CSS `translate` on the
-        // element itself, and the two compose rather than overwrite each other.
-        // A single keyframe on purpose: the missing one is filled in from the element as it
-        // stands, which is exactly the tile it is leaving. With no `fill`, a glyph waiting
-        // for its turn simply sits on its tile until its delay is up — which is what lets
-        // the sweets wait on their trees while the drops are being collected.
-        const animation = element.animate([{ transform: `translate(${toX - fromX}px, ${toY - fromY}px) scale(0.5)`, opacity: 0.5 }], {
-          duration: FLY_DURATION,
-          delay: start + i * stagger,
-          easing: "ease-in",
-        });
-
-        // The counter takes the hit: each arrival pops it, so a busy board reads as a run of
-        // payments rather than one number quietly changing. `scale` rather than a `transform`,
-        // so it cannot overwrite a transform the counter may be carrying, and alternated back
-        // to nothing so nothing has to be cleaned up afterwards.
-        animation.onfinish = () => {
-          element.remove();
-          currencyDisplays[currency].animate([{ scale: POP_SCALE }], { duration: POP_DURATION, direction: "alternate", iterations: 2 });
-        };
+        // glyph itself, and the two compose rather than overwrite each other. The delay is
+        // what lets the sweets wait on their trees while the drops are being collected.
+        flyGlyph(
+          [DROP_EMOJI, CANDY_EMOJI][currency],
+          [fromX, fromY],
+          { "transform": `translate(${toX - fromX}px, ${toY - fromY}px) scale(0.5)`, "opacity": 0.5 },
+          { "duration": FLY_DURATION, "delay": start + i * stagger, "easing": "ease-in" },
+          // The counter takes the hit: each arrival pops it, so a busy board reads as a run
+          // of payments rather than one number quietly changing.
+          () => pop(currency),
+        );
       });
 
       end = start + (group.length - 1) * stagger + FLY_DURATION;

@@ -7,6 +7,10 @@ const IS_JS13K = import.meta.env.IS_JS13K === "true";
 export const HAS_VISUAL_NICE_TO_HAVES = !IS_JS13K;
 export const HAS_GAMEPLAY_NICE_TO_HAVES = !IS_JS13K;
 export const HAS_ADVANCED_DEBUGGING = !IS_JS13K;
+// Tools for looking at the game rather than playing it. Tied to the dev server rather than to
+// !IS_JS13K, so they are absent from the friends-&-family build too — that one is played by
+// people, and being able to switch the fog off would give the whole board away.
+export const HAS_DEV_TOOLS = IS_DEV;
 export const HAS_SHORT_TEXTS = IS_JS13K;
 export const HAS_SIMPLE_SOUND_EFFECTS = true;
 

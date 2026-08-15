@@ -3,6 +3,7 @@ import { createButton, createElement, createElements } from "../../utils/html-ut
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
 import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../../utils/local-storage";
+import { HAS_DEV_TOOLS } from "../../env-utils";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
@@ -178,6 +179,13 @@ export function GameMapComponent(): [
   // The score's working is open: the breakdown that ends a run, shown mid-run on demand.
   // It holds the info panel until it is closed or a tile takes the panel over.
   let showsScore = false;
+  // Dev-only (see createFogButton): the fog switched off, for looking at how a board actually
+  // came out. Purely a way of drawing — the model's isRevealed is untouched, so the score, the
+  // income, the rainbows and what can be picked up all behave exactly as they would with the
+  // clouds on. Which is the point: it shows you the board without perturbing the run. The one
+  // seam is that a tile the game still counts as fogged reads as "Cloud" in the info panel
+  // even while you can see what is on it — the panel is telling the truth, not the board.
+  let xray = false;
 
   // Two stacked glyph layers per tile, mirroring the two layers of the model: the ground
   // first, the character standing on it painted over it (later sibling, same grid cell).
@@ -279,7 +287,34 @@ export function GameMapComponent(): [
   const mapArea = createElement({ cssClass: styles.mapArea }, [board]);
   const zoomOutButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: () => zoom(-1) }, ["−"]);
   const zoomInButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: () => zoom(1) }, ["+"]);
-  const zoomControl = createElement({ cssClass: styles.zoom }, [zoomOutButton, zoomInButton]);
+
+  /**
+   * Dev-only: the switch that takes the clouds off, for checking how a board actually came
+   * out. Built by a function rather than inline so that it is nothing but an uncalled
+   * declaration once HAS_DEV_TOOLS folds to false — a `const` here would still run its
+   * createButton in every build.
+   */
+  function createFogButton(): HTMLElement {
+    const button = createButton(
+      {
+        cssClass: CssClass.ICON_BTN,
+        onClick: () => {
+          xray = !xray;
+          button.classList.toggle(CssClass.PRIMARY, xray); // lit while the fog is off
+          render();
+        },
+      },
+      [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: FOG_EMOJI })],
+    );
+
+    return button;
+  }
+
+  const zoomControl = createElement({ cssClass: styles.zoom }, [
+    ...(HAS_DEV_TOOLS ? [createFogButton()] : []),
+    zoomOutButton,
+    zoomInButton,
+  ]);
   const hostElement = createElement({ cssClass: styles.host }, [mapArea, zoomControl, infoPanel, turnBar]);
 
   let zoomIndex = 0;
@@ -362,7 +397,10 @@ export function GameMapComponent(): [
       // affordance nothing else on the board hints at, so it says so where it happens.
       // Short-circuited on the object check: getSpawnTargets must not run for every tile.
       const canSpawn = tile.object === GameObjectType.BATHTUB && !!getSpawnTargets(map, getPosition(index)).length;
-      element.classList.toggle(styles.revealed, tile.isRevealed);
+      // What the tile *shows*, as opposed to what the game has revealed — the two are the same
+      // for everyone but a developer who has switched the clouds off.
+      const isSeen = tile.isRevealed || (HAS_DEV_TOOLS && xray);
+      element.classList.toggle(styles.revealed, isSeen);
       element.classList.toggle(styles.glowing, objectType !== undefined && OBJECT_CONFIG[objectType].glows);
       element.classList.toggle(CssClass.HINT, canSpawn || (hintCharacters && tile.isRevealed && tile.living !== undefined));
       element.classList.toggle(styles.selected, isSelectedTile);
@@ -372,15 +410,15 @@ export function GameMapComponent(): [
       element.classList.toggle(styles.free, freeIndices.includes(index));
 
       // The fog belongs to the ground layer: under it there is nothing else to show.
-      const hasLiving = tile.isRevealed && tile.living !== undefined;
+      const hasLiving = isSeen && tile.living !== undefined;
       const ground = groundGlyphs[index];
-      // guarded on isRevealed, or the fog cloud hiding a tree would be turned instead
-      ground.classList.toggle(styles.tree, tile.isRevealed && tile.object === GameObjectType.TREE);
+      // guarded on isSeen, or the fog cloud hiding a tree would be turned instead
+      ground.classList.toggle(styles.tree, isSeen && tile.object === GameObjectType.TREE);
       // which trees are paying into the jar this turn — read from the same predicate the
       // income itself is counted with, so the glow can never promise candy that never comes
       ground.classList.toggle(styles.earning, isEarningTree(map, getPosition(index)));
       ground.classList.toggle(styles.covered, hasLiving); // steps back behind the character
-      ground.textContent = tile.isRevealed ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
+      ground.textContent = isSeen ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
 
       const living = livingGlyphs[index];
       // only makes room when there is actually something underneath to show

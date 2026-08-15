@@ -43,12 +43,24 @@ function setMapSize(size: number) {
   MIN_PORTAL_DISTANCE = size >> 1;
 }
 
-// PLACEHOLDER: the minimum Chebyshev distance between two things of the same kind, which
-// is what spreads them over the board instead of letting them clump. 2 means "never
-// adjacent": no fountain pairs sharing each other's rainbow spots, and no chains of
-// flowers turning into a free-movement highway. One value for every kind for now — per
-// kind is a matter of passing a different number to placeObject.
-const SPACING = 2;
+/**
+ * How far a thing has to keep from the nearest other thing of its own kind. It is derived
+ * from how many of them there are rather than being one number for the whole board: a fixed
+ * distance means something quite different to sixteen fountains on a 21x21 and to two on a
+ * 7x7, and it was the fixed number that let the big boards grow fountain deserts — a run
+ * could open with an eleven-tile walk before the economy could start at all.
+ *
+ * `sqrt(tiles / count)` is the spacing a perfectly even lattice of `count` things would have.
+ * SPREAD is the fraction of that actually demanded, and it is the whole knob: at 1 the board
+ * would come out a grid, and at 0 it is the old free-for-all. Below 1 the rule only forbids
+ * clumping and leaves everything else to chance, which is what keeps a board from looking
+ * laid out — two fountains may still turn up as neighbours-but-one, just not in a heap.
+ */
+const SPREAD = 0.7;
+
+function getSpacing(count: number): number {
+  return (Math.sqrt((MAP_SIZE * MAP_SIZE) / count) * SPREAD + 0.5) | 0;
+}
 
 // PLACEHOLDER score weights. The score is what the board is worth right now, not a total
 // banked over the run — it is recomputed from scratch whenever anything moves, shown all
@@ -177,9 +189,9 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // satisfy gets the emptiest board to find room on.
 
   // Fountains keep one tile of distance to the border, so every side of a fountain has an
-  // opposite tile to cast a rainbow onto, and SPACING from each other.
+  // opposite tile to cast a rainbow onto, and their share of the board from each other.
   for (let i = 0; i < FOUNTAIN_COUNT; i++) {
-    const position = placeObject(map, GameObjectType.FOUNTAIN, SPACING, 1);
+    const position = placeObject(map, GameObjectType.FOUNTAIN, FOUNTAIN_COUNT, 1);
     // A lollipop tree grows next to every fountain, taking one of its eight rainbow
     // slots away.
     const spots = position ? getFreeNeighbours(map, position) : [];
@@ -199,17 +211,19 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   const spots = getFreePositions(map, 0);
   const pairable = spots.filter((a) => spots.some((b) => getAxisDistance(a, b) >= MIN_PORTAL_DISTANCE));
   getTile(map, getRandomItem(pairable.length ? pairable : spots))!.object = GameObjectType.DONUT;
-  placeObject(map, GameObjectType.DONUT, 0, 0, MIN_PORTAL_DISTANCE);
+  placeObject(map, GameObjectType.DONUT, 2, 0, MIN_PORTAL_DISTANCE);
 
   // No unicorns are placed here: the one at the start position is the whole herd a run
   // begins with, and every other one is bought from a tub. Nothing waits in the fog.
-  for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, SPACING);
-  for (let i = 0; i < FLOWER_COUNT; i++) placeObject(map, GameObjectType.FLOWER, SPACING);
+  // Twice TREE_COUNT: one tree already grew beside every fountain, and the spacing is
+  // worked out from how many end up on the board, not from how many this loop places.
+  for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, TREE_COUNT * 2);
+  for (let i = 0; i < FLOWER_COUNT; i++) placeObject(map, GameObjectType.FLOWER, FLOWER_COUNT);
 
   // Chests last, and they can only land under the fog like everything else — which is the
   // rule that makes them a reward for exploring rather than a handout in the corner.
   for (let i = 0; i < CHEST_COUNT; i++) {
-    const position = placeObject(map, GameObjectType.CHEST, SPACING);
+    const position = placeObject(map, GameObjectType.CHEST, CHEST_COUNT);
     if (position) getTile(map, position)!.loot = getRandomItem(LOOT_TABLE);
   }
 
@@ -268,23 +282,35 @@ function getPositionsOf(map: GameMap, objectType: GameObjectType): Position[] {
 }
 
 /**
- * Puts one `objectType` on a free tile and reports where it landed. `spacing` is the
- * distance it keeps from others of its own kind, `margin` the distance it keeps from the
- * border, and `axisSpacing` demands that much along *both* axes — the rule that stops the
- * donut pair from lining up in one row or column. Which layer it lands on follows from its
- * category, so a unicorn walks over the ground and a fountain becomes part of it.
+ * Puts one `objectType` on a free tile and reports where it landed. `count` is how many of
+ * this kind the board is getting, which is what the spacing is worked out from (see SPREAD);
+ * `margin` is the distance it keeps from the border, and `axisSpacing` demands that much
+ * along *both* axes — the rule that stops the donut pair from lining up in one row or column.
+ * Which layer it lands on follows from its category, so a unicorn walks over the ground and a
+ * fountain becomes part of it.
  *
- * If no tile satisfies the spacing, the spacing is dropped rather than the object: a board
- * too tight for the rule still gets its full count, just packed closer together. That is
- * also what makes generation total — it can never loop looking for a spot that is not there.
+ * The spacing is stepped down rather than dropped when nothing satisfies it: the last few
+ * things onto a filling board still get placed as far apart as that board still allows,
+ * instead of falling back to no rule and landing in the first heap they find. It is also what
+ * makes generation total — the loop is bounded by the spacing, so it can never spin looking
+ * for a spot that is not there. `axisSpacing` is never relaxed, because it never has to be:
+ * the donut pair is placed onto an empty board where its rule is always satisfiable.
  */
-function placeObject(map: GameMap, objectType: GameObjectType, spacing = 0, margin = 0, axisSpacing = 0): Position | undefined {
+function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin = 0, axisSpacing = 0): Position | undefined {
   const free = getFreePositions(map, margin);
   const taken = getPositionsOf(map, objectType);
-  const spaced = free.filter((position) =>
-    taken.every((other) => getDistance(position, other) >= spacing && getAxisDistance(position, other) >= axisSpacing),
-  );
-  const candidates = spaced.length ? spaced : free;
+  let candidates = free;
+
+  for (let spacing = getSpacing(count); spacing > 1; spacing--) {
+    const spaced = free.filter((position) =>
+      taken.every((other) => getDistance(position, other) >= spacing && getAxisDistance(position, other) >= axisSpacing),
+    );
+
+    if (spaced.length) {
+      candidates = spaced;
+      break;
+    }
+  }
 
   if (!candidates.length) return undefined;
 

@@ -32,4 +32,9 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_FLOWER]: "Flower|Stepping on it is free. But no rainbow can appear here.",
   // Says what it is for without saying what is in it: the three outcomes, and the one action.
   [TranslationKey.INFO_CHEST]: "Present|Step on it to open. Inside is 💧, 🍬 or a new 🦄.",
+  // The three build sites. No price in the text: the button carries it, and it is the button
+  // that would go out of date if the numbers moved.
+  [TranslationKey.INFO_TUB_SITE]: "Empty tub|A unicorn beside it can fill it up.",
+  [TranslationKey.INFO_FOUNTAIN_SITE]: "Rubble|A unicorn beside it can rebuild the fountain.",
+  [TranslationKey.INFO_TREE_SITE]: "Seedling|A unicorn beside it can grow it into a 🍭 tree.",
 };

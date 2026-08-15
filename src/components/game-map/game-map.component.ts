@@ -8,7 +8,9 @@ import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
   BASE_INCOME,
+  build,
   buyUnicorn,
+  canBuild,
   canUsePortal,
   CHEST_CANDY,
   CHEST_DROPS,
@@ -17,6 +19,7 @@ import {
   GameMap,
   getIndex,
   endTurn,
+  getBuild,
   getCandyPrice,
   getMoveCost,
   getMoveTargets,
@@ -51,7 +54,9 @@ const LAST_TURN_EMOJI = "⌛";
 const SCORE_EMOJI = "⭐";
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
-const EMPTY_EMOJI = "🌱";
+// Not the seedling: that is the lollipop-tree build site now, and two different things in the
+// info panel must not wear the same glyph.
+const EMPTY_EMOJI = "🌾";
 // Ground no longer under cloud, in the score breakdown: the cloud itself, standing for the
 // ones cleared off the board rather than the ones still on it. Same glyph as the fog on the
 // board, which is what ties the row to the thing it counts.
@@ -172,6 +177,10 @@ export function GameMapComponent(): [
   // exactly the way a character lights the tiles it can step onto, so the second tap has to
   // know which of the two it is finishing: a step, or a purchase.
   let isTubSelected = false;
+  // The build site the selection is sitting on, if it is one. Like the tub, a site blocks
+  // movement, so nothing can be standing on it and this can never be true at the same time as
+  // isCharacter — the three kinds of selection stay cleanly apart.
+  let buildSite: Position | undefined;
   // The turn is being paid out: income is in the air and the purse has not been credited
   // yet. The board is locked for as long as it lasts — a step taken mid-flight would change
   // the very income the player is watching arrive.
@@ -276,10 +285,18 @@ export function GameMapComponent(): [
     createElement({ tag: "span", cssClass: CssClass.EMOJI, text: OBJECT_CONFIG[GameObjectType.DONUT].emoji }),
     ` ${getTranslation(TranslationKey.JUMP)}`,
   ]);
+  // The build action, offered on the site itself the way the portal is offered on the donut —
+  // same place in the same line, so an action on the board always turns up where the thing it
+  // acts on is being explained. Its face is filled in by renderBuildButton: what the site
+  // becomes and what that costs, which is why it carries no text of its own.
+  const buildButton = createButton({ cssClass: [CssClass.SECONDARY, styles.action], onClick: raise });
   // The end-of-run breakdown, one line per scoring category, stacked under the result line.
   // Empty while the run is on, and CSS hides it then, so it takes no room until it has any.
   const scoreBoard = createElement({ cssClass: styles.scoreBoard });
-  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText, jumpButton]), scoreBoard]);
+  const infoPanel = createElement({ cssClass: styles.info }, [
+    createElement({}, [infoEmoji, infoName, infoText, jumpButton, buildButton]),
+    scoreBoard,
+  ]);
 
   // The board takes its size from the map and the zoom step; this row scrolls to reach the
   // parts of it that do not fit. Panning is the browser's own scrolling — which brings touch
@@ -397,12 +414,16 @@ export function GameMapComponent(): [
       // affordance nothing else on the board hints at, so it says so where it happens.
       // Short-circuited on the object check: getSpawnTargets must not run for every tile.
       const canSpawn = tile.object === GameObjectType.BATHTUB && !!getSpawnTargets(map, getPosition(index)).length;
+      // A site that can be raised right now pulses for the same reason a tub that can spawn
+      // does: it is an affordance nothing else on the board hints at, so it says so where it
+      // happens. Short-circuited on getBuild, so canBuild runs only on the handful of sites.
+      const canRaiseHere = !!getBuild(tile.object) && canBuild(map, getPosition(index));
       // What the tile *shows*, as opposed to what the game has revealed — the two are the same
       // for everyone but a developer who has switched the clouds off.
       const isSeen = tile.isRevealed || (HAS_DEV_TOOLS && xray);
       element.classList.toggle(styles.revealed, isSeen);
       element.classList.toggle(styles.glowing, objectType !== undefined && OBJECT_CONFIG[objectType].glows);
-      element.classList.toggle(CssClass.HINT, canSpawn || (hintCharacters && tile.isRevealed && tile.living !== undefined));
+      element.classList.toggle(CssClass.HINT, canSpawn || canRaiseHere || (hintCharacters && tile.isRevealed && tile.living !== undefined));
       element.classList.toggle(styles.selected, isSelectedTile);
       // no steps lit means the selection is only being looked at — see select()
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
@@ -414,6 +435,8 @@ export function GameMapComponent(): [
       const ground = groundGlyphs[index];
       // guarded on isSeen, or the fog cloud hiding a tree would be turned instead
       ground.classList.toggle(styles.tree, isSeen && tile.object === GameObjectType.TREE);
+      // a site is drawn back from the things that are actually there — see .site
+      ground.classList.toggle(styles.site, isSeen && !!getBuild(tile.object));
       // which trees are paying into the jar this turn — read from the same predicate the
       // income itself is counted with, so the glow can never promise candy that never comes
       ground.classList.toggle(styles.earning, isEarningTree(map, getPosition(index)));
@@ -449,6 +472,15 @@ export function GameMapComponent(): [
     jumpButton.classList.toggle(CssClass.HIDDEN, !portalTarget);
     jumpButton.classList.toggle(CssClass.HINT, !!portalTarget && canUsePortal(map, portalTarget));
     jumpButton.disabled = !portalTarget || !canUsePortal(map, portalTarget);
+
+    // The same three states for the build action: shown on a site, lit while the build is
+    // really on, greyed out while it is only being looked at. Greyed rather than hidden is the
+    // point — a site the player cannot afford yet still has to say what it would cost.
+    const canRaise = !!buildSite && canBuild(map, buildSite);
+    buildButton.classList.toggle(CssClass.HIDDEN, !buildSite);
+    buildButton.classList.toggle(CssClass.HINT, canRaise);
+    buildButton.disabled = !canRaise;
+    if (buildSite) renderBuildButton(map.tiles[getIndex(buildSite)].object!);
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
     endTurnButton.disabled = isPaying; // no second turn until the first one has been paid out
@@ -581,6 +613,9 @@ export function GameMapComponent(): [
         : [];
     // only a character can take the portal, and only from the donut it is standing on
     portalTarget = isCharacter ? getPortalTarget(map, position!) : undefined;
+    // A site under the fog is not a site yet, for the same reason a character under it is not
+    // a character: offering to build on it would give away that something is there.
+    buildSite = tile?.isRevealed && getBuild(tile.object) ? position : undefined;
     showInfo(index); // reads portalTarget, so it comes last
   }
 
@@ -619,6 +654,43 @@ export function GameMapComponent(): [
     if (loot !== undefined) showLoot(target, loot);
 
     if (map.rainbowCount > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
+  }
+
+  /**
+   * The build button's face: what the site becomes, then what it costs, in the currencies it
+   * is actually paid in — a fountain shows only water, a tree only sweets, and the tub both.
+   * No verb on it: the info panel beside it has just said what a unicorn can do here, and a
+   * price tag in the currency you hold reads the same in every language.
+   * The digits are kept out of the emoji spans, or they would render in the emoji font.
+   */
+  function renderBuildButton(objectType: GameObjectType) {
+    const [built, drops, candy] = getBuild(objectType)!;
+    const price = (amount: number, emoji: string) =>
+      amount ? [` ${amount}`, createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji })] : [];
+
+    buildButton.replaceChildren(
+      createElement({ tag: "span", cssClass: CssClass.EMOJI, text: OBJECT_CONFIG[built].emoji }),
+      ...price(drops, DROP_EMOJI),
+      ...price(candy, CANDY_EMOJI),
+    );
+  }
+
+  /** Raises what the selected site is for, and hands the board back with the building on it. */
+  function raise() {
+    const site = buildSite!;
+    const [, drops, candy] = getBuild(map.tiles[getIndex(site)].object)!; // before the site is spent
+
+    build(map, site);
+    // The tile is a building now, so the selection follows it into what it became — and a tub
+    // that has just been filled goes straight on to offering the fields it can put a unicorn on.
+    select(site);
+    render();
+    // Counted out of the field it was built on, one currency after the other, in the same
+    // gesture a step and a unicorn already use.
+    showSpending(site, drops);
+    showSpending(site, candy, 1);
+
+    pubSubService.publish(PubSubEvent.STAR_COLLECT);
   }
 
   /** Trades the jar of candy for a unicorn on one of the tub's fields, then hands the board back. */

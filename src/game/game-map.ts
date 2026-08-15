@@ -17,6 +17,7 @@ export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are no
 export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every fountain
 export let FLOWER_COUNT = 0; // free stepping stones scattered over the meadow
 export let CHEST_COUNT = 0; // what the fog is worth walking into
+export let SITE_COUNT = 0; // build sites, of each of the three kinds
 export let TURN_LIMIT = 0; // the whole run — as many turns as the board is wide
 export let MIN_PORTAL_DISTANCE = 0; // along both axes, so the pair sits diagonally across the board
 
@@ -37,6 +38,11 @@ function setMapSize(size: number) {
   // Rarer than anything else on the board, and the divisor is picked to land inside the
   // hand-set targets for the three boards: 1 on the 7x7, 3 on the 13x13, 7 on the 21x21.
   CHEST_COUNT = (tiles / 60 + 0.5) | 0;
+  // Linear in the width rather than the area, the same as TURN_LIMIT and for the same reason:
+  // what should stay steady across the boards is how many sites a run has the turns to reach,
+  // not how many are on the map. Works out at 1 of each kind on the 7x7, 2 on the 13x13, 3 on
+  // the 21x21.
+  SITE_COUNT = (size / 7 + 0.5) | 0;
   TURN_LIMIT = size;
   // Half the width, on both axes. Absolute distances stop meaning anything once the board
   // can be three times wider: four tiles apart is across the map at 7 and a stroll at 21.
@@ -86,6 +92,17 @@ export const CHEST_CANDY = 2;
 // weighting — 40% drops, 40% candy, 20% a unicorn. A unicorn is worth far more than either
 // pile, so it comes up half as often as they do.
 const LOOT_TABLE = [ChestLoot.DROPS, ChestLoot.DROPS, ChestLoot.CANDY, ChestLoot.CANDY, ChestLoot.UNICORN];
+// PLACEHOLDER build prices. The shape is settled even where the numbers are not: a building is
+// paid for in the currency it goes on to produce — a fountain in water, a lollipop tree in
+// sweets — and the tub, which produces both, is paid for in both, equally.
+// Indexed by site type less the first site, which is why the three sites are consecutive
+// members at the end of the enum: it makes this a three-entry array rather than a lookup with
+// holes in it where the real objects are.
+const BUILD_TABLE: [built: GameObjectType, drops: number, candy: number][] = [
+  [GameObjectType.BATHTUB, 4, 4],
+  [GameObjectType.FOUNTAIN, 6, 0],
+  [GameObjectType.TREE, 0, 4],
+];
 // PLACEHOLDER: the range a "give me any map" seed is drawn from. Short enough to stay
 // readable, which matters once maps are handpicked by their number.
 const SEED_RANGE = 1e6;
@@ -188,6 +205,14 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // from the fussiest placement to the most relaxed: whatever has the most rules to
   // satisfy gets the emptiest board to find room on.
 
+  // Fussiest of all, because it is not a roll at all: one tub site on the middle tile, which
+  // is what the odd board sizes are for (see MAP_SIZES). It makes a second unicorn source out
+  // in the board something every run has rather than something a seed might give you, and it
+  // gives a player somewhere to head for from the opening turn. First, so nothing else can
+  // take the tile — and far enough from the corner that the starting vision never uncovers it.
+  const middle = MAP_SIZE >> 1;
+  getTile(map, { x: middle, y: middle })!.object = GameObjectType.TUB_SITE;
+
   // Fountains keep one tile of distance to the border, so every side of a fountain has an
   // opposite tile to cast a rainbow onto, and their share of the board from each other.
   for (let i = 0; i < FOUNTAIN_COUNT; i++) {
@@ -220,11 +245,31 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, TREE_COUNT * 2);
   for (let i = 0; i < FLOWER_COUNT; i++) placeObject(map, GameObjectType.FLOWER, FLOWER_COUNT);
 
-  // Chests last, and they can only land under the fog like everything else — which is the
-  // rule that makes them a reward for exploring rather than a handout in the corner.
+  // Chests and build sites last, and they can only land under the fog like everything else —
+  // which is the rule that makes them a reward for exploring rather than a handout in the
+  // corner. It is also what a site is for: a run has two reasons to walk into the fog now.
   for (let i = 0; i < CHEST_COUNT; i++) {
     const position = placeObject(map, GameObjectType.CHEST, CHEST_COUNT);
     if (position) getTile(map, position)!.loot = getRandomItem(LOOT_TABLE);
+  }
+
+  // From 1: the middle tile already has the tub site every board is guaranteed, and these are
+  // the extras the bigger boards carry. They keep off the border, so a second unicorn source
+  // is always somewhere a run can work around rather than pinned against an edge.
+  for (let i = 1; i < SITE_COUNT; i++) placeObject(map, GameObjectType.TUB_SITE, SITE_COUNT, 1);
+
+  // The rubble keeps a fountain's own margin: a fountain on the border has sides with no tile
+  // opposite to cast a rainbow onto, and a rebuilt one is no different from a found one.
+  // Before the seedlings, which are placed against it.
+  for (let i = 0; i < SITE_COUNT; i++) placeObject(map, GameObjectType.FOUNTAIN_SITE, SITE_COUNT, 1);
+
+  // Seedlings go only where the tree they become would have something to feed on. A tree earns
+  // off a rainbow and a rainbow lands beside a fountain, so a seedling anywhere else is an
+  // offer that could never pay for itself — and an offer the player has to learn to turn down
+  // is worse than no offer at all.
+  for (let i = 0; i < SITE_COUNT; i++) {
+    const spots = getSeedlingSpots(map);
+    if (spots.length) getTile(map, getRandomItem(spots))!.object = GameObjectType.TREE_SITE;
   }
 
   updateRainbows(map);
@@ -321,6 +366,25 @@ function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin
   else tile.object = objectType;
 
   return position;
+}
+
+/**
+ * The free tiles beside a fountain, or beside rubble that may yet become one — the only places
+ * a seedling is worth offering, since a lollipop tree pays only off a rainbow and a rainbow
+ * only ever lands beside a fountain. Rubble counts: the player who rebuilds it has every
+ * reason to grow the tree next to it, and the two together are a plan rather than two offers.
+ */
+function getSeedlingSpots(map: GameMap): Position[] {
+  return getFreePositions(map, 0).filter(({ x, y }) => {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const object = getTile(map, { x: x + dx, y: y + dy })?.object;
+        if ((dx || dy) && (object === GameObjectType.FOUNTAIN || object === GameObjectType.FOUNTAIN_SITE)) return true;
+      }
+    }
+
+    return false;
+  });
 }
 
 /** The free tiles of the surrounding 3x3 — the spots where a fountain's tree may grow. */
@@ -524,6 +588,61 @@ export function moveCharacter(map: GameMap, from: Position, to: Position) {
   const fromTile = getTile(map, from)!;
   getTile(map, to)!.living = fromTile.living;
   fromTile.living = undefined;
+}
+
+/**
+ * What the thing on this tile could be built into and what that costs, or undefined if it is
+ * not a build site at all — which is what lets every caller ask without checking first.
+ * The subtraction is the whole lookup: anything that is not one of the three sites lands
+ * outside the table and comes back undefined.
+ */
+export function getBuild(objectType: GameObjectType | undefined): (typeof BUILD_TABLE)[number] | undefined {
+  return objectType === undefined ? undefined : BUILD_TABLE[objectType - GameObjectType.TUB_SITE];
+}
+
+/** Whether a character is standing anywhere in the surrounding 3x3 — someone has to do the work. */
+function hasNeighbour(map: GameMap, { x, y }: Position): boolean {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if ((dx || dy) && getTile(map, { x: x + dx, y: y + dy })?.living !== undefined) return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Whether the site on `position` can be raised right now: a unicorn has to be standing beside
+ * it to do the work, and the purse and the jar have to cover it between them. Both halves live
+ * here rather than in the interface, so what the button offers and what the build actually
+ * takes can never come apart — the same reason getSpawnTargets owns the tub's price.
+ */
+export function canBuild(map: GameMap, position: Position): boolean {
+  const build = getBuild(getTile(map, position)?.object);
+
+  // There is no "and nothing is standing on it" here because a site blocks movement, so
+  // nothing can be: no step, no purchase and no chest prize will put a character on one.
+  // Should sites ever go walk-through again, that check has to come back with them — a
+  // building cannot appear underneath a character.
+  return !!build && map.drops >= build[1] && map.candy >= build[2] && hasNeighbour(map, position);
+}
+
+/**
+ * Raises what the site on `position` is for — which must satisfy canBuild. The site is spent:
+ * the building stands in its place, and there is nothing left to build there.
+ *
+ * Nothing has to be told that the board has changed. A new tub starts paying its flat income
+ * because the income counts tub tiles, a rebuilt fountain can be lit the moment a unicorn is
+ * beside it, and a grown tree earns as soon as a rainbow reaches it — all of it recomputed
+ * from the tiles, which is what this one call does.
+ */
+export function build(map: GameMap, position: Position) {
+  const [built, drops, candy] = getBuild(getTile(map, position)!.object)!;
+
+  map.drops -= drops;
+  map.candy -= candy;
+  getTile(map, position)!.object = built;
+  updateRainbows(map);
 }
 
 /**

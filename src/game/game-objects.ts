@@ -21,6 +21,12 @@ export const GameObjectType = defineEnum({
   DONUT: 5,
   FLOWER: 6,
   CHEST: 7,
+  // The three build sites. They must stay last and stay consecutive: the build table is
+  // indexed by "site type less the first site", which is what makes it a three-entry array
+  // instead of a lookup with holes in it where the real objects are.
+  TUB_SITE: 8,
+  FOUNTAIN_SITE: 9,
+  TREE_SITE: 10,
 });
 
 // What a chest turns out to have been holding. DROPS and CANDY are deliberately numbered to
@@ -110,6 +116,37 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
     blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_CHEST,
+  },
+  // PLACEHOLDER art for the three build sites: an unfinished version of the thing each one
+  // becomes, drawn small (see .site in the stylesheet) so it reads as a promise rather than a
+  // thing. All three block movement, exactly as the buildings they turn into do — tried
+  // walk-through and it played worse. Two things follow from that and canBuild leans on both:
+  // the unicorn doing the work stands beside the site, and nothing can ever be standing on the
+  // tile at the moment a building appears on it.
+  // They also own the ground layer, so no rainbow can land on one until it is built.
+  [GameObjectType.TUB_SITE]: {
+    emoji: "🪣",
+    category: ObjectCategory.STATIC,
+    blocksMove: true,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_TUB_SITE,
+  },
+  [GameObjectType.FOUNTAIN_SITE]: {
+    emoji: "🪨",
+    category: ObjectCategory.STATIC,
+    blocksMove: true,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_FOUNTAIN_SITE,
+  },
+  [GameObjectType.TREE_SITE]: {
+    emoji: "🌱",
+    category: ObjectCategory.STATIC,
+    blocksMove: true,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_TREE_SITE,
   },
   // Walk-through like the donut, and the only tile that is free to step onto. It still
   // owns the ground layer, so the free path it offers costs a rainbow spot in return.

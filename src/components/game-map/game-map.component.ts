@@ -2,6 +2,7 @@ import styles from "./game-map.module.scss";
 import { createButton, createElement, createElements } from "../../utils/html-utils";
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
+import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../../utils/local-storage";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
@@ -25,6 +26,7 @@ import {
   isRunOver,
   isStuck,
   MAP_SIZE,
+  MAP_SIZES,
   moveCharacter,
   MOVE_COST,
   PORTAL_COST,
@@ -70,13 +72,24 @@ const ZOOM_STEPS = [1, 1.5, 2.2, 3];
 // for a finger to hit. It picks the opening zoom step; see applyZoom.
 const COMFORT_TILE = 32;
 const MIN_TILE = 8; // a floor for the maths below, in case the map row is measured before it has a size
-const START_INDEX = getIndex(UNICORN_START); // the one field a bought unicorn ever appears on
+const MAP_EMOJI = "🗺️"; // labels the board-size choice
+// The start field's flat index has to be worked out per run rather than once: it depends on
+// MAP_SIZE, which is now whatever board the player picked.
 
 // The usual [host, update] tuple plus the status chip that belongs in the header — it is
 // part of the game state, so the game owns it; only its place in the DOM is elsewhere.
-export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (seed?: number) => void, statusChip: HTMLElement] {
+export function GameMapComponent(): [
+  hostElement: HTMLElement,
+  startNewGame: (seed?: number, size?: number) => void,
+  statusChip: HTMLElement,
+] {
   let map: GameMap;
   let isRunning = false;
+  // The board the next run will be played on, carried over from the last one. Checked
+  // against what is actually on offer: a value stored by an older build could name a board
+  // that no longer exists, and Number(null) is 0, so both cases fall back to the smallest.
+  const storedSize = Number(getLocalStorageItem(LocalStorageKey.SIZE));
+  let mapSize = MAP_SIZES.includes(storedSize) ? storedSize : MAP_SIZES[0];
   // Two-tap navigation: tap an object to select it, then — if it is a character that
   // can afford a step — tap one of its highlighted neighbours to move there.
   let selected: Position | undefined;
@@ -96,22 +109,30 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
   // shows. Glyphs live in spans of their own so one can be transformed on its own — the
   // lollipop tree is drawn tilted and gets stood upright — without turning the tile's
   // background, its selection ring, or the grid cell with it.
-  const groundGlyphs = createElements({ tag: "span" }, MAP_SIZE * MAP_SIZE);
-  const livingGlyphs = createElements({ tag: "span" }, MAP_SIZE * MAP_SIZE);
-  const tileElements = groundGlyphs.map((ground, index) =>
-    createElement({ cssClass: [styles.tile, CssClass.EMOJI] }, [ground, livingGlyphs[index]]),
-  );
+  // Rebuilt whenever the board changes size — there is one element per tile, so these are
+  // the only part of the interface that cannot outlive a different map.
+  let groundGlyphs: HTMLElement[] = [];
+  let livingGlyphs: HTMLElement[] = [];
+  let tileElements: HTMLElement[] = [];
+
   // Light beams live in their own layer above the tiles: a tile can carry several at
   // once (the sun's does), which a per-tile pseudo-element could not draw.
   const beamLayer = createElement({ cssClass: styles.beams });
-  // one delegated listener instead of one per tile
-  // beam layer first: the tiles are positioned too, so they paint over it and an emoji
-  // is never hidden by the light passing through it
-  const board = createElement({ cssClass: styles.board, onClick: (event) => onTileClick(tileElements.indexOf(event.target)) }, [
-    beamLayer,
-    ...tileElements,
-  ]);
-  board.style.setProperty("--s", String(MAP_SIZE)); // keeps MAP_SIZE the single source of truth
+  // one delegated listener instead of one per tile — and it survives the tiles being
+  // replaced, which is the reason the listener is on the board rather than on them
+  const board = createElement({ cssClass: styles.board, onClick: (event) => onTileClick(tileElements.indexOf(event.target)) }, [beamLayer]);
+
+  function buildBoard() {
+    groundGlyphs = createElements({ tag: "span" }, MAP_SIZE * MAP_SIZE);
+    livingGlyphs = createElements({ tag: "span" }, MAP_SIZE * MAP_SIZE);
+    tileElements = groundGlyphs.map((ground, index) =>
+      createElement({ cssClass: [styles.tile, CssClass.EMOJI] }, [ground, livingGlyphs[index]]),
+    );
+    // beam layer first: the tiles are positioned too, so they paint over it and an emoji
+    // is never hidden by the light passing through it
+    board.replaceChildren(beamLayer, ...tileElements);
+    board.style.setProperty("--s", String(MAP_SIZE)); // keeps MAP_SIZE the single source of truth
+  }
 
   // PLACEHOLDER turn bar: turn count on the left, end-turn button on the right.
   // Only the emoji gets the emoji font — digits inside it would render as emoji glyphs too.
@@ -123,14 +144,23 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     createElement({ cssClass: styles.count }, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }), value]);
   // One button for both ends of a run: end the turn while playing, start over once it is over.
   const endTurnButton = createButton({ onClick: () => (isRunning ? finishTurn() : startNewGame()) });
-  // The run's progress: how far through the 20 turns, and what the board is worth right now.
+  // The board to play next, offered only once a run is over: changing it mid-run has no
+  // meaning, and the turn bar has no width to spare while the counters are in it — which is
+  // why the counters step aside for it. Tapping a size starts a run on that board straight
+  // away, so choosing and starting are one gesture rather than two.
+  const sizeButtons = MAP_SIZES.map((size) =>
+    createButton({ cssClass: CssClass.SECONDARY, onClick: () => startNewGame(undefined, size) }, [`${size}`]),
+  );
+  const sizeControl = createElement({ cssClass: styles.sizes }, [
+    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: MAP_EMOJI }),
+    ...sizeButtons,
+  ]);
+  // The run's progress: how far through the turns, and what the board is worth right now.
   // The score sits here rather than in the header chip because three "n (+n)" counters in a
   // row overflow the header on a phone — and the turn bar has the width going spare.
-  const turnBar = createElement({ cssClass: styles.turnBar }, [
-    counter(TURN_EMOJI, turnCounter),
-    counter(SCORE_EMOJI, scoreCount),
-    endTurnButton,
-  ]);
+  const turnDisplay = counter(TURN_EMOJI, turnCounter);
+  const scoreDisplay = counter(SCORE_EMOJI, scoreCount);
+  const turnBar = createElement({ cssClass: styles.turnBar }, [turnDisplay, scoreDisplay, sizeControl, endTurnButton]);
   // The two currencies as one chip in the middle of the header, in view wherever the player
   // is looking. Each reads "what you have (+what the board pays you next turn)", so the
   // cost of a plan and the income funding it are side by side.
@@ -232,6 +262,7 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     const outOfWater = map.drops < MOVE_COST;
     const needsIncome = outOfWater && !hasFreeMove(map);
     const canBuy = canBuyUnicorn(map);
+    const startIndex = getIndex(UNICORN_START); // once per render, not once per tile
     const isOver = !isRunning;
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
 
@@ -242,7 +273,7 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
       // The invitation to buy. Drawn only while the purchase is actually available, so the
       // heart never appears on a field that would refuse it, and it pulses like any other
       // "this is your next move" — it is the one affordance nothing else on the board hints at.
-      const showHeart = canBuy && index === START_INDEX;
+      const showHeart = canBuy && index === startIndex;
       element.classList.toggle(styles.revealed, tile.isRevealed);
       element.classList.toggle(styles.glowing, objectType !== undefined && OBJECT_CONFIG[objectType].glows);
       element.classList.toggle(CssClass.HINT, showHeart || (hintCharacters && tile.isRevealed && tile.living !== undefined));
@@ -302,6 +333,14 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
     endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver);
+
+    // The counters and the board choice take turns: the run's numbers while it is on, the
+    // pick of the next board once it is finished. The score is not lost by hiding it — the
+    // info panel is carrying it, with its full breakdown, at exactly that moment.
+    turnDisplay.classList.toggle(CssClass.HIDDEN, isOver);
+    scoreDisplay.classList.toggle(CssClass.HIDDEN, isOver);
+    sizeControl.classList.toggle(CssClass.HIDDEN, !isOver);
+    sizeButtons.forEach((button, index) => button.classList.toggle(CssClass.PRIMARY, MAP_SIZES[index] === mapSize));
   }
 
   /**
@@ -381,7 +420,7 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     portalTarget = isCharacter ? getPortalTarget(map, position!) : undefined;
     // Offered on the start field as soon as the candy is there, even when the field is
     // occupied — the button then shows up disabled, which is what says "clear it first".
-    isBuySpot = index === START_INDEX && map.candy >= CANDY_PRICE;
+    isBuySpot = index === getIndex(UNICORN_START) && map.candy >= CANDY_PRICE;
     showInfo(index); // reads portalTarget, so it comes last
   }
 
@@ -463,8 +502,11 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
 
   // Passing a seed replays exactly that map; leaving it out deals a new one. Replaying the
   // map just played needs no snapshot — only remembering the number it was built from.
-  function startNewGame(seed = createSeed()) {
-    map = createGameMap(seed);
+  function startNewGame(seed = createSeed(), size = mapSize) {
+    mapSize = size;
+    setLocalStorageItem(LocalStorageKey.SIZE, `${size}`);
+    map = createGameMap(seed, size); // sets MAP_SIZE, so everything below reads the new board
+    if (tileElements.length !== MAP_SIZE * MAP_SIZE) buildBoard();
     scoreBoard.replaceChildren(); // last run's working, gone before the new board shows
     isRunning = true; // before render(), which reads it for the turn button
     select(undefined);

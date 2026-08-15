@@ -2,21 +2,43 @@ import { setSeed } from "../utils/random-utils";
 import { getRandomItem } from "../utils/array-utils";
 import { GameObjectType, ObjectCategory, OBJECT_CONFIG } from "./game-objects";
 
-// Tunables — all meant to become per-level values later.
-export const MAP_SIZE = 9;
-const TILE_COUNT = MAP_SIZE * MAP_SIZE;
+// PLACEHOLDER: the boards on offer. Odd numbers so a board has a true middle, and spaced
+// far enough apart that picking one is a real choice rather than a nudge.
+export const MAP_SIZES = [7, 13, 21];
+
+// Everything below is derived from the chosen board and re-derived by setMapSize whenever a
+// run starts. They are exported as `let` on purpose: an ES module binding is live, so a
+// consumer that imported MAP_SIZE sees the new value without anything being passed around.
+// The cost of the choice is that these no longer constant-fold — they used to reduce to
+// plain numbers at build time, which is why the `+ 0.5 | 0` rounding is written this way
+// and stays that way: it is still cheaper at runtime than Math.round.
+export let MAP_SIZE = MAP_SIZES[0];
+export let FOUNTAIN_COUNT = 0; // hidden ones, on top of the two flanking the sun
+export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every hidden fountain
+export let UNICORN_COUNT = 0; // one at the start position, the others hidden in the fog
+export let FLOWER_COUNT = 0; // free stepping stones scattered over the meadow
+export let TURN_LIMIT = 0; // the whole run — as many turns as the board is wide
+export let MIN_PORTAL_DISTANCE = 0; // along both axes, so the pair sits diagonally across the board
+
 export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
 
-// How much of each thing a board carries, written as "one per this many tiles" so that a
-// bigger map gets proportionally busier instead of emptier. The numbers in the comments
-// are what the 9x9 board works out to — the counts it was hand-tuned with.
-// The `+ 0.5 | 0` is rounding written so it constant-folds: MAP_SIZE is a compile-time
-// constant, so terser reduces each of these to a plain number and they cost nothing at
-// runtime. A Math.round call would survive into the bundle instead.
-export const FOUNTAIN_COUNT = (TILE_COUNT / 27 + 0.5) | 0; // 3 — hidden ones, on top of the two flanking the sun
-export const TREE_COUNT = (TILE_COUNT / 27 + 0.5) | 0; // 3 — free-roaming, on top of the one growing next to every hidden fountain
-export const UNICORN_COUNT = (TILE_COUNT / 27 + 0.5) | 0; // 3 — one at the start position, the others hidden in the fog
-export const FLOWER_COUNT = (TILE_COUNT / 12 + 0.5) | 0; // 7 — free stepping stones scattered over the meadow
+/**
+ * Sizes the world. The counts are given as "one per this many tiles", so a bigger board
+ * gets proportionally busier instead of emptier — the divisors are what the hand-tuned 9x9
+ * worked out to. Turns scale with the width rather than the area: income compounds over a
+ * run, so the ground a player can cover grows roughly with the square of the turns, which
+ * is what keeps the share of the map they get to see about the same on every board.
+ */
+function setMapSize(size: number) {
+  const tiles = size * size;
+  MAP_SIZE = size;
+  FOUNTAIN_COUNT = TREE_COUNT = UNICORN_COUNT = (tiles / 27 + 0.5) | 0;
+  FLOWER_COUNT = (tiles / 12 + 0.5) | 0;
+  TURN_LIMIT = size;
+  // Half the width, on both axes. Absolute distances stop meaning anything once the board
+  // can be three times wider: four tiles apart is across the map at 7 and a stroll at 21.
+  MIN_PORTAL_DISTANCE = size >> 1;
+}
 
 // PLACEHOLDER: the minimum Chebyshev distance between two things of the same kind, which
 // is what spreads them over the board instead of letting them clump. 2 means "never
@@ -24,8 +46,6 @@ export const FLOWER_COUNT = (TILE_COUNT / 12 + 0.5) | 0; // 7 — free stepping 
 // flowers turning into a free-movement highway. One value for every kind for now — per
 // kind is a matter of passing a different number to placeObject.
 const SPACING = 2;
-
-export const TURN_LIMIT = 10; // the whole run: build the best economy you can inside it
 
 // PLACEHOLDER score weights. The score is what the board is worth right now, not a total
 // banked over the run — it is recomputed from scratch whenever anything moves, shown all
@@ -40,7 +60,6 @@ const SCORE_PER_REVEALED = 1; // per tile no longer under cloud
 export const CANDY_PRICE = 3;
 export const MOVE_COST = 1; // water drops per step
 export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs one drop more than a step
-export const MIN_PORTAL_DISTANCE = 4; // along both axes, so the pair is always diagonally across the board from each other
 export const SUN_POSITION: Position = { x: 0, y: 0 };
 // PLACEHOLDER: the range a "give me any map" seed is drawn from. Short enough to stay
 // readable, which matters once maps are handpicked by their number.
@@ -106,7 +125,8 @@ export function createSeed(): number {
  * generation code — changing anything about the order or count of the rolls reshuffles
  * every seed, so a curated level list can only be pinned down once this is settled.
  */
-export function createGameMap(seed: number): GameMap {
+export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
+  setMapSize(size); // before anything reads MAP_SIZE, which is most of what follows
   setSeed(seed);
 
   const map: GameMap = {

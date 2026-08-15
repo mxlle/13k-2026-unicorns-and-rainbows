@@ -10,6 +10,7 @@ export type LocalStorageKey = defineEnum<typeof LocalStorageKey>;
 export const LocalStorageKey = defineEnum({
   MUTED: "m",
   LEVEL: "l",
+  SIZE: "s", // the board size last played, so a run opens on the one the player chose
 });
 
 export function setLocalStorageItem(key: LocalStorageKey, value: string, postfix?: string) {

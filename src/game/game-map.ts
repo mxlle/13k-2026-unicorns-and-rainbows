@@ -28,7 +28,7 @@ const SPACING = 2;
 export const RAINBOW_GOAL = 5; // rainbows that have to shine at the same time to win
 export const MOVE_COST = 1; // water drops per step
 export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs one drop more than a step
-export const MIN_PORTAL_DISTANCE = 4; // Chebyshev, so the pair is always at least half the board apart
+export const MIN_PORTAL_DISTANCE = 4; // along both axes, so the pair is always diagonally across the board from each other
 export const SUN_POSITION: Position = { x: 0, y: 0 };
 // PLACEHOLDER: the range a "give me any map" seed is drawn from. Short enough to stay
 // readable, which matters once maps are handpicked by their number.
@@ -129,11 +129,20 @@ export function createGameMap(seed: number): GameMap {
     if (spots.length) getTile(map, getRandomItem(spots))!.object = GameObjectType.TREE;
   }
 
-  // The portal pair: placed early, because keeping half a board apart is the hardest rule
-  // here to satisfy. The first end goes anywhere; the second keeps its distance from the
-  // first exactly the way two fountains keep theirs, only further.
-  placeObject(map, GameObjectType.DONUT);
-  placeObject(map, GameObjectType.DONUT, MIN_PORTAL_DISTANCE);
+  // The portal pair: placed early, because its rule is the hardest on the board to satisfy.
+  // The two ends keep MIN_PORTAL_DISTANCE along *both* axes, so they never share a row or a
+  // column — a jump that only slides sideways reads as a move rather than a portal, however
+  // many tiles it covers.
+  // The first end is drawn only from tiles that still have a legal partner free. Picking it
+  // blindly can strand the second end with nowhere to go — a donut in the middle of the
+  // board has only the four corners to pair with — and placeObject would then drop the rule
+  // rather than the donut, which is how a portal ends up leading to the tile next door.
+  // Taking the first end off the board cannot invalidate the partner it was chosen for, so
+  // the second placement always finds its spot and the rule never has to be relaxed.
+  const spots = getFreePositions(map, 0);
+  const pairable = spots.filter((a) => spots.some((b) => getAxisDistance(a, b) >= MIN_PORTAL_DISTANCE));
+  getTile(map, getRandomItem(pairable.length ? pairable : spots))!.object = GameObjectType.DONUT;
+  placeObject(map, GameObjectType.DONUT, 0, 0, MIN_PORTAL_DISTANCE);
 
   for (let i = 1; i < UNICORN_COUNT; i++) placeObject(map, GameObjectType.UNICORN, SPACING);
   for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, SPACING);
@@ -152,6 +161,15 @@ function isFree(tile: Tile | undefined): boolean {
 /** Chebyshev distance: one step in this game — diagonals included — is a distance of 1. */
 function getDistance(a: Position, b: Position): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+}
+
+/**
+ * The smaller of the two axis distances. Where Chebyshev asks "how far apart are they",
+ * this asks "are they apart in *both* directions" — a pair sharing a row or a column
+ * scores 0 here however far apart it is.
+ */
+function getAxisDistance(a: Position, b: Position): number {
+  return Math.min(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
 /**
@@ -186,17 +204,20 @@ function getPositionsOf(map: GameMap, objectType: GameObjectType): Position[] {
 /**
  * Puts one `objectType` on a free tile and reports where it landed. `spacing` is the
  * distance it keeps from others of its own kind, `margin` the distance it keeps from the
- * border. Which layer it lands on follows from its category, so a unicorn walks over the
- * ground and a fountain becomes part of it.
+ * border, and `axisSpacing` demands that much along *both* axes — the rule that stops the
+ * donut pair from lining up in one row or column. Which layer it lands on follows from its
+ * category, so a unicorn walks over the ground and a fountain becomes part of it.
  *
  * If no tile satisfies the spacing, the spacing is dropped rather than the object: a board
  * too tight for the rule still gets its full count, just packed closer together. That is
  * also what makes generation total — it can never loop looking for a spot that is not there.
  */
-function placeObject(map: GameMap, objectType: GameObjectType, spacing = 0, margin = 0): Position | undefined {
+function placeObject(map: GameMap, objectType: GameObjectType, spacing = 0, margin = 0, axisSpacing = 0): Position | undefined {
   const free = getFreePositions(map, margin);
   const taken = getPositionsOf(map, objectType);
-  const spaced = free.filter((position) => taken.every((other) => getDistance(position, other) >= spacing));
+  const spaced = free.filter((position) =>
+    taken.every((other) => getDistance(position, other) >= spacing && getAxisDistance(position, other) >= axisSpacing),
+  );
   const candidates = spaced.length ? spaced : free;
 
   if (!candidates.length) return undefined;

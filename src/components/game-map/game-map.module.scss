@@ -171,6 +171,12 @@ $drop-fall: 0.6rem; // how far a spent drop falls before it goes
 
 // Object info panel: emoji, name and description as one wrapping line, in a slot of
 // fixed height so its content can change without nudging anything above it.
+// PLACEHOLDER win celebration timings. One bounce of a ball, not three equal hops: each
+// hop reaches a fraction of the one before it and takes correspondingly less time, so the
+// whole thing dies away instead of stopping mid-jump.
+$win-hop-duration: 1.1s;
+$win-hop-height: 2rem;
+
 .info {
   grid-area: 2 / 1;
   @extend %gridCentered;
@@ -182,6 +188,42 @@ $drop-fall: 0.6rem; // how far a spent drop falls before it goes
   text-align: center;
   font-size: 0.8rem;
   color: theme.$text-secondary;
+
+  // A won run: the panel that carries the result bounces and keeps the success tint, so
+  // the end of the run announces itself without a dialog over the board. It settles on
+  // its own — the pulsing "new game" button is what should be moving after that.
+  :global(.#{names.$WON}) & {
+    background: rgba(theme.$success-color-light, 0.25);
+    animation: hop $win-hop-duration;
+  }
+}
+
+// The easing is per keyframe, and that is what makes it read as a ball rather than a
+// slide: leaving the ground it decelerates towards the apex, and from every apex it
+// falls back faster and faster.
+@keyframes hop {
+  0%,
+  46%,
+  78%,
+  100% {
+    transform: none;
+    animation-timing-function: ease-out;
+  }
+
+  23% {
+    transform: translateY(-$win-hop-height);
+    animation-timing-function: ease-in;
+  }
+
+  62% {
+    transform: translateY(-0.45 * $win-hop-height);
+    animation-timing-function: ease-in;
+  }
+
+  89% {
+    transform: translateY(-0.18 * $win-hop-height);
+    animation-timing-function: ease-in;
+  }
 }
 
 .infoEmoji {

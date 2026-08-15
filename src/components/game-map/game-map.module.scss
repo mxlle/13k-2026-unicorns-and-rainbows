@@ -104,6 +104,13 @@ $sidebar-width: min(20rem, 30vw);
     opacity: 0.4;
     background: linear-gradient(90deg, theme.$light-color, transparent);
   }
+
+  // Not light at all: a rainbow feeding the lollipop tree beside it. Candy pink, the same
+  // colour the earning tree's own glow is drawn in, so the beam and the glow read as the two
+  // ends of one thing — and one tile long, because that is all the distance there is.
+  &.candy {
+    background: linear-gradient(90deg, transparent, theme.$main-color-secondary 25%, theme.$main-color-secondary 75%, transparent);
+  }
 }
 
 // Income on its way to the purse: one glyph per earning tile, flying from it to the counter

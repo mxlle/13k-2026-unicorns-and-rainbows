@@ -88,6 +88,10 @@ export interface Beam extends Position {
   dx: number;
   dy: number;
   isLit: boolean; // the light got through and made a rainbow, instead of dying in the fountain
+  // The pink kind, which is not light at all: a rainbow feeding the lollipop tree beside it.
+  // Never lit — it spans the one tile between the two, the same reach as a beam that stopped
+  // inside a fountain, so the two share the width the renderer works out from isLit.
+  isCandy: boolean;
 }
 
 export interface GameMap {
@@ -339,7 +343,7 @@ export function updateRainbows(map: GameMap) {
           map.rainbowCount++;
         }
 
-        map.beams.push({ x, y, dx, dy, isLit });
+        map.beams.push({ x, y, dx, dy, isLit, isCandy: false });
       }
     }
   });
@@ -354,7 +358,40 @@ export function updateRainbows(map: GameMap) {
   // rainbows happen to surround it — a tree either pays out or it does not.
   // Only trees the player has found earn: an unseen one paying into the jar would give
   // its position away, the same reason a fogged glower casts no light.
-  map.candyIncome = map.tiles.filter((_, index) => isEarningTree(map, getPosition(index))).length;
+  // Each one also gets a pink beam from the rainbow that feeds it, drawn in the same pass so
+  // the line the player sees and the candy the jar is paid are counted from the same pairing.
+  map.candyIncome = 0;
+
+  map.tiles.forEach((_, index) => {
+    const position = getPosition(index);
+    const rainbow = getFeedingRainbow(map, position);
+
+    if (!rainbow) return;
+
+    map.candyIncome++;
+    map.beams.push({ ...rainbow, dx: position.x - rainbow.x, dy: position.y - rainbow.y, isLit: false, isCandy: true });
+  });
+}
+
+/**
+ * The rainbow making a lollipop tree earn, or undefined if this tile is not a tree, is one
+ * the player has not found, or has no rainbow beside it. One rainbow rather than all of
+ * them: the tree pays a single candy however many surround it, so a single beam is what
+ * says so — the pairing is what earns, not the count.
+ */
+function getFeedingRainbow(map: GameMap, { x, y }: Position): Position | undefined {
+  const tile = getTile(map, { x, y })!;
+
+  if (!tile.isRevealed || tile.object !== GameObjectType.TREE) return undefined;
+
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const position = { x: x + dx, y: y + dy };
+      if ((dx || dy) && getTile(map, position)?.object === GameObjectType.RAINBOW) return position;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -363,20 +400,7 @@ export function updateRainbows(map: GameMap) {
  * and what the jar is paid cannot drift apart.
  */
 export function isEarningTree(map: GameMap, position: Position): boolean {
-  const tile = getTile(map, position)!;
-
-  return tile.isRevealed && tile.object === GameObjectType.TREE && hasRainbowNeighbour(map, position);
-}
-
-/** Whether any of the surrounding eight tiles is currently showing a rainbow. */
-function hasRainbowNeighbour(map: GameMap, { x, y }: Position): boolean {
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if ((dx || dy) && getTile(map, { x: x + dx, y: y + dy })?.object === GameObjectType.RAINBOW) return true;
-    }
-  }
-
-  return false;
+  return !!getFeedingRainbow(map, position);
 }
 
 function blocksMove(objectType: GameObjectType | undefined): boolean {

@@ -422,8 +422,8 @@ export function GameMapComponent(): [
    */
   function renderBeams() {
     beamLayer.replaceChildren(
-      ...map.beams.map(({ x, y, dx, dy, isLit }) => {
-        const element = createElement({ cssClass: [styles.beam, isLit ? "" : styles.unlit] });
+      ...map.beams.map(({ x, y, dx, dy, isLit, isCandy }) => {
+        const element = createElement({ cssClass: [styles.beam, isCandy ? styles.candy : isLit ? "" : styles.unlit] });
         const tileSize = 100 / MAP_SIZE; // one tile as a percentage of the board
 
         element.style.left = `${(x + 0.5) * tileSize}%`;

@@ -851,7 +851,10 @@ export function GameMapComponent(): [
    * the end of the run included — the last turn is paid out like any other.
    */
   function finishTurn() {
-    const wait = flyIncome();
+    // The closing turn pays out nothing — see endTurn — so there is nothing to watch either,
+    // and the result comes up the moment the button is pressed instead of after a flight of
+    // glyphs carrying money the run has no more use for.
+    const wait = map.turn < TURN_LIMIT ? flyIncome() : 0;
     isPaying = !!wait; // an empty board pays nothing and has nothing to wait for
     render(); // takes the button out of reach for the length of the flight
 

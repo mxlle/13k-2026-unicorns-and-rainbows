@@ -711,12 +711,24 @@ export function getScore(map: GameMap): number {
 
 /**
  * Ends the turn and collects what the board earns: drops to move with, candy to buy with.
- * Collecting at the end rather than the start is what keeps the final turn worth playing —
- * whatever the player sets up on turn 20 is still paid for before the run closes.
+ * Which is the same board, and so the same payment, whether it is called the end of this turn
+ * or the start of the next — nothing happens in between. The one place the two differ is the
+ * ends of the run, and both are settled here: the opening purse is seeded once by
+ * createGameMap, and the closing turn pays out nothing at all.
+ *
+ * Nothing, because there would be nothing to do with it. Drops buy moves and sweets buy
+ * unicorns, and there are no turns left to spend either in; neither is part of the score.
+ * A final payout would be two counters going up for show, in front of a player waiting to see
+ * their result. What keeps the last turn worth playing is not the money — it is that the score
+ * is a live snapshot, so a rainbow lit on the closing turn counts as much as one lit on the
+ * first.
  */
 export function endTurn(map: GameMap) {
-  map.drops += map.dropIncome;
-  map.candy += map.candyIncome;
+  if (map.turn < TURN_LIMIT) {
+    map.drops += map.dropIncome;
+    map.candy += map.candyIncome;
+  }
+
   map.turn++;
 }
 

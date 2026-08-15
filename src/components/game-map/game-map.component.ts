@@ -73,6 +73,20 @@ const ZOOM_STEPS = [1, 1.5, 2.2, 3];
 const COMFORT_TILE = 32;
 const MIN_TILE = 8; // a floor for the maths below, in case the map row is measured before it has a size
 const MAP_EMOJI = "🗺️"; // labels the board-size choice
+// PLACEHOLDER payout-flight timings. FLY_SPREAD is the window all departures share rather
+// than a gap apiece: a big board can be paying out thirty times at once, and one emoji every
+// FLY_STAGGER would take longer to watch than the turn took to play.
+const FLY_DURATION = 500;
+const FLY_STAGGER = 70;
+const FLY_SPREAD = 400;
+// The beat between the two currencies: the drops are all in the purse before the first sweet
+// leaves its tree. It is dead time on top of the flights themselves, so it buys the two halves
+// their separation at the price of a longer wait between turns.
+const CURRENCY_GAP = 400;
+// PLACEHOLDER: the counter's reaction to an arrival — out and back, so the whole pop is
+// twice this. Short enough that a stagger's worth of payments still reads as separate hits.
+const POP_DURATION = 120;
+const POP_SCALE = 1.35;
 // The start field's flat index has to be worked out per run rather than once: it depends on
 // MAP_SIZE, which is now whatever board the player picked.
 
@@ -102,6 +116,10 @@ export function GameMapComponent(): [
   // it is an offer rather than a highlighted tile, and it takes the info line over so the
   // trade is explained right beside the button that makes it.
   let isBuySpot = false;
+  // The turn is being paid out: income is in the air and the purse has not been credited
+  // yet. The board is locked for as long as it lasts — a step taken mid-flight would change
+  // the very income the player is watching arrive.
+  let isPaying = false;
 
   // Two stacked glyph layers per tile, mirroring the two layers of the model: the ground
   // first, the character standing on it painted over it (later sibling, same grid cell).
@@ -164,7 +182,11 @@ export function GameMapComponent(): [
   // The two currencies as one chip in the middle of the header, in view wherever the player
   // is looking. Each reads "what you have (+what the board pays you next turn)", so the
   // cost of a plan and the income funding it are side by side.
-  const status = createElement({ cssClass: styles.status }, [counter(DROP_EMOJI, dropCount), counter(CANDY_EMOJI, candyCount)]);
+  // Kept as elements of their own, not just built inline: they are what the income flies to
+  // and what pops when it lands, and both need the whole counter — emoji and number — rather
+  // than the number alone. Indexed by currency, which is what flyIncome sorts its flights by.
+  const currencyDisplays = [counter(DROP_EMOJI, dropCount), counter(CANDY_EMOJI, candyCount)];
+  const status = createElement({ cssClass: styles.status }, currencyDisplays);
 
   // Object info: a permanent row of its own between map and turn bar, so it can never
   // cover the board and never shifts it either. Empty selection shows a hint instead.
@@ -329,6 +351,7 @@ export function GameMapComponent(): [
     buyButton.disabled = !canBuy;
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
+    endTurnButton.disabled = isPaying; // no second turn until the first one has been paid out
     // Ending a turn is one step among many; starting the next run is the whole screen.
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
@@ -425,7 +448,7 @@ export function GameMapComponent(): [
   }
 
   function onTileClick(index: number) {
-    if (!isRunning || index < 0) return;
+    if (!isRunning || isPaying || index < 0) return;
 
     if (targets.some((target) => getIndex(target) === index)) {
       move(getPosition(index));
@@ -462,16 +485,109 @@ export function GameMapComponent(): [
   }
 
   /**
+   * The payout made visible: one glyph leaves every tile that is earning and flies to the
+   * counter it pays into — a drop from every rainbow, a sweet from every earning tree. Where
+   * the income comes from is otherwise only implicit in a number going up, and on a board
+   * this size that is the one thing worth showing.
+   *
+   * Read straight off the tiles rather than from the income counts, so what flies is exactly
+   * what is being paid: the two are counted from the same rainbows and the same predicate.
+   *
+   * The two currencies are collected one after the other rather than at once — every drop
+   * first, a pause, then every sweet. Both counters climbing at the same time is a single
+   * blur of movement; taken in turn, each currency gets its own moment and the player can
+   * actually count what the board just paid them.
+   *
+   * Returns how long the whole payout takes, which is what finishTurn waits out.
+   */
+  function flyIncome(): number {
+    // Where an element sits on the screen, as its centre — the tile a glyph leaves from and
+    // the counter it flies to are both aimed at by their middle. The two counters are
+    // measured once here rather than per flight: thirty drops all land in the same place.
+    const centre = (element: HTMLElement): number[] => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return [x + width / 2, y + height / 2];
+    };
+    const centres = currencyDisplays.map(centre);
+    // The paying tiles, grouped by the currency they pay — which is also the index everything
+    // else is keyed by: the emoji that flies, the counter it lands on, and the one that pops.
+    // A tile pays at most one of the two: a rainbow lands on empty ground, so no tree can
+    // ever be standing on it.
+    const groups: number[][] = [[], []];
+
+    map.tiles.forEach((tile, index) => {
+      if (tile.object === GameObjectType.RAINBOW) groups[0].push(index);
+      else if (isEarningTree(map, getPosition(index))) groups[1].push(index);
+    });
+
+    let start = 0; // when this currency's first glyph sets off
+    let end = 0; // when the last one of all has landed — nothing paid, nothing to wait for
+
+    groups.forEach((group, currency) => {
+      if (!group.length) return; // an empty currency costs no pause either
+
+      const stagger = Math.min(FLY_STAGGER, FLY_SPREAD / group.length);
+      const [toX, toY] = centres[currency];
+
+      group.forEach((index, i) => {
+        const [fromX, fromY] = centre(tileElements[index]);
+        const element = createElement({ cssClass: [styles.fly, CssClass.EMOJI], text: [DROP_EMOJI, CANDY_EMOJI][currency] });
+
+        element.style.left = `${fromX}px`;
+        element.style.top = `${fromY}px`;
+        document.body.append(element);
+
+        // Only the trip is animated — the centring on the tile is a CSS `translate` on the
+        // element itself, and the two compose rather than overwrite each other.
+        // A single keyframe on purpose: the missing one is filled in from the element as it
+        // stands, which is exactly the tile it is leaving. With no `fill`, a glyph waiting
+        // for its turn simply sits on its tile until its delay is up — which is what lets
+        // the sweets wait on their trees while the drops are being collected.
+        const animation = element.animate([{ transform: `translate(${toX - fromX}px, ${toY - fromY}px) scale(0.5)`, opacity: 0.5 }], {
+          duration: FLY_DURATION,
+          delay: start + i * stagger,
+          easing: "ease-in",
+        });
+
+        // The counter takes the hit: each arrival pops it, so a busy board reads as a run of
+        // payments rather than one number quietly changing. `scale` rather than a `transform`,
+        // so it cannot overwrite a transform the counter may be carrying, and alternated back
+        // to nothing so nothing has to be cleaned up afterwards.
+        animation.onfinish = () => {
+          element.remove();
+          currencyDisplays[currency].animate([{ scale: POP_SCALE }], { duration: POP_DURATION, direction: "alternate", iterations: 2 });
+        };
+      });
+
+      end = start + (group.length - 1) * stagger + FLY_DURATION;
+      start = end + CURRENCY_GAP; // the next currency waits for this one to be in the purse
+    });
+
+    return end;
+  }
+
+  /**
    * Closes the turn: the board pays out, the turn counter moves on, and the run ends if that
    * was the last one. A board that has seized up ends the run early — every remaining turn
    * would be identical, so there is nothing to play out.
+   *
+   * The purse is credited only once the income has landed, so the counters move when the
+   * drops and sweets reach them rather than a second before. Everything else waits with it,
+   * the end of the run included — the last turn is paid out like any other.
    */
   function finishTurn() {
-    endTurn(map);
-    select(selected); // steps that were unaffordable a moment ago may be back
-    render();
+    const wait = flyIncome();
+    isPaying = !!wait; // an empty board pays nothing and has nothing to wait for
+    render(); // takes the button out of reach for the length of the flight
 
-    if (isRunOver(map) || isStuck(map)) endGame(!isStuck(map));
+    setTimeout(() => {
+      isPaying = false;
+      endTurn(map);
+      select(selected); // steps that were unaffordable a moment ago may be back
+      render();
+
+      if (isRunOver(map) || isStuck(map)) endGame(!isStuck(map));
+    }, wait);
   }
 
   /**

@@ -98,6 +98,19 @@ $covered-opacity: 0.55;
   }
 }
 
+// Income on its way to the purse: one glyph per earning tile, flying from it to the counter
+// it pays into. Fixed rather than placed in the board, because the trip crosses out of the
+// scrolling map row and up into the header — anywhere else it would be clipped on the way.
+// The left/top set on it are tile centres, so it carries its own centring.
+.fly {
+  position: fixed;
+  translate: -50% -50%;
+  pointer-events: none;
+  // Bigger than the counter it is heading for — it has a whole screen to cross and has to
+  // read on the way; it shrinks towards the counter's own size as it lands.
+  font-size: 1.8rem;
+}
+
 .turnBar {
   grid-area: 3 / 1;
   display: flex;

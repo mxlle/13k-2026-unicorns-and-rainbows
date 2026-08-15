@@ -5,6 +5,9 @@ import { CssClass } from "../../utils/css-class";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
+  buyUnicorn,
+  canBuyUnicorn,
+  CANDY_PRICE,
   canUsePortal,
   createGameMap,
   createSeed,
@@ -15,6 +18,7 @@ import {
   getPortalTarget,
   getPosition,
   hasFreeMove,
+  isEarningTree,
   isLost,
   isWon,
   MAP_SIZE,
@@ -25,6 +29,7 @@ import {
   RAINBOW_GOAL,
   revealAround,
   startTurn,
+  UNICORN_START,
   updateRainbows,
 } from "../../game/game-map";
 import { GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
@@ -39,9 +44,15 @@ const DROP_SPEND_MS = 500; // keep in sync with $drop-spend-duration in the styl
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
 const EMPTY_EMOJI = "🌱";
+const CANDY_EMOJI = "🍬";
+// PLACEHOLDER: the invitation to buy, drawn on the start field once a unicorn is
+// affordable and the field is clear. It is not a game object — nothing stands on the
+// tile, so it can never block a rainbow the way a real object would.
+const HEART_EMOJI = "💗";
 const WIN_EMOJI = "🎉";
 const LOSE_EMOJI = "😢";
 const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
+const START_INDEX = getIndex(UNICORN_START); // the one field a bought unicorn ever appears on
 
 // The usual [host, update] tuple plus the status chip that belongs in the header — it is
 // part of the game state, so the game owns it; only its place in the DOM is elsewhere.
@@ -56,6 +67,10 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
   // action rather than a highlighted tile, so taking the portal never gives the far end
   // away before the player has walked there.
   let portalTarget: Position | undefined;
+  // Whether the selection is the start field with enough candy in the jar. Like the portal
+  // it is an offer rather than a highlighted tile, and it takes the info line over so the
+  // trade is explained right beside the button that makes it.
+  let isBuySpot = false;
 
   // Two stacked glyph layers per tile, mirroring the two layers of the model: the ground
   // first, the character standing on it painted over it (later sibling, same grid cell).
@@ -84,6 +99,7 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
   // Only the emoji gets the emoji font — digits inside it would render as emoji glyphs too.
   const turnCounter = createElement({ tag: "span" });
   const goal = createElement({ tag: "span" });
+  const candyCount = createElement({ tag: "span" });
   const counter = (emoji: string, value: HTMLElement) =>
     createElement({ cssClass: styles.count }, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }), value]);
   // The purse is drawn as one drop per step the player can still take, so the cost of a
@@ -98,7 +114,11 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
   // What the run is about — drops to spend and rainbows still needed — as one chip in the
   // middle of the header, in view wherever the player is looking. Its width never changes
   // (the purse holds a fixed slot), so the chip stays put as drops come and go.
-  const status = createElement({ cssClass: styles.status }, [purse, counter(OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, goal)]);
+  const status = createElement({ cssClass: styles.status }, [
+    purse,
+    counter(CANDY_EMOJI, candyCount),
+    counter(OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, goal),
+  ]);
 
   // Object info: a permanent row of its own between map and turn bar, so it can never
   // cover the board and never shifts it either. Empty selection shows a hint instead.
@@ -108,11 +128,18 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
   const infoText = createElement({ tag: "span" });
   // The portal action sits in the same line that explains it, so the offer and the
   // description arrive together. Hidden unless the selection is standing on a donut.
-  const jumpButton = createButton({ cssClass: [CssClass.SECONDARY, styles.jump], onClick: () => move(portalTarget!, PORTAL_COST) }, [
+  const jumpButton = createButton({ cssClass: [CssClass.SECONDARY, styles.action], onClick: () => move(portalTarget!, PORTAL_COST) }, [
     createElement({ tag: "span", cssClass: CssClass.EMOJI, text: OBJECT_CONFIG[GameObjectType.DONUT].emoji }),
     ` ${getTranslation(TranslationKey.JUMP)}`,
   ]);
-  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText, jumpButton])]);
+  // The purchase, offered the same way: an action in the line that explains it. It can
+  // never share the line with the jump — the start field is revealed before any donut is
+  // placed, so no donut can ever lie on it.
+  const buyButton = createButton({ cssClass: [CssClass.SECONDARY, styles.action], onClick: buy }, [
+    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: OBJECT_CONFIG[GameObjectType.UNICORN].emoji }),
+    ` ${getTranslation(TranslationKey.BUY)}`,
+  ]);
+  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText, jumpButton, buyButton])]);
 
   // The board keeps its size whatever the screen does; this row scrolls to reach it.
   const mapArea = createElement({ cssClass: styles.mapArea }, [board]);
@@ -133,6 +160,7 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     // is genuinely nothing else left to do, so it never nags a player who can still act.
     const outOfWater = map.drops < MOVE_COST;
     const needsIncome = outOfWater && !hasFreeMove(map);
+    const canBuy = canBuyUnicorn(map);
     const isOver = !isRunning;
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
 
@@ -140,9 +168,13 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
       const element = tileElements[index];
       const objectType = getObject(index);
       const isSelectedTile = index === selectedIndex;
+      // The invitation to buy. Drawn only while the purchase is actually available, so the
+      // heart never appears on a field that would refuse it, and it pulses like any other
+      // "this is your next move" — it is the one affordance nothing else on the board hints at.
+      const showHeart = canBuy && index === START_INDEX;
       element.classList.toggle(styles.revealed, tile.isRevealed);
       element.classList.toggle(styles.glowing, objectType !== undefined && OBJECT_CONFIG[objectType].glows);
-      element.classList.toggle(CssClass.HINT, hintCharacters && tile.isRevealed && tile.living !== undefined);
+      element.classList.toggle(CssClass.HINT, showHeart || (hintCharacters && tile.isRevealed && tile.living !== undefined));
       element.classList.toggle(styles.selected, isSelectedTile);
       // no steps lit means the selection is only being looked at — see select()
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
@@ -154,8 +186,18 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
       const ground = groundGlyphs[index];
       // guarded on isRevealed, or the fog cloud hiding a tree would be turned instead
       ground.classList.toggle(styles.tree, tile.isRevealed && tile.object === GameObjectType.TREE);
+      // which trees are paying into the jar this turn — read from the same predicate the
+      // income itself is counted with, so the glow can never promise candy that never comes
+      ground.classList.toggle(styles.earning, isEarningTree(map, getPosition(index)));
       ground.classList.toggle(styles.covered, hasLiving); // steps back behind the character
-      ground.textContent = tile.isRevealed ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
+      // the heart only shows on a clear field, so there is never a ground glyph to displace
+      ground.textContent = showHeart
+        ? HEART_EMOJI
+        : tile.isRevealed
+          ? tile.object === undefined
+            ? ""
+            : OBJECT_CONFIG[tile.object].emoji
+          : FOG_EMOJI;
 
       const living = livingGlyphs[index];
       // only makes room when there is actually something underneath to show
@@ -165,6 +207,7 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
 
     turnCounter.textContent = `${map.turn}`;
     goal.textContent = `${map.rainbowCount}/${RAINBOW_GOAL}`;
+    candyCount.textContent = `${map.candy}`;
     renderPurse();
     renderBeams();
 
@@ -173,6 +216,12 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     jumpButton.classList.toggle(CssClass.HIDDEN, !portalTarget);
     jumpButton.classList.toggle(CssClass.HINT, !!portalTarget && canUsePortal(map, portalTarget));
     jumpButton.disabled = !portalTarget || !canUsePortal(map, portalTarget);
+
+    // Offered on the start field whenever the candy is there, greyed out until the field
+    // is actually clear — the same shape as the jump above it.
+    buyButton.classList.toggle(CssClass.HIDDEN, !isBuySpot);
+    buyButton.classList.toggle(CssClass.HINT, isBuySpot && canBuy);
+    buyButton.disabled = !canBuy;
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
     // Ending a turn is one step among many; starting the next run is the whole screen.
@@ -254,6 +303,7 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     // Standing on a donut, the portal is what there is to act on — it takes the line over
     // the character's own description, right beside the button that uses it.
     if (portalTarget) setInfo(TranslationKey.INFO_DONUT, OBJECT_CONFIG[GameObjectType.DONUT].emoji);
+    else if (isBuySpot) setInfo(TranslationKey.INFO_BUY, HEART_EMOJI);
     else if (objectType !== undefined) setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
     else if (index === undefined)
       setInfo(
@@ -287,6 +337,9 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     targets = isCharacter ? getMoveTargets(map, position!).filter((target) => getMoveCost(map, target) <= map.drops) : [];
     // only a character can take the portal, and only from the donut it is standing on
     portalTarget = isCharacter ? getPortalTarget(map, position!) : undefined;
+    // Offered on the start field as soon as the candy is there, even when the field is
+    // occupied — the button then shows up disabled, which is what says "clear it first".
+    isBuySpot = index === START_INDEX && map.candy >= CANDY_PRICE;
     showInfo(index); // reads portalTarget, so it comes last
   }
 
@@ -316,6 +369,17 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     render();
 
     if (map.rainbowCount > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
+    if (isWon(map)) endGame(true);
+  }
+
+  /** Trades the jar of candy for a unicorn on the start field, then hands the board back. */
+  function buy() {
+    buyUnicorn(map);
+    select(selected); // the offer is spent and the field taken, so the panel has to follow
+    render();
+
+    pubSubService.publish(PubSubEvent.STAR_COLLECT);
+    // a fountain may sit next to the start field, in which case the newcomer lights it at once
     if (isWon(map)) endGame(true);
   }
 

@@ -230,8 +230,9 @@ $win-hop-height: 2rem;
   font-size: 1.1rem;
 }
 
-// The portal action, flowing inline at the end of the info line it belongs to.
-.jump {
+// An action offered by the info panel — the portal jump, the unicorn purchase — flowing
+// inline at the end of the line that explains it.
+.action {
   margin-left: 0.6em;
   vertical-align: middle;
   white-space: nowrap; // never breaks between the donut and its label
@@ -309,8 +310,20 @@ $win-hop-height: 2rem;
 
     // PLACEHOLDER art: the lollipop emoji is drawn on a 45° stick, so it is turned
     // upright to read as a tree until it gets art of its own.
+    // A tree with no rainbow beside it is dormant and gives up a little saturation — just
+    // enough to sit back from the one that is working, without looking broken.
     &.tree {
       rotate: 45deg;
+      filter: saturate(0.9);
+    }
+
+    // Earning: next to a rainbow, turning that light into candy. The glow means the same
+    // here as it does on the sun and the unicorns — this thing is producing — in candy
+    // pink rather than sunlight, after what comes out of it. The shadow has no offset, so
+    // the 45° rotation above leaves it perfectly symmetrical.
+    &.earning {
+      filter: none;
+      text-shadow: 0 0 0.3em theme.$main-color;
     }
 
     // Ground under a character: dimmed, so it reads as the floor and not a second actor.

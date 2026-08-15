@@ -23,4 +23,6 @@ export const TranslationKey = defineEnum({
   INFO_DONUT: 14,
   JUMP: 15, // the portal action offered in the info panel
   INFO_FLOWER: 16,
+  INFO_BUY: 17, // takes over the panel on the start field once a unicorn is affordable
+  BUY: 18, // the purchase action offered beside it
 });

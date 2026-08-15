@@ -21,9 +21,11 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_GOAL]: "|Explore the clouds, find friends and fountains, make rainbows: 🦄⛲🌈",
   [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
   [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
-  [TranslationKey.INFO_TREE]: "Lollipop tree|Sweet, but in the way. No rainbow can appear here.",
+  [TranslationKey.INFO_TREE]: "Lollipop tree|Next to a rainbow it makes one 🍬 a turn. No rainbow can appear here.",
   [TranslationKey.INFO_DONUT]: "Donut|A portal to the other donut. Jumping costs one 💧 extra.",
   [TranslationKey.JUMP]: "Jump",
   // Says both halves of the trade: the free step, and the rainbow spot it takes up.
   [TranslationKey.INFO_FLOWER]: "Flower|Stepping on it is free. But no rainbow can appear here.",
+  [TranslationKey.INFO_BUY]: "Nursery|Trade 3 🍬 for a new unicorn on this field.",
+  [TranslationKey.BUY]: "Buy",
 };

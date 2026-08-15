@@ -18,9 +18,11 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_GOAL]: "|Erkunde die Wolken, finde Freunde und Brunnen, zaubere Regenbögen: 🦄⛲🌈",
     [TranslationKey.INFO_FOG]: "Wolke|Hier kannst du noch nichts sehen. Lauf mit einem Einhorn näher heran.",
     [TranslationKey.INFO_EMPTY]: "Wiese|Freier Platz. Hier kann ein Regenbogen entstehen.",
-    [TranslationKey.INFO_TREE]: "Lollibaum|Süß, aber im Weg. Hier kann kein Regenbogen entstehen.",
+    [TranslationKey.INFO_TREE]: "Lollibaum|Neben einem Regenbogen macht er ein 🍬 pro Zug. Hier kann kein Regenbogen entstehen.",
     [TranslationKey.INFO_DONUT]: "Donut|Ein Portal zum anderen Donut. Der Sprung kostet ein 💧 extra.",
     [TranslationKey.JUMP]: "Springen",
     [TranslationKey.INFO_FLOWER]: "Blume|Ein Schritt darauf ist gratis. Aber hier kann kein Regenbogen entstehen.",
+    [TranslationKey.INFO_BUY]: "Kinderstube|Tausche 3 🍬 gegen ein neues Einhorn auf diesem Feld.",
+    [TranslationKey.BUY]: "Kaufen",
   };
 }

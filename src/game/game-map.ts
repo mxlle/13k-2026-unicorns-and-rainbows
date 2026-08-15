@@ -26,6 +26,9 @@ export const FLOWER_COUNT = (TILE_COUNT / 12 + 0.5) | 0; // 7 — free stepping 
 const SPACING = 2;
 
 export const RAINBOW_GOAL = 5; // rainbows that have to shine at the same time to win
+// PLACEHOLDER: sweets for a new unicorn. Flat for now — with income compounding once the
+// herd grows, a price that climbs per unicorn is the usual lever if runs snowball.
+export const CANDY_PRICE = 3;
 export const MOVE_COST = 1; // water drops per step
 export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs one drop more than a step
 export const MIN_PORTAL_DISTANCE = 4; // along both axes, so the pair is always diagonally across the board from each other
@@ -60,6 +63,8 @@ export interface GameMap {
   rainbowCount: number; // rainbows shining right now — recomputed after every move
   beams: Beam[]; // what the light is doing, recomputed alongside the rainbows
   drops: number; // water drops in the purse; they buy steps and are banked across turns
+  candy: number; // sweets in the jar; they buy unicorns and are banked the same way
+  candyIncome: number; // lollipop trees earning right now — recomputed alongside the rainbows
   turn: number; // turns played so far, counted up as each income is collected
 }
 
@@ -100,6 +105,8 @@ export function createGameMap(seed: number): GameMap {
     rainbowCount: 0,
     beams: [],
     drops: 0,
+    candy: 0,
+    candyIncome: 0,
     turn: 0,
   };
 
@@ -303,6 +310,35 @@ export function updateRainbows(map: GameMap) {
       }
     }
   });
+
+  // The second income, counted once the rainbows are in place: a lollipop tree standing
+  // next to one turns the light into sweets. One candy per earning tree, however many
+  // rainbows happen to surround it — a tree either pays out or it does not.
+  // Only trees the player has found earn: an unseen one paying into the jar would give
+  // its position away, the same reason a fogged glower casts no light.
+  map.candyIncome = map.tiles.filter((_, index) => isEarningTree(map, getPosition(index))).length;
+}
+
+/**
+ * Whether a tile is a lollipop tree that is earning right now — one candy's worth of the
+ * income above. The board draws its trees from this too, so what the player sees glowing
+ * and what the jar is paid cannot drift apart.
+ */
+export function isEarningTree(map: GameMap, position: Position): boolean {
+  const tile = getTile(map, position)!;
+
+  return tile.isRevealed && tile.object === GameObjectType.TREE && hasRainbowNeighbour(map, position);
+}
+
+/** Whether any of the surrounding eight tiles is currently showing a rainbow. */
+function hasRainbowNeighbour(map: GameMap, { x, y }: Position): boolean {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if ((dx || dy) && getTile(map, { x: x + dx, y: y + dy })?.object === GameObjectType.RAINBOW) return true;
+    }
+  }
+
+  return false;
 }
 
 function blocksMove(objectType: GameObjectType | undefined): boolean {
@@ -380,10 +416,35 @@ export function moveCharacter(map: GameMap, from: Position, to: Position) {
   fromTile.living = undefined;
 }
 
-/** Income at the start of a turn: one water drop per shining rainbow. Unspent drops stay in the purse. */
+/**
+ * Income at the start of a turn: one water drop per shining rainbow, one candy per earning
+ * lollipop tree. Neither is spent on collection — both bank across turns.
+ */
 export function startTurn(map: GameMap) {
   map.drops += map.rainbowCount;
+  map.candy += map.candyIncome;
   map.turn++;
+}
+
+/**
+ * Whether a new unicorn can be bought right now. Two conditions, and the second is the
+ * interesting one: the start field has to be clear. It is the only place a bought unicorn
+ * appears, so a rainbow lying on it — or a unicorn that has not walked off yet — puts the
+ * purchase on hold rather than moving it somewhere else.
+ */
+export function canBuyUnicorn(map: GameMap): boolean {
+  const tile = getTile(map, UNICORN_START)!;
+
+  return map.candy >= CANDY_PRICE && tile.object === undefined && tile.living === undefined;
+}
+
+/** Trades the candy for a unicorn on the start field. Guarded by canBuyUnicorn. */
+export function buyUnicorn(map: GameMap) {
+  map.candy -= CANDY_PRICE;
+  getTile(map, UNICORN_START)!.living = GameObjectType.UNICORN;
+  // the start field and its surroundings have been revealed since the opening turn, so
+  // there is no fog for the newcomer to lift — but it may light a fountain straight away
+  updateRainbows(map);
 }
 
 export function isWon(map: GameMap): boolean {

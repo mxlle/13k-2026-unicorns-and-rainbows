@@ -5,24 +5,21 @@ import { defineEnum } from "../utils/enums";
 export type TranslationKey = defineEnum<typeof TranslationKey>;
 export const TranslationKey = defineEnum({
   CONTINUE: 0,
-  WON: 1,
-  LOST: 2,
-  END_TURN: 3,
+  WON: 1, // the only way a run ends: the turns run out. There is no losing.
+  END_TURN: 2,
   // Object info, one key per object type: "Name|One-line description". One string
   // instead of two keys per object — the component splits it at the pipe.
-  INFO_UNICORN: 4,
-  INFO_RAINBOW: 5,
-  INFO_FOUNTAIN: 6,
-  INFO_SUN: 7,
-  INFO_HINT: 8, // shown in the info panel while nothing is selected — no name, hence the leading "|"
-  INFO_FOG: 9,
-  INFO_EMPTY: 10,
-  NEW_GAME: 11,
-  INFO_GOAL: 12, // what the run is about, in place of INFO_HINT on the opening turn — no name either
-  INFO_TREE: 13,
-  INFO_DONUT: 14,
-  JUMP: 15, // the portal action offered in the info panel
-  INFO_FLOWER: 16,
-  INFO_BUY: 17, // takes over the panel on the start field once a unicorn is affordable
-  BUY: 18, // the purchase action offered beside it
+  INFO_UNICORN: 3,
+  INFO_RAINBOW: 4,
+  INFO_FOUNTAIN: 5,
+  INFO_BATHTUB: 6,
+  INFO_HINT: 7, // shown in the info panel while nothing is selected — no name, hence the leading "|"
+  INFO_FOG: 8,
+  INFO_EMPTY: 9,
+  NEW_GAME: 10,
+  INFO_GOAL: 11, // what the run is about, in place of INFO_HINT on the opening turn — no name either
+  INFO_TREE: 12,
+  INFO_DONUT: 13,
+  JUMP: 14, // the portal action offered in the info panel
+  INFO_FLOWER: 15,
 });

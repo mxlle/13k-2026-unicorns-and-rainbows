@@ -13,8 +13,8 @@ export const MAP_SIZES = [7, 13, 21];
 // plain numbers at build time, which is why the `+ 0.5 | 0` rounding is written this way
 // and stays that way: it is still cheaper at runtime than Math.round.
 export let MAP_SIZE = MAP_SIZES[0];
-export let FOUNTAIN_COUNT = 0; // hidden ones, on top of the two flanking the sun
-export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every hidden fountain
+export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are none in the open any more
+export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every fountain
 export let UNICORN_COUNT = 0; // one at the start position, the others hidden in the fog
 export let FLOWER_COUNT = 0; // free stepping stones scattered over the meadow
 export let TURN_LIMIT = 0; // the whole run — as many turns as the board is wide
@@ -60,11 +60,15 @@ const SCORE_PER_REVEALED = 1; // per tile no longer under cloud
 export const CANDY_PRICE = 3;
 export const MOVE_COST = 1; // water drops per step
 export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs one drop more than a step
-export const SUN_POSITION: Position = { x: 0, y: 0 };
+// PLACEHOLDER: what one bathtub pays into the purse every turn, come what may. It is the
+// floor under the economy — with it, a run can never seize up, which is why there is no
+// losing any more. Every tub on the board pays it, so a second one doubles the base.
+export const BASE_INCOME = 2;
 // PLACEHOLDER: the range a "give me any map" seed is drawn from. Short enough to stay
 // readable, which matters once maps are handpicked by their number.
 const SEED_RANGE = 1e6;
-export const UNICORN_START: Position = { x: 1, y: 1 }; // the sun's diagonal neighbour
+const TUB_POSITION: Position = { x: 0, y: 0 }; // the starting base, in the corner
+const UNICORN_START: Position = { x: 1, y: 1 }; // the tub's diagonal neighbour
 
 export interface Position {
   x: number;
@@ -92,6 +96,7 @@ export interface GameMap {
   beams: Beam[]; // what the light is doing, recomputed alongside the rainbows
   drops: number; // water drops in the purse; they buy steps and are banked across turns
   candy: number; // sweets in the jar; they buy unicorns and are banked the same way
+  dropIncome: number; // the bathtubs' flat pay plus every rainbow shining — recomputed with them
   candyIncome: number; // lollipop trees earning right now — recomputed alongside the rainbows
   turn: number; // the turn being played, 1 to TURN_LIMIT
 }
@@ -135,15 +140,15 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
     beams: [],
     drops: 0,
     candy: 0,
+    dropIncome: 0,
     candyIncome: 0,
     turn: 1,
   };
 
-  // The sun is a light source that never moves. With a fountain on each of its two
-  // open sides it keeps two rainbows lit in the corner — that is the starting income.
-  getTile(map, SUN_POSITION)!.object = GameObjectType.SUN;
-  getTile(map, { x: SUN_POSITION.x + 1, y: SUN_POSITION.y })!.object = GameObjectType.FOUNTAIN;
-  getTile(map, { x: SUN_POSITION.x, y: SUN_POSITION.y + 1 })!.object = GameObjectType.FOUNTAIN;
+  // The base: it pays BASE_INCOME every turn without needing anything set up around it,
+  // and it is where new unicorns come from. That is the whole opening — no worked example
+  // of the light rule in the corner any more; the player meets that out in the fog.
+  getTile(map, TUB_POSITION)!.object = GameObjectType.BATHTUB;
 
   getTile(map, UNICORN_START)!.living = GameObjectType.UNICORN;
   revealAround(map, UNICORN_START);
@@ -154,13 +159,11 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // satisfy gets the emptiest board to find room on.
 
   // Fountains keep one tile of distance to the border, so every side of a fountain has an
-  // opposite tile to cast a rainbow onto, and SPACING from each other — including from the
-  // two already flanking the sun, which are on the board by now and counted like any other.
+  // opposite tile to cast a rainbow onto, and SPACING from each other.
   for (let i = 0; i < FOUNTAIN_COUNT; i++) {
     const position = placeObject(map, GameObjectType.FOUNTAIN, SPACING, 1);
-    // A lollipop tree grows next to every hidden fountain, taking one of its eight
-    // rainbow slots away. The two fountains flanking the sun stay clear, so the
-    // opening income can never be blocked in.
+    // A lollipop tree grows next to every fountain, taking one of its eight rainbow
+    // slots away.
     const spots = position ? getFreeNeighbours(map, position) : [];
     if (spots.length) getTile(map, getRandomItem(spots))!.object = GameObjectType.TREE;
   }
@@ -185,7 +188,7 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   for (let i = 0; i < FLOWER_COUNT; i++) placeObject(map, GameObjectType.FLOWER, SPACING);
 
   updateRainbows(map);
-  map.drops = map.rainbowCount; // the opening purse: the sun's two rainbows are already shining
+  map.drops = map.dropIncome; // the opening purse is one turn's income — the tub's, since nothing shines yet
 
   return map;
 }
@@ -341,6 +344,11 @@ export function updateRainbows(map: GameMap) {
     }
   });
 
+  // What the purse takes next turn: every rainbow shining, plus the flat pay of every
+  // bathtub on the board. Counted from the tiles rather than kept as a number of its own,
+  // so a tub built mid-run starts paying without anything having to be told about it.
+  map.dropIncome = map.rainbowCount + BASE_INCOME * map.tiles.filter((tile) => tile.object === GameObjectType.BATHTUB).length;
+
   // The second income, counted once the rainbows are in place: a lollipop tree standing
   // next to one turns the light into sweets. One candy per earning tree, however many
   // rainbows happen to surround it — a tree either pays out or it does not.
@@ -427,10 +435,10 @@ export function getMoveCost(map: GameMap, to: Position): number {
 
 /**
  * Whether any character the player can see has a free step available — with an empty purse,
- * the only thing that can still happen. Both the loss check and the "end your turn" nudge
- * hang off this: without it a player standing next to a flower would be told the run was
- * over, and counting characters still under the fog would silently disarm that nudge on
- * account of a unicorn the player has not even found yet.
+ * the only thing that can still happen. The "end your turn" nudge hangs off this, so that a
+ * player standing next to a flower is not pushed on while there is still something to do.
+ * Characters under the fog are left out on purpose: counting one would silently disarm the
+ * nudge on account of a unicorn the player has not even found yet.
  */
 export function hasFreeMove(map: GameMap): boolean {
   return map.tiles.some(
@@ -482,7 +490,7 @@ export function getScore(map: GameMap): number {
  * whatever the player sets up on turn 20 is still paid for before the run closes.
  */
 export function endTurn(map: GameMap) {
-  map.drops += map.rainbowCount;
+  map.drops += map.dropIncome;
   map.candy += map.candyIncome;
   map.turn++;
 }
@@ -493,32 +501,25 @@ export function isRunOver(map: GameMap): boolean {
 }
 
 /**
- * Whether a new unicorn can be bought right now. Two conditions, and the second is the
- * interesting one: the start field has to be clear. It is the only place a bought unicorn
- * appears, so a rainbow lying on it — or a unicorn that has not walked off yet — puts the
- * purchase on hold rather than moving it somewhere else.
+ * The fields a bathtub may put a new unicorn on: the neighbours a character could step onto,
+ * which is exactly the right rule — a fountain or another unicorn is in the way, a flower or
+ * a donut is not, and a rainbow lying there simply goes out under the newcomer. The list is
+ * empty unless the jar can actually pay, so the board only ever lights fields that can be
+ * taken up — the same rule under which a character's steps light up only if it can pay for
+ * them.
+ *
+ * Which tub a field belongs to never has to be decided: every tub offers its own neighbours,
+ * and a field between two of them is just offered twice.
  */
-export function canBuyUnicorn(map: GameMap): boolean {
-  const tile = getTile(map, UNICORN_START)!;
-
-  return map.candy >= CANDY_PRICE && tile.object === undefined && tile.living === undefined;
+export function getSpawnTargets(map: GameMap, position: Position): Position[] {
+  return map.candy >= CANDY_PRICE ? getMoveTargets(map, position) : [];
 }
 
-/** Trades the candy for a unicorn on the start field. Guarded by canBuyUnicorn. */
-export function buyUnicorn(map: GameMap) {
+/** Trades the jar of candy for a unicorn on `position` — which must come from getSpawnTargets. */
+export function buyUnicorn(map: GameMap, position: Position) {
   map.candy -= CANDY_PRICE;
-  getTile(map, UNICORN_START)!.living = GameObjectType.UNICORN;
-  // the start field and its surroundings have been revealed since the opening turn, so
-  // there is no fog for the newcomer to lift — but it may light a fountain straight away
+  getTile(map, position)!.living = GameObjectType.UNICORN;
+  // it stands beside a tub the player was looking at, so there is no fog for the newcomer
+  // to lift — but it may light a fountain straight away
   updateRainbows(map);
-}
-
-/**
- * The board has seized up: nothing to move with, nothing coming in to change that, and
- * nothing left to buy. There is no losing any more — the run simply stops here instead of
- * spending its remaining turns on a board where every one of them would be identical.
- * Candy counts as a way out: a bought unicorn can light a fountain and restart the income.
- */
-export function isStuck(map: GameMap): boolean {
-  return map.drops < MOVE_COST && !hasFreeMove(map) && !map.rainbowCount && !map.candyIncome && !canBuyUnicorn(map);
 }

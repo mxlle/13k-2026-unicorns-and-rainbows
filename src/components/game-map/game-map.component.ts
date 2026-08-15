@@ -6,8 +6,8 @@ import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../..
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
+  BASE_INCOME,
   buyUnicorn,
-  canBuyUnicorn,
   CANDY_PRICE,
   canUsePortal,
   createGameMap,
@@ -21,10 +21,10 @@ import {
   getPosition,
   getScore,
   getScoreParts,
+  getSpawnTargets,
   hasFreeMove,
   isEarningTree,
   isRunOver,
-  isStuck,
   MAP_SIZE,
   MAP_SIZES,
   moveCharacter,
@@ -33,7 +33,6 @@ import {
   Position,
   revealAround,
   TURN_LIMIT,
-  UNICORN_START,
   updateRainbows,
 } from "../../game/game-map";
 import { GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
@@ -63,12 +62,7 @@ const SCORE_EMOJIS = [
   OBJECT_CONFIG[GameObjectType.TREE].emoji,
   EXPLORE_EMOJI,
 ];
-// PLACEHOLDER: the invitation to buy, drawn on the start field once a unicorn is
-// affordable and the field is clear. It is not a game object — nothing stands on the
-// tile, so it can never block a rainbow the way a real object would.
-const HEART_EMOJI = "💗";
 const WIN_EMOJI = "🎉";
-const LOSE_EMOJI = "😢";
 const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
 // PLACEHOLDER zoom steps, as multiples of "the whole board fits in the view". Expressing
 // them as multiples rather than tile sizes is what makes step 0 a true overview on any map
@@ -166,10 +160,10 @@ export function GameMapComponent(): [
   // action rather than a highlighted tile, so taking the portal never gives the far end
   // away before the player has walked there.
   let portalTarget: Position | undefined;
-  // Whether the selection is the start field with enough candy in the jar. Like the portal
-  // it is an offer rather than a highlighted tile, and it takes the info line over so the
-  // trade is explained right beside the button that makes it.
-  let isBuySpot = false;
+  // Whether the selection is a bathtub. A tub lights the fields it can put a unicorn on in
+  // exactly the way a character lights the tiles it can step onto, so the second tap has to
+  // know which of the two it is finishing: a step, or a purchase.
+  let isTubSelected = false;
   // The turn is being paid out: income is in the air and the purse has not been credited
   // yet. The board is locked for as long as it lasts — a step taken mid-flight would change
   // the very income the player is watching arrive.
@@ -267,20 +261,10 @@ export function GameMapComponent(): [
     createElement({ tag: "span", cssClass: CssClass.EMOJI, text: OBJECT_CONFIG[GameObjectType.DONUT].emoji }),
     ` ${getTranslation(TranslationKey.JUMP)}`,
   ]);
-  // The purchase, offered the same way: an action in the line that explains it. It can
-  // never share the line with the jump — the start field is revealed before any donut is
-  // placed, so no donut can ever lie on it.
-  const buyButton = createButton({ cssClass: [CssClass.SECONDARY, styles.action], onClick: buy }, [
-    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: OBJECT_CONFIG[GameObjectType.UNICORN].emoji }),
-    ` ${getTranslation(TranslationKey.BUY)}`,
-  ]);
   // The end-of-run breakdown, one line per scoring category, stacked under the result line.
   // Empty while the run is on, and CSS hides it then, so it takes no room until it has any.
   const scoreBoard = createElement({ cssClass: styles.scoreBoard });
-  const infoPanel = createElement({ cssClass: styles.info }, [
-    createElement({}, [infoEmoji, infoName, infoText, jumpButton, buyButton]),
-    scoreBoard,
-  ]);
+  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText, jumpButton]), scoreBoard]);
 
   // The board takes its size from the map and the zoom step; this row scrolls to reach the
   // parts of it that do not fit. Panning is the browser's own scrolling — which brings touch
@@ -340,7 +324,9 @@ export function GameMapComponent(): [
     const targetIndices = targets.map(getIndex);
     // A step onto a flower costs nothing, and the purse is the only place that would
     // otherwise say so — after the fact. These get a highlight of their own instead.
-    const freeIndices = targets.filter((target) => !getMoveCost(map, target)).map(getIndex);
+    // A tub's fields are never free — they cost candy — so they keep the plain target ring
+    // even when the flower under one of them would have made the step itself free.
+    const freeIndices = isTubSelected ? [] : targets.filter((target) => !getMoveCost(map, target)).map(getIndex);
     // Guidance: an empty purse makes the income the only way on, so ending the turn
     // becomes the next step. Before that, on the opening turn, it is picking a character.
     // Once the run is over the same button is the only thing left to press.
@@ -350,8 +336,6 @@ export function GameMapComponent(): [
     // is genuinely nothing else left to do, so it never nags a player who can still act.
     const outOfWater = map.drops < MOVE_COST;
     const needsIncome = outOfWater && !hasFreeMove(map);
-    const canBuy = canBuyUnicorn(map);
-    const startIndex = getIndex(UNICORN_START); // once per render, not once per tile
     const isOver = !isRunning;
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
 
@@ -359,13 +343,14 @@ export function GameMapComponent(): [
       const element = tileElements[index];
       const objectType = getObject(index);
       const isSelectedTile = index === selectedIndex;
-      // The invitation to buy. Drawn only while the purchase is actually available, so the
-      // heart never appears on a field that would refuse it, and it pulses like any other
-      // "this is your next move" — it is the one affordance nothing else on the board hints at.
-      const showHeart = canBuy && index === startIndex;
+      // The invitation to buy: the tub itself pulses, and only while the purchase is really
+      // on — the jar can pay and there is somewhere to put the unicorn. It is the one
+      // affordance nothing else on the board hints at, so it says so where it happens.
+      // Short-circuited on the object check: getSpawnTargets must not run for every tile.
+      const canSpawn = tile.object === GameObjectType.BATHTUB && !!getSpawnTargets(map, getPosition(index)).length;
       element.classList.toggle(styles.revealed, tile.isRevealed);
       element.classList.toggle(styles.glowing, objectType !== undefined && OBJECT_CONFIG[objectType].glows);
-      element.classList.toggle(CssClass.HINT, showHeart || (hintCharacters && tile.isRevealed && tile.living !== undefined));
+      element.classList.toggle(CssClass.HINT, canSpawn || (hintCharacters && tile.isRevealed && tile.living !== undefined));
       element.classList.toggle(styles.selected, isSelectedTile);
       // no steps lit means the selection is only being looked at — see select()
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
@@ -381,14 +366,7 @@ export function GameMapComponent(): [
       // income itself is counted with, so the glow can never promise candy that never comes
       ground.classList.toggle(styles.earning, isEarningTree(map, getPosition(index)));
       ground.classList.toggle(styles.covered, hasLiving); // steps back behind the character
-      // the heart only shows on a clear field, so there is never a ground glyph to displace
-      ground.textContent = showHeart
-        ? HEART_EMOJI
-        : tile.isRevealed
-          ? tile.object === undefined
-            ? ""
-            : OBJECT_CONFIG[tile.object].emoji
-          : FOG_EMOJI;
+      ground.textContent = tile.isRevealed ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
 
       const living = livingGlyphs[index];
       // only makes room when there is actually something underneath to show
@@ -406,7 +384,7 @@ export function GameMapComponent(): [
     const isLastTurn = map.turn >= TURN_LIMIT;
     turnEmoji.textContent = isLastTurn ? LAST_TURN_EMOJI : TURN_EMOJI;
     turnDisplay.classList.toggle(styles.lastTurn, isLastTurn);
-    dropCount.textContent = `${map.drops} (+${map.rainbowCount})`;
+    dropCount.textContent = `${map.drops} (+${map.dropIncome})`;
     candyCount.textContent = `${map.candy} (+${map.candyIncome})`;
     scoreCount.textContent = `${getScore(map)}`; // a snapshot, so it has no "+" to show
     // While the run is on, the working is the player's to open and close. Once it is over
@@ -419,12 +397,6 @@ export function GameMapComponent(): [
     jumpButton.classList.toggle(CssClass.HIDDEN, !portalTarget);
     jumpButton.classList.toggle(CssClass.HINT, !!portalTarget && canUsePortal(map, portalTarget));
     jumpButton.disabled = !portalTarget || !canUsePortal(map, portalTarget);
-
-    // Offered on the start field whenever the candy is there, greyed out until the field
-    // is actually clear — the same shape as the jump above it.
-    buyButton.classList.toggle(CssClass.HIDDEN, !isBuySpot);
-    buyButton.classList.toggle(CssClass.HINT, isBuySpot && canBuy);
-    buyButton.disabled = !canBuy;
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
     endTurnButton.disabled = isPaying; // no second turn until the first one has been paid out
@@ -487,7 +459,6 @@ export function GameMapComponent(): [
     // Standing on a donut, the portal is what there is to act on — it takes the line over
     // the character's own description, right beside the button that uses it.
     if (portalTarget) setInfo(TranslationKey.INFO_DONUT, OBJECT_CONFIG[GameObjectType.DONUT].emoji);
-    else if (isBuySpot) setInfo(TranslationKey.INFO_BUY, HEART_EMOJI);
     else if (objectType !== undefined) setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
     else if (index === undefined)
       setInfo(
@@ -541,17 +512,23 @@ export function GameMapComponent(): [
     // portal — any of which would give away that something is hiding there.
     const tile = index === undefined ? undefined : map.tiles[index];
     const isCharacter = !!tile?.isRevealed && tile.living !== undefined;
+    // A bathtub is the one piece of scenery that leads somewhere: it offers the fields it
+    // can put a new unicorn on. Nothing can stand on a tub — it blocks movement — so this
+    // and isCharacter are never both true, and the two kinds of target never mix.
+    isTubSelected = !!tile?.isRevealed && tile.object === GameObjectType.BATHTUB;
     // Steps only light up for a character that can afford them, and affordability is now
     // per target rather than per character: with an empty purse a step onto a flower is
     // still on, and it is exactly then that it matters most. Scenery, a blocked-in
     // character and one that can afford none of its steps all end up with no targets,
-    // which is what render() draws as the neutral selection.
-    targets = isCharacter ? getMoveTargets(map, position!).filter((target) => getMoveCost(map, target) <= map.drops) : [];
+    // which is what render() draws as the neutral selection. A tub with too little candy
+    // lands there too — the fields light up only once the trade can actually be made.
+    targets = isCharacter
+      ? getMoveTargets(map, position!).filter((target) => getMoveCost(map, target) <= map.drops)
+      : isTubSelected
+        ? getSpawnTargets(map, position!)
+        : [];
     // only a character can take the portal, and only from the donut it is standing on
     portalTarget = isCharacter ? getPortalTarget(map, position!) : undefined;
-    // Offered on the start field as soon as the candy is there, even when the field is
-    // occupied — the button then shows up disabled, which is what says "clear it first".
-    isBuySpot = index === getIndex(UNICORN_START) && map.candy >= CANDY_PRICE;
     showInfo(index); // reads portalTarget, so it comes last
   }
 
@@ -560,7 +537,9 @@ export function GameMapComponent(): [
     showsScore = false; // the board takes the panel back, whether the tap moves or just looks
 
     if (targets.some((target) => getIndex(target) === index)) {
-      move(getPosition(index));
+      // the same second tap either way — what it finishes depends on what is selected
+      if (isTubSelected) buy(getPosition(index));
+      else move(getPosition(index));
     } else {
       // every tile can be picked up and explains itself, fog and bare ground included;
       // tapping the selected one again drops it and the panel falls back to its hint
@@ -585,15 +564,15 @@ export function GameMapComponent(): [
     if (map.rainbowCount > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
   }
 
-  /** Trades the jar of candy for a unicorn on the start field, then hands the board back. */
-  function buy() {
-    buyUnicorn(map);
-    select(selected); // the offer is spent and the field taken, so the panel has to follow
+  /** Trades the jar of candy for a unicorn on one of the tub's fields, then hands the board back. */
+  function buy(target: Position) {
+    buyUnicorn(map, target);
+    select(selected); // the tub stays picked up, but the jar may no longer stretch to another
     render();
     // The jar empties the same way the purse does, from the field the unicorn appeared on —
     // three sweets rather than one drop, but the same gesture, so a price is always counted
     // out in the currency that paid it.
-    showSpending(UNICORN_START, CANDY_PRICE, 1);
+    showSpending(target, CANDY_PRICE, 1);
 
     pubSubService.publish(PubSubEvent.STAR_COLLECT);
   }
@@ -668,6 +647,9 @@ export function GameMapComponent(): [
 
     map.tiles.forEach((tile, index) => {
       if (tile.object === GameObjectType.RAINBOW) groups[0].push(index);
+      // A tub pays its flat drops out of itself, one glyph each, so the income that needs no
+      // setting up is counted out on the board exactly like the income that does.
+      else if (tile.object === GameObjectType.BATHTUB) groups[0].push(...Array<number>(BASE_INCOME).fill(index));
       else if (isEarningTree(map, getPosition(index))) groups[1].push(index);
     });
 
@@ -706,8 +688,8 @@ export function GameMapComponent(): [
 
   /**
    * Closes the turn: the board pays out, the turn counter moves on, and the run ends if that
-   * was the last one. A board that has seized up ends the run early — every remaining turn
-   * would be identical, so there is nothing to play out.
+   * was the last one — the only way a run can end, since a bathtub pays whatever else happens
+   * and the board can therefore never seize up.
    *
    * The purse is credited only once the income has landed, so the counters move when the
    * drops and sweets reach them rather than a second before. Everything else waits with it,
@@ -724,25 +706,25 @@ export function GameMapComponent(): [
       select(selected); // steps that were unaffordable a moment ago may be back
       render();
 
-      if (isRunOver(map) || isStuck(map)) endGame(!isStuck(map));
+      if (isRunOver(map)) endGame();
     }, wait);
   }
 
   /**
    * The result takes over the info panel and the turn button — no dialog on top of the board.
-   * `hasFinished` separates the two ways a run can end: playing all twenty turns out, or the
-   * board seizing up before that. Both report the same score; only the first is celebrated.
+   * There is only one way to get here: the turns ran out. The board cannot seize up while a
+   * bathtub is paying, so every run is played to the end and every ending is celebrated.
    */
-  function endGame(hasFinished: boolean) {
+  function endGame() {
     isRunning = false;
     select(undefined); // drops the board highlights; the panel now carries the result
-    setInfo(hasFinished ? TranslationKey.WON : TranslationKey.LOST, hasFinished ? WIN_EMOJI : LOSE_EMOJI);
-    infoText.textContent += ` ${getScore(map)}`; // both texts end ready for the number
+    setInfo(TranslationKey.WON, WIN_EMOJI);
+    infoText.textContent += ` ${getScore(map)}`; // the text ends ready for the number
     showsScore = false; // the result owns the panel now; there is nothing left to toggle
     renderScoreBoard(true); // the total above, its working below
     render();
 
-    pubSubService.publish(PubSubEvent.GAME_END, { isWon: hasFinished });
+    pubSubService.publish(PubSubEvent.GAME_END, { isWon: true });
   }
 
   // Passing a seed replays exactly that map; leaving it out deals a new one. Replaying the

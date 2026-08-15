@@ -16,7 +16,7 @@ export const GameObjectType = defineEnum({
   UNICORN: 0,
   RAINBOW: 1,
   FOUNTAIN: 2,
-  SUN: 3,
+  BATHTUB: 3,
   TREE: 4,
   DONUT: 5,
   FLOWER: 6,
@@ -57,13 +57,15 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
     glows: false,
     info: TranslationKey.INFO_FOUNTAIN,
   },
-  [GameObjectType.SUN]: {
-    emoji: "☀️",
+  // The base: it pays a flat income every turn and is where new unicorns come from. It
+  // gives off no light of its own — the corner it stands in is a purse, not a puzzle.
+  [GameObjectType.BATHTUB]: {
+    emoji: "🛁",
     category: ObjectCategory.STATIC,
     blocksMove: true,
     blocksVision: false,
-    glows: true,
-    info: TranslationKey.INFO_SUN,
+    glows: false,
+    info: TranslationKey.INFO_BATHTUB,
   },
   // Candyland scenery that is also an obstacle: the glyph is drawn tilted at 45°,
   // the stylesheet stands it upright (see .tile > span in game-map.module.scss).

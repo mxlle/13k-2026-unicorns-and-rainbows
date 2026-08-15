@@ -20,6 +20,14 @@ $beam-width: 0.08em;
 $stacked-scale: 0.72;
 $covered-opacity: 0.55;
 
+// Where the board stops and the panels begin, once a screen is wide enough to have the
+// room beside it. In px rather than rem on purpose: a media query's rem is the browser's
+// initial font size, not the one globals.scss sets, so px is the honest unit here.
+$wide-screen: 900px;
+// The panel column on such a screen. Capped against the viewport as well, so a short wide
+// window does not hand the panels a third of the room the board wants.
+$sidebar-width: min(20rem, 30vw);
+
 // Map / info panel / turn bar, top to bottom. The info row is always there — that is
 // what keeps it from ever covering the board or shifting it when the selection changes.
 .host {
@@ -358,5 +366,35 @@ $win-hop-height: 2rem;
     &.stacked {
       scale: $stacked-scale;
     }
+  }
+}
+
+// On a wide screen the panels leave the space under the board and take a column of their
+// own beside it. Two things come of that: the map row gets the full window height back,
+// which is what the biggest board wants on a laptop, and the trip from a tile to the panel
+// explaining it stops crossing the whole screen. Layout only — every element keeps its
+// place in the DOM, so nothing in the component knows this happens.
+// It has to come last in the file: these selectors are no more specific than the ones they
+// override, so it is source order alone that lets them win.
+@media (min-width: $wide-screen) {
+  .host {
+    grid-template-columns: minmax(0, 1fr) $sidebar-width;
+    grid-template-rows: 1fr min-content;
+  }
+
+  .mapArea {
+    grid-area: 1 / 1 / 3 / 2; // both rows: the board is as tall as the window allows
+  }
+
+  // Centred down the column rather than pinned to its top — the middle of the board's edge
+  // is the shortest trip from wherever on the board the player just tapped.
+  .info {
+    grid-area: 1 / 2;
+    align-self: center;
+  }
+
+  .turnBar {
+    grid-area: 2 / 2;
+    flex-wrap: wrap; // four controls in a narrow column need a second line to fall back on
   }
 }

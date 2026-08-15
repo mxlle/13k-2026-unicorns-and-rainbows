@@ -7,6 +7,7 @@ import { TranslationKey } from "../../translations/translationKey";
 import {
   canUsePortal,
   createGameMap,
+  createSeed,
   GameMap,
   getIndex,
   getMoveTargets,
@@ -42,7 +43,7 @@ const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a 
 
 // The usual [host, update] tuple plus the status chip that belongs in the header — it is
 // part of the game state, so the game owns it; only its place in the DOM is elsewhere.
-export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () => void, statusChip: HTMLElement] {
+export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (seed?: number) => void, statusChip: HTMLElement] {
   let map: GameMap;
   let isRunning = false;
   // Two-tap navigation: tap an object to select it, then — if it is a character that
@@ -320,8 +321,10 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
     pubSubService.publish(PubSubEvent.GAME_END, { isWon: hasWon });
   }
 
-  function startNewGame() {
-    map = createGameMap();
+  // Passing a seed replays exactly that map; leaving it out deals a new one. Replaying the
+  // map just played needs no snapshot — only remembering the number it was built from.
+  function startNewGame(seed = createSeed()) {
+    map = createGameMap(seed);
     startTurn(map); // the sun's two rainbows are the opening purse
     isRunning = true; // before render(), which reads it for the turn button
     select(undefined);

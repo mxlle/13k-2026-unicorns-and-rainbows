@@ -1,4 +1,4 @@
-import { getRandomInt } from "../utils/random-utils";
+import { getRandomInt, setSeed } from "../utils/random-utils";
 import { getRandomItem } from "../utils/array-utils";
 import { GameObjectType, OBJECT_CONFIG } from "./game-objects";
 
@@ -13,6 +13,9 @@ export const MOVE_COST = 1; // water drops per step
 export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs one drop more than a step
 export const MIN_PORTAL_DISTANCE = 4; // Chebyshev, so the pair is always at least half the board apart
 export const SUN_POSITION: Position = { x: 0, y: 0 };
+// PLACEHOLDER: the range a "give me any map" seed is drawn from. Short enough to stay
+// readable, which matters once maps are handpicked by their number.
+const SEED_RANGE = 1e6;
 export const UNICORN_START: Position = { x: 1, y: 1 }; // the sun's diagonal neighbour
 
 export interface Position {
@@ -60,7 +63,21 @@ export function getTile(map: GameMap, position: Position): Tile | undefined {
   return x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE ? undefined : map.tiles[getIndex(position)];
 }
 
-export function createGameMap(): GameMap {
+/** A fresh map to play — the one roll that stays truly random, since it picks the seed itself. */
+export function createSeed(): number {
+  return Math.floor(Math.random() * SEED_RANGE);
+}
+
+/**
+ * Builds the board for `seed`. Every roll below comes from the seeded generator, so the
+ * same seed always produces the same map: replaying one costs nothing but calling this
+ * again, and a handpicked level is just a number. Note that this ties the maps to the
+ * generation code — changing anything about the order or count of the rolls reshuffles
+ * every seed, so a curated level list can only be pinned down once this is settled.
+ */
+export function createGameMap(seed: number): GameMap {
+  setSeed(seed);
+
   const map: GameMap = {
     tiles: Array.from({ length: MAP_SIZE * MAP_SIZE }, () => ({ isRevealed: false })),
     rainbowCount: 0,

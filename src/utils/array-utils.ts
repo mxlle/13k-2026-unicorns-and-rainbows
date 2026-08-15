@@ -1,9 +1,11 @@
+import { random } from "./random-utils";
+
 export function removeDuplicates<T>(arr: T[]): T[] {
   return arr.filter((item, index) => arr.indexOf(item) === index);
 }
 
 export function getRandomItem<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+  return arr[Math.floor(random() * arr.length)];
 }
 
 export function areArraysEqual<T>(arr1: T[], arr2: T[]) {

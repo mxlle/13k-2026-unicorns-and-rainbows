@@ -25,7 +25,16 @@ export const FLOWER_COUNT = (TILE_COUNT / 12 + 0.5) | 0; // 7 — free stepping 
 // kind is a matter of passing a different number to placeObject.
 const SPACING = 2;
 
-export const RAINBOW_GOAL = 5; // rainbows that have to shine at the same time to win
+export const TURN_LIMIT = 10; // the whole run: build the best economy you can inside it
+
+// PLACEHOLDER score weights. The score is what the board is worth right now, not a total
+// banked over the run — it is recomputed from scratch whenever anything moves, shown all
+// through the run, and whatever it reads when the last turn closes is the final score.
+// The weighting exists because the terms are on very different scales: a good board has
+// fifty-odd revealed tiles against a handful of rainbows, so counting both at one apiece
+// would make the run about walking rather than building.
+const SCORE_PER_ECONOMY = 5; // per rainbow, per unicorn found, per earning tree
+const SCORE_PER_REVEALED = 1; // per tile no longer under cloud
 // PLACEHOLDER: sweets for a new unicorn. Flat for now — with income compounding once the
 // herd grows, a price that climbs per unicorn is the usual lever if runs snowball.
 export const CANDY_PRICE = 3;
@@ -65,7 +74,7 @@ export interface GameMap {
   drops: number; // water drops in the purse; they buy steps and are banked across turns
   candy: number; // sweets in the jar; they buy unicorns and are banked the same way
   candyIncome: number; // lollipop trees earning right now — recomputed alongside the rainbows
-  turn: number; // turns played so far, counted up as each income is collected
+  turn: number; // the turn being played, 1 to TURN_LIMIT
 }
 
 export const MOVE_RADIUS = 1; // Chebyshev, like VISION_RADIUS: radius 1 = a step into any of the 8 neighbours
@@ -107,7 +116,7 @@ export function createGameMap(seed: number): GameMap {
     drops: 0,
     candy: 0,
     candyIncome: 0,
-    turn: 0,
+    turn: 1,
   };
 
   // The sun is a light source that never moves. With a fountain on each of its two
@@ -156,6 +165,7 @@ export function createGameMap(seed: number): GameMap {
   for (let i = 0; i < FLOWER_COUNT; i++) placeObject(map, GameObjectType.FLOWER, SPACING);
 
   updateRainbows(map);
+  map.drops = map.rainbowCount; // the opening purse: the sun's two rainbows are already shining
 
   return map;
 }
@@ -417,13 +427,49 @@ export function moveCharacter(map: GameMap, from: Position, to: Position) {
 }
 
 /**
- * Income at the start of a turn: one water drop per shining rainbow, one candy per earning
- * lollipop tree. Neither is spent on collection — both bank across turns.
+ * What the board is worth as it stands: the economy — rainbows shining, unicorns found,
+ * lollipop trees earning — plus every tile no longer under cloud. Nothing is banked, so
+ * this is live all through the run and its reading when the last turn closes is the final
+ * score. Because it is a snapshot rather than a total, the closing turn counts as much as
+ * the opening one, and a rainbow that goes out takes its points with it.
+ * Unicorns still under the fog do not count — they are not yours until you have found them.
+ *
+ * Returned in parts rather than as one number so the end-of-run panel can show its working,
+ * and so the breakdown can never disagree with the total: getScore adds these up.
  */
-export function startTurn(map: GameMap) {
+export function getScoreParts(map: GameMap): [count: number, weight: number][] {
+  const revealed = map.tiles.filter((tile) => tile.isRevealed).length;
+  const herd = map.tiles.filter((tile) => tile.isRevealed && tile.living === GameObjectType.UNICORN).length;
+
+  // The end-of-run panel lists these in this order and pairs them with emoji by index —
+  // see SCORE_EMOJIS in the component. Keep the two lists in step.
+  return [
+    [map.rainbowCount, SCORE_PER_ECONOMY],
+    [herd, SCORE_PER_ECONOMY],
+    [map.candyIncome, SCORE_PER_ECONOMY],
+    [revealed, SCORE_PER_REVEALED],
+  ];
+}
+
+/** The parts added up — the number itself, which is all the header needs. */
+export function getScore(map: GameMap): number {
+  return getScoreParts(map).reduce((total, [count, weight]) => total + count * weight, 0);
+}
+
+/**
+ * Ends the turn and collects what the board earns: drops to move with, candy to buy with.
+ * Collecting at the end rather than the start is what keeps the final turn worth playing —
+ * whatever the player sets up on turn 20 is still paid for before the run closes.
+ */
+export function endTurn(map: GameMap) {
   map.drops += map.rainbowCount;
   map.candy += map.candyIncome;
   map.turn++;
+}
+
+/** The run has used up all its turns. */
+export function isRunOver(map: GameMap): boolean {
+  return map.turn > TURN_LIMIT;
 }
 
 /**
@@ -447,11 +493,12 @@ export function buyUnicorn(map: GameMap) {
   updateRainbows(map);
 }
 
-export function isWon(map: GameMap): boolean {
-  return map.rainbowCount >= RAINBOW_GOAL;
-}
-
-/** No drops and not even a free step left: nothing can move, so nothing can ever change. */
-export function isLost(map: GameMap): boolean {
-  return map.drops < MOVE_COST && !hasFreeMove(map);
+/**
+ * The board has seized up: nothing to move with, nothing coming in to change that, and
+ * nothing left to buy. There is no losing any more — the run simply stops here instead of
+ * spending its remaining turns on a board where every one of them would be identical.
+ * Candy counts as a way out: a bought unicorn can light a fountain and restart the income.
+ */
+export function isStuck(map: GameMap): boolean {
+  return map.drops < MOVE_COST && !hasFreeMove(map) && !map.rainbowCount && !map.candyIncome && !canBuyUnicorn(map);
 }

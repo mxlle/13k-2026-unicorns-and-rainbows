@@ -85,7 +85,7 @@ $covered-opacity: 0.55;
   grid-area: 3 / 1;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.8rem; // turn count and score need to read as two separate numbers
   width: $board-width;
 
   > button {
@@ -116,57 +116,6 @@ $covered-opacity: 0.55;
   padding: 0.15rem 0.6rem;
   border-radius: 999px; // pill, whatever the chip's height turns out to be
   background: theme.$bg-alpha-15;
-}
-
-// A drop sits a little inside its neighbour, so the row reads as one puddle and stays
-// narrow. --n is MAX_PIPS, set from the component.
-$pip-width: 0.85em;
-
-.purse {
-  position: relative; // the frame a spent drop is pinned to while it falls out
-  // A fixed slot, wide enough for a full purse. The header pins its end elements to the
-  // right edge, so a purse that changed width would slide its own drops sideways — and
-  // a drop already falling with them. Every drop now has a place that never moves.
-  width: calc(var(--n) * #{$pip-width});
-  flex-shrink: 0;
-}
-
-// PLACEHOLDER timings — earned drops rain in one after the other, a spent one drops
-// out of the purse and bursts.
-$drop-in-duration: 0.3s;
-$drop-stagger: 0.12s; // gap between two drops of the same income
-$drop-spend-duration: 0.5s; // keep in sync with DROP_SPEND_MS in the component
-$drop-fall: 0.6rem; // how far a spent drop falls before it goes
-
-.pip {
-  display: inline-block; // so it can be moved, scaled, and given a place of its own
-  width: $pip-width; // narrower than the glyph — that overlap is what makes it a puddle
-  text-align: center;
-  animation: dropIn $drop-in-duration calc(var(--i) * #{$drop-stagger}) backwards;
-
-  // Out of the flow the moment it is spent: the row closes up right away and the drop
-  // falls from where it stood, instead of the purse waiting for the animation to end.
-  &.spent {
-    position: absolute;
-    animation: dropSpend $drop-spend-duration forwards;
-  }
-}
-
-@keyframes dropIn {
-  from {
-    transform: translateY(-$drop-fall) scale(0.4);
-    opacity: 0;
-  }
-}
-
-@keyframes dropSpend {
-  60% {
-    transform: translateY($drop-fall);
-  }
-  to {
-    transform: translateY($drop-fall) scale(1.8);
-    opacity: 0;
-  }
 }
 
 // Object info panel: emoji, name and description as one wrapping line, in a slot of
@@ -228,6 +177,20 @@ $win-hop-height: 2rem;
 
 .infoEmoji {
   font-size: 1.1rem;
+}
+
+// The end-of-run working: one line per scoring category under the total. It only exists
+// once the run is over, and while it is empty it takes no room at all — so the info row
+// keeps its fixed height all through the run and the board never shifts under the player.
+.scoreBoard {
+  display: grid;
+  gap: 0.1rem;
+  margin-top: 0.4rem;
+  line-height: 1.4;
+
+  &:empty {
+    display: none;
+  }
 }
 
 // An action offered by the info panel — the portal jump, the unicorn purchase — flowing

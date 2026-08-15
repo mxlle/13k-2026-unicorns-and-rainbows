@@ -133,6 +133,12 @@ $covered-opacity: 0.55;
   white-space: nowrap; // a counter and its income never wrap into a second line
 }
 
+// A counter that leads somewhere — only the score does, and it opens its own breakdown.
+.tappable {
+  cursor: pointer;
+  user-select: none; // a double tap opens and closes it; it must not select the digits
+}
+
 // The closing turn. Colour rather than position, so nothing in the bar moves — and it is
 // readable from wherever on the screen the player is looking, which is the point: the
 // warning has to land while the turn is being planned, not when the button is pressed.
@@ -231,12 +237,14 @@ $win-hop-height: 2rem;
   font-size: 1.1rem;
 }
 
-// The end-of-run working: one line per scoring category under the total. It only exists
-// once the run is over, and while it is empty it takes no room at all — so the info row
-// keeps its fixed height all through the run and the board never shifts under the player.
+// The score's working: one entry per category, in a 2x2 grid so four of them cost two lines
+// rather than four — the panel is opened over a live board mid-run, and every line it takes
+// is height the map row gives up. While it is empty it takes no room at all, so a run with
+// the working closed keeps the info row at exactly its old height.
 .scoreBoard {
   display: grid;
-  gap: 0.1rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.1rem 0.8rem;
   margin-top: 0.4rem;
   line-height: 1.4;
 

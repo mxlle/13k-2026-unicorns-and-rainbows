@@ -49,7 +49,10 @@ const SCORE_EMOJI = "⭐";
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
 const EMPTY_EMOJI = "🌱";
-const EXPLORE_EMOJI = "🧭";
+// Ground no longer under cloud, in the score breakdown: the cloud itself, standing for the
+// ones cleared off the board rather than the ones still on it. Same glyph as the fog on the
+// board, which is what ties the row to the thing it counts.
+const EXPLORE_EMOJI = FOG_EMOJI;
 const CANDY_EMOJI = "🍬";
 // One per scoring category, in the order getScoreParts returns them: rainbows shining,
 // unicorns found, lollipop trees earning, and ground no longer under cloud. Declared after
@@ -171,6 +174,9 @@ export function GameMapComponent(): [
   // yet. The board is locked for as long as it lasts — a step taken mid-flight would change
   // the very income the player is watching arrive.
   let isPaying = false;
+  // The score's working is open: the breakdown that ends a run, shown mid-run on demand.
+  // It holds the info panel until it is closed or a tile takes the panel over.
+  let showsScore = false;
 
   // Two stacked glyph layers per tile, mirroring the two layers of the model: the ground
   // first, the character standing on it painted over it (later sibling, same grid cell).
@@ -209,8 +215,12 @@ export function GameMapComponent(): [
   const dropCount = createElement({ tag: "span" });
   const candyCount = createElement({ tag: "span" });
   const scoreCount = createElement({ tag: "span" });
-  const counter = (emoji: string, value: HTMLElement) =>
-    createElement({ cssClass: styles.count }, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }), value]);
+  // A counter is tappable only when it has somewhere to lead: the extra class is what says so.
+  const counter = (emoji: string, value: HTMLElement, onClick?: () => void) =>
+    createElement({ cssClass: [styles.count, onClick ? styles.tappable : ""], onClick }, [
+      createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }),
+      value,
+    ]);
   // One button for both ends of a run: end the turn while playing, start over once it is over.
   const endTurnButton = createButton({ onClick: () => (isRunning ? finishTurn() : startNewGame()) });
   // The board to play next, offered only once a run is over: changing it mid-run has no
@@ -231,7 +241,10 @@ export function GameMapComponent(): [
   // Reached for through counter() rather than built by hand, so every counter in the bar is
   // still made the same way: the emoji span is always the first child of the row.
   const turnEmoji = turnDisplay.firstChild!;
-  const scoreDisplay = counter(SCORE_EMOJI, scoreCount);
+  // The score opens its own working: the same breakdown that closes a run, on demand while
+  // it is still being played, so "where are my points coming from" is answerable in time to
+  // act on the answer rather than only afterwards.
+  const scoreDisplay = counter(SCORE_EMOJI, scoreCount, toggleScore);
   const turnBar = createElement({ cssClass: styles.turnBar }, [turnDisplay, scoreDisplay, sizeControl, endTurnButton]);
   // The two currencies as one chip in the middle of the header, in view wherever the player
   // is looking. Each reads "what you have (+what the board pays you next turn)", so the
@@ -396,6 +409,9 @@ export function GameMapComponent(): [
     dropCount.textContent = `${map.drops} (+${map.rainbowCount})`;
     candyCount.textContent = `${map.candy} (+${map.candyIncome})`;
     scoreCount.textContent = `${getScore(map)}`; // a snapshot, so it has no "+" to show
+    // While the run is on, the working is the player's to open and close. Once it is over
+    // the panel belongs to the result and endGame has already filled it — hence the guard.
+    if (isRunning) renderScoreBoard(showsScore);
     renderBeams();
 
     // Offered wherever the character stands, but greyed out when it cannot be paid for or
@@ -459,6 +475,10 @@ export function GameMapComponent(): [
 
   /** Whatever the player tapped explains itself — an object, bare ground, or the fog. */
   function showInfo(index?: number) {
+    // The open score view holds the line: INFO_GOAL is already the text that belongs over a
+    // breakdown — what scores, and that it has to be built up before the turns run out.
+    if (showsScore) return setInfo(TranslationKey.INFO_GOAL, SCORE_EMOJI);
+
     const objectType = index === undefined ? undefined : getObject(index);
     // with nothing picked up, the opening turn spells out what the run is about;
     // from then on the nudge to tap around is enough
@@ -476,6 +496,34 @@ export function GameMapComponent(): [
       );
     else if (map.tiles[index].isRevealed) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
     else setInfo(TranslationKey.INFO_FOG, FOG_EMOJI);
+  }
+
+  /** Opens the score's working, or closes it again and hands the panel back to the selection. */
+  function toggleScore() {
+    if (!isRunning || isPaying) return; // the end-of-run panel is already showing the working
+    showsScore = !showsScore;
+    showInfo(selected && getIndex(selected));
+    render();
+  }
+
+  /**
+   * The score's working: one entry per category showing what was counted, what each was
+   * worth and what it came to. Rebuilt on every render while it is open, so it stays live
+   * as the board changes — and it is the same panel at the end of the run, where it is the
+   * final reckoning rather than a running one. The emoji is a span of its own — the digits
+   * beside it must not be rendered in the emoji font.
+   */
+  function renderScoreBoard(show: boolean) {
+    scoreBoard.replaceChildren(
+      ...(show
+        ? getScoreParts(map).map(([count, weight], index) =>
+            createElement({}, [
+              createElement({ tag: "span", cssClass: CssClass.EMOJI, text: SCORE_EMOJIS[index] }),
+              ` ${count} × ${weight} = ${count * weight}`,
+            ]),
+          )
+        : []),
+    );
   }
 
   /** What is visible on a tile — the living layer wins, the ground object stays underneath. */
@@ -509,6 +557,7 @@ export function GameMapComponent(): [
 
   function onTileClick(index: number) {
     if (!isRunning || isPaying || index < 0) return;
+    showsScore = false; // the board takes the panel back, whether the tap moves or just looks
 
     if (targets.some((target) => getIndex(target) === index)) {
       move(getPosition(index));
@@ -689,17 +738,8 @@ export function GameMapComponent(): [
     select(undefined); // drops the board highlights; the panel now carries the result
     setInfo(hasFinished ? TranslationKey.WON : TranslationKey.LOST, hasFinished ? WIN_EMOJI : LOSE_EMOJI);
     infoText.textContent += ` ${getScore(map)}`; // both texts end ready for the number
-    // The total above, its working below: one line per category showing what was counted,
-    // what each was worth and what it came to. The emoji is a span of its own — the digits
-    // beside it must not be rendered in the emoji font.
-    scoreBoard.replaceChildren(
-      ...getScoreParts(map).map(([count, weight], index) =>
-        createElement({}, [
-          createElement({ tag: "span", cssClass: CssClass.EMOJI, text: SCORE_EMOJIS[index] }),
-          ` ${count} × ${weight} = ${count * weight}`,
-        ]),
-      ),
-    );
+    showsScore = false; // the result owns the panel now; there is nothing left to toggle
+    renderScoreBoard(true); // the total above, its working below
     render();
 
     pubSubService.publish(PubSubEvent.GAME_END, { isWon: hasFinished });
@@ -712,7 +752,7 @@ export function GameMapComponent(): [
     setLocalStorageItem(LocalStorageKey.SIZE, `${size}`);
     map = createGameMap(seed, size); // sets MAP_SIZE, so everything below reads the new board
     if (tileElements.length !== MAP_SIZE * MAP_SIZE) buildBoard();
-    scoreBoard.replaceChildren(); // last run's working, gone before the new board shows
+    showsScore = false; // render() clears last run's working with it, before the new board shows
     isRunning = true; // before render(), which reads it for the turn button
     select(undefined);
     render();

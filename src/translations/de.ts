@@ -21,5 +21,6 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_TREE]: "Lollibaum|Süß, aber im Weg. Hier kann kein Regenbogen entstehen.",
     [TranslationKey.INFO_DONUT]: "Donut|Ein Portal zum anderen Donut. Der Sprung kostet ein 💧 extra.",
     [TranslationKey.JUMP]: "Springen",
+    [TranslationKey.INFO_FLOWER]: "Blume|Ein Schritt darauf ist gratis. Aber hier kann kein Regenbogen entstehen.",
   };
 }

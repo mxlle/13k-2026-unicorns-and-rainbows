@@ -24,4 +24,6 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_TREE]: "Lollipop tree|Sweet, but in the way. No rainbow can appear here.",
   [TranslationKey.INFO_DONUT]: "Donut|A portal to the other donut. Jumping costs one 💧 extra.",
   [TranslationKey.JUMP]: "Jump",
+  // Says both halves of the trade: the free step, and the rainbow spot it takes up.
+  [TranslationKey.INFO_FLOWER]: "Flower|Stepping on it is free. But no rainbow can appear here.",
 };

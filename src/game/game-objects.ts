@@ -19,6 +19,7 @@ export const GameObjectType = defineEnum({
   SUN: 3,
   TREE: 4,
   DONUT: 5,
+  FLOWER: 6,
 });
 
 interface GameObjectConfig {
@@ -83,5 +84,15 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
     blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_DONUT,
+  },
+  // Walk-through like the donut, and the only tile that is free to step onto. It still
+  // owns the ground layer, so the free path it offers costs a rainbow spot in return.
+  [GameObjectType.FLOWER]: {
+    emoji: "🌺",
+    category: ObjectCategory.STATIC,
+    blocksMove: false,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_FLOWER,
   },
 };

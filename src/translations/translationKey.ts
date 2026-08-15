@@ -22,4 +22,5 @@ export const TranslationKey = defineEnum({
   INFO_TREE: 13,
   INFO_DONUT: 14,
   JUMP: 15, // the portal action offered in the info panel
+  INFO_FLOWER: 16,
 });

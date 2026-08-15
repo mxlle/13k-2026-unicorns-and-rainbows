@@ -1,13 +1,30 @@
-import { getRandomInt, setSeed } from "../utils/random-utils";
+import { setSeed } from "../utils/random-utils";
 import { getRandomItem } from "../utils/array-utils";
-import { GameObjectType, OBJECT_CONFIG } from "./game-objects";
+import { GameObjectType, ObjectCategory, OBJECT_CONFIG } from "./game-objects";
 
 // Tunables — all meant to become per-level values later.
 export const MAP_SIZE = 9;
+const TILE_COUNT = MAP_SIZE * MAP_SIZE;
 export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
-export const FOUNTAIN_COUNT = 3; // hidden ones, on top of the two flanking the sun
-export const TREE_COUNT = 3; // free-roaming ones, on top of the one growing next to every hidden fountain
-export const UNICORN_COUNT = 3; // one at the start position, the others hidden in the fog
+
+// How much of each thing a board carries, written as "one per this many tiles" so that a
+// bigger map gets proportionally busier instead of emptier. The numbers in the comments
+// are what the 9x9 board works out to — the counts it was hand-tuned with.
+// The `+ 0.5 | 0` is rounding written so it constant-folds: MAP_SIZE is a compile-time
+// constant, so terser reduces each of these to a plain number and they cost nothing at
+// runtime. A Math.round call would survive into the bundle instead.
+export const FOUNTAIN_COUNT = (TILE_COUNT / 27 + 0.5) | 0; // 3 — hidden ones, on top of the two flanking the sun
+export const TREE_COUNT = (TILE_COUNT / 27 + 0.5) | 0; // 3 — free-roaming, on top of the one growing next to every hidden fountain
+export const UNICORN_COUNT = (TILE_COUNT / 27 + 0.5) | 0; // 3 — one at the start position, the others hidden in the fog
+export const FLOWER_COUNT = (TILE_COUNT / 12 + 0.5) | 0; // 7 — free stepping stones scattered over the meadow
+
+// PLACEHOLDER: the minimum Chebyshev distance between two things of the same kind, which
+// is what spreads them over the board instead of letting them clump. 2 means "never
+// adjacent": no fountain pairs sharing each other's rainbow spots, and no chains of
+// flowers turning into a free-movement highway. One value for every kind for now — per
+// kind is a matter of passing a different number to placeObject.
+const SPACING = 2;
+
 export const RAINBOW_GOAL = 5; // rainbows that have to shine at the same time to win
 export const MOVE_COST = 1; // water drops per step
 export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs one drop more than a step
@@ -96,29 +113,31 @@ export function createGameMap(seed: number): GameMap {
   revealAround(map, UNICORN_START);
 
   // Everything is placed after the starting vision is applied, so nothing can spawn
-  // on an already-revealed tile — it all starts hidden under the clouds.
-  // Fountains keep one tile of distance to the border, so every side of a fountain
-  // has an opposite tile to cast a rainbow onto.
+  // on an already-revealed tile — it all starts hidden under the clouds. The order runs
+  // from the fussiest placement to the most relaxed: whatever has the most rules to
+  // satisfy gets the emptiest board to find room on.
+
+  // Fountains keep one tile of distance to the border, so every side of a fountain has an
+  // opposite tile to cast a rainbow onto, and SPACING from each other — including from the
+  // two already flanking the sun, which are on the board by now and counted like any other.
   for (let i = 0; i < FOUNTAIN_COUNT; i++) {
-    const position = getFreePosition(map, 1);
-    getTile(map, position)!.object = GameObjectType.FOUNTAIN;
+    const position = placeObject(map, GameObjectType.FOUNTAIN, SPACING, 1);
     // A lollipop tree grows next to every hidden fountain, taking one of its eight
     // rainbow slots away. The two fountains flanking the sun stay clear, so the
     // opening income can never be blocked in.
-    const spots = getFreeNeighbours(map, position);
+    const spots = position ? getFreeNeighbours(map, position) : [];
     if (spots.length) getTile(map, getRandomItem(spots))!.object = GameObjectType.TREE;
   }
-  for (let i = 1; i < UNICORN_COUNT; i++) getTile(map, getFreePosition(map))!.living = GameObjectType.UNICORN;
-  for (let i = 0; i < TREE_COUNT; i++) getTile(map, getFreePosition(map))!.object = GameObjectType.TREE;
 
-  // The portal pair. Both ends land on free tiles, so a character can never start on one,
-  // and they are kept far apart — a jump costs more than a step and has to be worth it.
-  const entry = getFreePosition(map);
-  getTile(map, entry)!.object = GameObjectType.DONUT; // taken first, so the far end cannot land on it
-  let exit: Position;
-  do exit = getFreePosition(map);
-  while (Math.max(Math.abs(exit.x - entry.x), Math.abs(exit.y - entry.y)) < MIN_PORTAL_DISTANCE);
-  getTile(map, exit)!.object = GameObjectType.DONUT;
+  // The portal pair: placed early, because keeping half a board apart is the hardest rule
+  // here to satisfy. The first end goes anywhere; the second keeps its distance from the
+  // first exactly the way two fountains keep theirs, only further.
+  placeObject(map, GameObjectType.DONUT);
+  placeObject(map, GameObjectType.DONUT, MIN_PORTAL_DISTANCE);
+
+  for (let i = 1; i < UNICORN_COUNT; i++) placeObject(map, GameObjectType.UNICORN, SPACING);
+  for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, SPACING);
+  for (let i = 0; i < FLOWER_COUNT; i++) placeObject(map, GameObjectType.FLOWER, SPACING);
 
   updateRainbows(map);
 
@@ -130,13 +149,63 @@ function isFree(tile: Tile | undefined): boolean {
   return !!tile && !tile.isRevealed && tile.object === undefined && tile.living === undefined;
 }
 
-/** A random free tile's position. `margin` keeps that many tiles of distance to the border. */
-function getFreePosition(map: GameMap, margin = 0): Position {
-  let position: Position;
-  do {
-    const size = MAP_SIZE - 2 * margin;
-    position = { x: margin + getRandomInt(size), y: margin + getRandomInt(size) };
-  } while (!isFree(getTile(map, position)));
+/** Chebyshev distance: one step in this game — diagonals included — is a distance of 1. */
+function getDistance(a: Position, b: Position): number {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+}
+
+/**
+ * Every free tile, `margin` keeping that many tiles of distance to the border.
+ * Collected as a list and then picked from, rather than by throwing darts until one lands
+ * on a free tile: once placements have to keep their distance from each other a dart can
+ * miss arbitrarily often, and on a tight board it might never land at all.
+ */
+function getFreePositions(map: GameMap, margin: number): Position[] {
+  const positions: Position[] = [];
+
+  for (let y = margin; y < MAP_SIZE - margin; y++) {
+    for (let x = margin; x < MAP_SIZE - margin; x++) {
+      if (isFree(getTile(map, { x, y }))) positions.push({ x, y });
+    }
+  }
+
+  return positions;
+}
+
+/** Where everything of one kind already stands — both layers, so it works for characters too. */
+function getPositionsOf(map: GameMap, objectType: GameObjectType): Position[] {
+  const positions: Position[] = [];
+
+  map.tiles.forEach((tile, index) => {
+    if (tile.object === objectType || tile.living === objectType) positions.push(getPosition(index));
+  });
+
+  return positions;
+}
+
+/**
+ * Puts one `objectType` on a free tile and reports where it landed. `spacing` is the
+ * distance it keeps from others of its own kind, `margin` the distance it keeps from the
+ * border. Which layer it lands on follows from its category, so a unicorn walks over the
+ * ground and a fountain becomes part of it.
+ *
+ * If no tile satisfies the spacing, the spacing is dropped rather than the object: a board
+ * too tight for the rule still gets its full count, just packed closer together. That is
+ * also what makes generation total — it can never loop looking for a spot that is not there.
+ */
+function placeObject(map: GameMap, objectType: GameObjectType, spacing = 0, margin = 0): Position | undefined {
+  const free = getFreePositions(map, margin);
+  const taken = getPositionsOf(map, objectType);
+  const spaced = free.filter((position) => taken.every((other) => getDistance(position, other) >= spacing));
+  const candidates = spaced.length ? spaced : free;
+
+  if (!candidates.length) return undefined;
+
+  const position = getRandomItem(candidates);
+  const tile = getTile(map, position)!;
+
+  if (OBJECT_CONFIG[objectType].category === ObjectCategory.LIVING) tile.living = objectType;
+  else tile.object = objectType;
 
   return position;
 }
@@ -252,6 +321,37 @@ export function canUsePortal(map: GameMap, target: Position): boolean {
   return map.drops >= PORTAL_COST && getTile(map, target)!.living === undefined;
 }
 
+/**
+ * What stepping onto `to` costs. A flower is free — the one way to move without paying,
+ * which is what turns a scattering of them into something worth routing through.
+ * A single special case rather than a cost column in OBJECT_CONFIG: one branch is cheaper
+ * than a field repeated across every row, and only one kind of tile differs.
+ *
+ * Only a flower the player can actually see is free, and that is a fog rule rather than a
+ * pricing one: a free step is offered, highlighted and counted as a way out of an empty
+ * purse, so a discount on a tile still under a cloud would announce what is hiding there.
+ * Stepping blindly costs the usual drop; from then on the flower is known, and free.
+ */
+export function getMoveCost(map: GameMap, to: Position): number {
+  const tile = getTile(map, to)!;
+
+  return tile.isRevealed && tile.object === GameObjectType.FLOWER ? 0 : MOVE_COST;
+}
+
+/**
+ * Whether any character the player can see has a free step available — with an empty purse,
+ * the only thing that can still happen. Both the loss check and the "end your turn" nudge
+ * hang off this: without it a player standing next to a flower would be told the run was
+ * over, and counting characters still under the fog would silently disarm that nudge on
+ * account of a unicorn the player has not even found yet.
+ */
+export function hasFreeMove(map: GameMap): boolean {
+  return map.tiles.some(
+    (tile, index) =>
+      tile.isRevealed && tile.living !== undefined && getMoveTargets(map, getPosition(index)).some((target) => !getMoveCost(map, target)),
+  );
+}
+
 /** Steps the character on `from` onto `to` — `to` must come from getMoveTargets. */
 export function moveCharacter(map: GameMap, from: Position, to: Position) {
   const fromTile = getTile(map, from)!;
@@ -269,7 +369,7 @@ export function isWon(map: GameMap): boolean {
   return map.rainbowCount >= RAINBOW_GOAL;
 }
 
-/** No drops and no rainbows left to earn any: nothing can ever move again. */
+/** No drops and not even a free step left: nothing can move, so nothing can ever change. */
 export function isLost(map: GameMap): boolean {
-  return map.drops < MOVE_COST;
+  return map.drops < MOVE_COST && !hasFreeMove(map);
 }

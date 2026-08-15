@@ -287,6 +287,19 @@ $win-hop-height: 2rem;
     }
   }
 
+  // A step that costs no drop, in the success colour rather than the main one. It comes
+  // after .target on purpose — both are set on a free step, and this one wins. Giving it
+  // a colour of its own is what lets a run of flowers read as a free path at a glance,
+  // instead of the player finding out from the purse after taking the step.
+  &.free {
+    background: rgba(theme.$success-color-light, 0.18);
+    box-shadow: inset 0 0 0 2px rgba(theme.$success-color-light, 0.6);
+
+    @include theme.hover {
+      background: rgba(theme.$success-color-light, 0.38);
+    }
+  }
+
   // The two glyph layers, sharing the one centred cell so they stack. `rotate` and
   // `scale` are used instead of `transform` on purpose: they compose with the tile's
   // own scale instead of overwriting it.

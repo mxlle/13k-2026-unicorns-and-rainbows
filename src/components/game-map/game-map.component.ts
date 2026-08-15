@@ -10,9 +10,11 @@ import {
   createSeed,
   GameMap,
   getIndex,
+  getMoveCost,
   getMoveTargets,
   getPortalTarget,
   getPosition,
+  hasFreeMove,
   isLost,
   isWon,
   MAP_SIZE,
@@ -119,10 +121,18 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
   function render() {
     const selectedIndex = selected && getIndex(selected);
     const targetIndices = targets.map(getIndex);
+    // A step onto a flower costs nothing, and the purse is the only place that would
+    // otherwise say so — after the fact. These get a highlight of their own instead.
+    const freeIndices = targets.filter((target) => !getMoveCost(map, target)).map(getIndex);
     // Guidance: an empty purse makes the income the only way on, so ending the turn
     // becomes the next step. Before that, on the opening turn, it is picking a character.
     // Once the run is over the same button is the only thing left to press.
-    const needsIncome = map.drops < MOVE_COST;
+    // The two signals on that button are deliberately split. Colour goes on as soon as the
+    // purse is empty — ending the turn is the way on from there, whether or not a free step
+    // over a flower is still available. The pulse waits for the stricter case, when there
+    // is genuinely nothing else left to do, so it never nags a player who can still act.
+    const outOfWater = map.drops < MOVE_COST;
+    const needsIncome = outOfWater && !hasFreeMove(map);
     const isOver = !isRunning;
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
 
@@ -137,6 +147,7 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
       // no steps lit means the selection is only being looked at — see select()
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
       element.classList.toggle(styles.target, targetIndices.includes(index));
+      element.classList.toggle(styles.free, freeIndices.includes(index));
 
       // The fog belongs to the ground layer: under it there is nothing else to show.
       const hasLiving = tile.isRevealed && tile.living !== undefined;
@@ -165,7 +176,7 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
     // Ending a turn is one step among many; starting the next run is the whole screen.
-    endTurnButton.classList.toggle(CssClass.PRIMARY, needsIncome && !isOver);
+    endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
     endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver);
   }
@@ -263,11 +274,17 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
   function select(position?: Position) {
     selected = position;
     const index = position && getIndex(position);
-    const isCharacter = index !== undefined && map.tiles[index].living !== undefined;
-    // Steps only light up for a character that can afford one. Scenery, a blocked-in
-    // character and one with an empty purse all end up with no targets, which is what
-    // render() draws as the neutral selection.
-    targets = isCharacter && map.drops >= MOVE_COST ? getMoveTargets(map, position!) : [];
+    // A character still under the fog is not a character yet: its tile stays plain fog to
+    // the player, so tapping it can never pick it up, light up its steps, or offer it the
+    // portal — any of which would give away that something is hiding there.
+    const tile = index === undefined ? undefined : map.tiles[index];
+    const isCharacter = !!tile?.isRevealed && tile.living !== undefined;
+    // Steps only light up for a character that can afford them, and affordability is now
+    // per target rather than per character: with an empty purse a step onto a flower is
+    // still on, and it is exactly then that it matters most. Scenery, a blocked-in
+    // character and one that can afford none of its steps all end up with no targets,
+    // which is what render() draws as the neutral selection.
+    targets = isCharacter ? getMoveTargets(map, position!).filter((target) => getMoveCost(map, target) <= map.drops) : [];
     // only a character can take the portal, and only from the donut it is standing on
     portalTarget = isCharacter ? getPortalTarget(map, position!) : undefined;
     showInfo(index); // reads portalTarget, so it comes last
@@ -286,8 +303,8 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     }
   }
 
-  /** One step, or — at the portal's price — a jump straight to the far donut. */
-  function move(target: Position, cost = MOVE_COST) {
+  /** One step at whatever that step costs, or — at the portal's price — a jump straight to the far donut. */
+  function move(target: Position, cost = getMoveCost(map, target)) {
     map.drops -= cost;
     moveCharacter(map, selected!, target);
 

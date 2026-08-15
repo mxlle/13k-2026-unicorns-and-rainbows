@@ -13,22 +13,24 @@ import {
   createSeed,
   GameMap,
   getIndex,
+  endTurn,
   getMoveCost,
   getMoveTargets,
   getPortalTarget,
   getPosition,
+  getScore,
+  getScoreParts,
   hasFreeMove,
   isEarningTree,
-  isLost,
-  isWon,
+  isRunOver,
+  isStuck,
   MAP_SIZE,
   moveCharacter,
   MOVE_COST,
   PORTAL_COST,
   Position,
-  RAINBOW_GOAL,
   revealAround,
-  startTurn,
+  TURN_LIMIT,
   UNICORN_START,
   updateRainbows,
 } from "../../game/game-map";
@@ -37,14 +39,21 @@ import { GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
 const FOG_EMOJI = "☁️";
 const DROP_EMOJI = "💧";
 const TURN_EMOJI = "⏳";
-// PLACEHOLDER: how many drops the purse still draws one by one. Above that it falls
-// back to "💧n" — a pip row long enough to fill the header would crowd out the title.
-const MAX_PIPS = 8;
-const DROP_SPEND_MS = 500; // keep in sync with $drop-spend-duration in the stylesheet
+const SCORE_EMOJI = "⭐";
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
 const EMPTY_EMOJI = "🌱";
+const EXPLORE_EMOJI = "🧭";
 const CANDY_EMOJI = "🍬";
+// One per scoring category, in the order getScoreParts returns them: rainbows shining,
+// unicorns found, lollipop trees earning, and ground no longer under cloud. Declared after
+// EMPTY_EMOJI on purpose — reading it earlier would be a dead-zone crash at module load.
+const SCORE_EMOJIS = [
+  OBJECT_CONFIG[GameObjectType.RAINBOW].emoji,
+  OBJECT_CONFIG[GameObjectType.UNICORN].emoji,
+  OBJECT_CONFIG[GameObjectType.TREE].emoji,
+  EXPLORE_EMOJI,
+];
 // PLACEHOLDER: the invitation to buy, drawn on the start field once a unicorn is
 // affordable and the field is clear. It is not a game object — nothing stands on the
 // tile, so it can never block a rainbow the way a real object would.
@@ -98,27 +107,25 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
   // PLACEHOLDER turn bar: turn count on the left, end-turn button on the right.
   // Only the emoji gets the emoji font — digits inside it would render as emoji glyphs too.
   const turnCounter = createElement({ tag: "span" });
-  const goal = createElement({ tag: "span" });
+  const dropCount = createElement({ tag: "span" });
   const candyCount = createElement({ tag: "span" });
+  const scoreCount = createElement({ tag: "span" });
   const counter = (emoji: string, value: HTMLElement) =>
     createElement({ cssClass: styles.count }, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }), value]);
-  // The purse is drawn as one drop per step the player can still take, so the cost of a
-  // step needs no number anywhere. One element per drop, so a single one can be animated.
-  const dropPips = createElement({ tag: "span", cssClass: CssClass.EMOJI });
-  const dropCount = createElement({ tag: "span" }); // only used past MAX_PIPS
-  const purse = createElement({ cssClass: [styles.count, styles.purse] }, [dropPips, dropCount]);
-  purse.style.setProperty("--n", `${MAX_PIPS}`); // its slot is as wide as a full purse
   // One button for both ends of a run: end the turn while playing, start over once it is over.
-  const endTurnButton = createButton({ onClick: () => (isRunning ? endTurn() : startNewGame()) });
-  const turnBar = createElement({ cssClass: styles.turnBar }, [counter(TURN_EMOJI, turnCounter), endTurnButton]);
-  // What the run is about — drops to spend and rainbows still needed — as one chip in the
-  // middle of the header, in view wherever the player is looking. Its width never changes
-  // (the purse holds a fixed slot), so the chip stays put as drops come and go.
-  const status = createElement({ cssClass: styles.status }, [
-    purse,
-    counter(CANDY_EMOJI, candyCount),
-    counter(OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, goal),
+  const endTurnButton = createButton({ onClick: () => (isRunning ? finishTurn() : startNewGame()) });
+  // The run's progress: how far through the 20 turns, and what the board is worth right now.
+  // The score sits here rather than in the header chip because three "n (+n)" counters in a
+  // row overflow the header on a phone — and the turn bar has the width going spare.
+  const turnBar = createElement({ cssClass: styles.turnBar }, [
+    counter(TURN_EMOJI, turnCounter),
+    counter(SCORE_EMOJI, scoreCount),
+    endTurnButton,
   ]);
+  // The two currencies as one chip in the middle of the header, in view wherever the player
+  // is looking. Each reads "what you have (+what the board pays you next turn)", so the
+  // cost of a plan and the income funding it are side by side.
+  const status = createElement({ cssClass: styles.status }, [counter(DROP_EMOJI, dropCount), counter(CANDY_EMOJI, candyCount)]);
 
   // Object info: a permanent row of its own between map and turn bar, so it can never
   // cover the board and never shifts it either. Empty selection shows a hint instead.
@@ -139,7 +146,13 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     createElement({ tag: "span", cssClass: CssClass.EMOJI, text: OBJECT_CONFIG[GameObjectType.UNICORN].emoji }),
     ` ${getTranslation(TranslationKey.BUY)}`,
   ]);
-  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText, jumpButton, buyButton])]);
+  // The end-of-run breakdown, one line per scoring category, stacked under the result line.
+  // Empty while the run is on, and CSS hides it then, so it takes no room until it has any.
+  const scoreBoard = createElement({ cssClass: styles.scoreBoard });
+  const infoPanel = createElement({ cssClass: styles.info }, [
+    createElement({}, [infoEmoji, infoName, infoText, jumpButton, buyButton]),
+    scoreBoard,
+  ]);
 
   // The board keeps its size whatever the screen does; this row scrolls to reach it.
   const mapArea = createElement({ cssClass: styles.mapArea }, [board]);
@@ -205,10 +218,13 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
       living.textContent = hasLiving ? OBJECT_CONFIG[tile.living!].emoji : "";
     });
 
-    turnCounter.textContent = `${map.turn}`;
-    goal.textContent = `${map.rainbowCount}/${RAINBOW_GOAL}`;
-    candyCount.textContent = `${map.candy}`;
-    renderPurse();
+    // Each currency reads "what you have (+what next turn pays)". The income half updates as
+    // the player moves, so the cost of rearranging the board and its effect on next turn's
+    // takings are visible in the same glance.
+    turnCounter.textContent = `${Math.min(map.turn, TURN_LIMIT)}/${TURN_LIMIT}`;
+    dropCount.textContent = `${map.drops} (+${map.rainbowCount})`;
+    candyCount.textContent = `${map.candy} (+${map.candyIncome})`;
+    scoreCount.textContent = `${getScore(map)}`; // a snapshot, so it has no "+" to show
     renderBeams();
 
     // Offered wherever the character stands, but greyed out when it cannot be paid for or
@@ -228,38 +244,6 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
     endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver);
-  }
-
-  /**
-   * The purse is reconciled, not rewritten: drops that stay keep their element, so only
-   * what actually changed moves. Earned drops rain in one after the other (the stagger is
-   * a CSS delay per new drop), a spent one leaves the row at once and falls out below it.
-   */
-  function renderPurse() {
-    const asPips = map.drops <= MAX_PIPS;
-    dropCount.textContent = asPips ? "" : `${map.drops}`;
-    const wanted = asPips ? map.drops : 1; // past MAX_PIPS a single drop labels the number
-    // drops already on their way out do not count — their place in the row is gone
-    const shown = ([...dropPips.children] as HTMLElement[]).filter((pip) => !pip.classList.contains(styles.spent));
-
-    for (let i = shown.length; i < wanted; i++) {
-      const pip = createElement({ tag: "span", cssClass: styles.pip, text: DROP_EMOJI });
-      pip.style.setProperty("--i", `${i - shown.length}`); // its place in the stagger
-      dropPips.append(pip);
-    }
-
-    // Spending takes the last drops off the row. Every position is measured first: a drop
-    // that has already left the flow would pull the next one along and mismeasure it.
-    const spent = shown.slice(wanted).map((pip) => [pip, pip.offsetLeft, pip.offsetTop] as const);
-
-    spent.forEach(([pip, left, top]) => {
-      pip.style.left = `${left}px`; // pinned where it stood, so leaving the flow does not move it
-      pip.style.top = `${top}px`;
-      pip.classList.add(styles.spent);
-      // not "animationend": with prefers-reduced-motion the animation never runs and the
-      // drop would be stranded on top of the header forever
-      setTimeout(() => pip.remove(), DROP_SPEND_MS);
-    });
   }
 
   /**
@@ -369,7 +353,6 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     render();
 
     if (map.rainbowCount > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
-    if (isWon(map)) endGame(true);
   }
 
   /** Trades the jar of candy for a unicorn on the start field, then hands the board back. */
@@ -379,34 +362,52 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     render();
 
     pubSubService.publish(PubSubEvent.STAR_COLLECT);
-    // a fountain may sit next to the start field, in which case the newcomer lights it at once
-    if (isWon(map)) endGame(true);
   }
 
-  /** Collect the income, then hand the board back — a run only ever ends here or on a win. */
-  function endTurn() {
-    startTurn(map);
+  /**
+   * Closes the turn: the board pays out, the turn counter moves on, and the run ends if that
+   * was the last one. A board that has seized up ends the run early — every remaining turn
+   * would be identical, so there is nothing to play out.
+   */
+  function finishTurn() {
+    endTurn(map);
     select(selected); // steps that were unaffordable a moment ago may be back
     render();
 
-    if (isLost(map)) endGame(false);
+    if (isRunOver(map) || isStuck(map)) endGame(!isStuck(map));
   }
 
-  /** The result takes over the info panel and the turn button — no dialog on top of the board. */
-  function endGame(hasWon: boolean) {
+  /**
+   * The result takes over the info panel and the turn button — no dialog on top of the board.
+   * `hasFinished` separates the two ways a run can end: playing all twenty turns out, or the
+   * board seizing up before that. Both report the same score; only the first is celebrated.
+   */
+  function endGame(hasFinished: boolean) {
     isRunning = false;
     select(undefined); // drops the board highlights; the panel now carries the result
-    setInfo(hasWon ? TranslationKey.WON : TranslationKey.LOST, hasWon ? WIN_EMOJI : LOSE_EMOJI);
+    setInfo(hasFinished ? TranslationKey.WON : TranslationKey.LOST, hasFinished ? WIN_EMOJI : LOSE_EMOJI);
+    infoText.textContent += ` ${getScore(map)}`; // both texts end ready for the number
+    // The total above, its working below: one line per category showing what was counted,
+    // what each was worth and what it came to. The emoji is a span of its own — the digits
+    // beside it must not be rendered in the emoji font.
+    scoreBoard.replaceChildren(
+      ...getScoreParts(map).map(([count, weight], index) =>
+        createElement({}, [
+          createElement({ tag: "span", cssClass: CssClass.EMOJI, text: SCORE_EMOJIS[index] }),
+          ` ${count} × ${weight} = ${count * weight}`,
+        ]),
+      ),
+    );
     render();
 
-    pubSubService.publish(PubSubEvent.GAME_END, { isWon: hasWon });
+    pubSubService.publish(PubSubEvent.GAME_END, { isWon: hasFinished });
   }
 
   // Passing a seed replays exactly that map; leaving it out deals a new one. Replaying the
   // map just played needs no snapshot — only remembering the number it was built from.
   function startNewGame(seed = createSeed()) {
     map = createGameMap(seed);
-    startTurn(map); // the sun's two rainbows are the opening purse
+    scoreBoard.replaceChildren(); // last run's working, gone before the new board shows
     isRunning = true; // before render(), which reads it for the turn button
     select(undefined);
     render();

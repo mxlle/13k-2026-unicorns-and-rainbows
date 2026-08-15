@@ -1,10 +1,12 @@
 import { getRandomInt } from "../utils/random-utils";
+import { getRandomItem } from "../utils/array-utils";
 import { GameObjectType, OBJECT_CONFIG } from "./game-objects";
 
 // Tunables — all meant to become per-level values later.
 export const MAP_SIZE = 9;
 export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
 export const FOUNTAIN_COUNT = 3; // hidden ones, on top of the two flanking the sun
+export const TREE_COUNT = 3; // free-roaming ones, on top of the one growing next to every hidden fountain
 export const UNICORN_COUNT = 3; // one at the start position, the others hidden in the fog
 export const RAINBOW_GOAL = 5; // rainbows that have to shine at the same time to win
 export const MOVE_COST = 1; // water drops per step
@@ -78,23 +80,51 @@ export function createGameMap(): GameMap {
   // on an already-revealed tile — it all starts hidden under the clouds.
   // Fountains keep one tile of distance to the border, so every side of a fountain
   // has an opposite tile to cast a rainbow onto.
-  for (let i = 0; i < FOUNTAIN_COUNT; i++) getFreeTile(map, 1).object = GameObjectType.FOUNTAIN;
-  for (let i = 1; i < UNICORN_COUNT; i++) getFreeTile(map).living = GameObjectType.UNICORN;
+  for (let i = 0; i < FOUNTAIN_COUNT; i++) {
+    const position = getFreePosition(map, 1);
+    getTile(map, position)!.object = GameObjectType.FOUNTAIN;
+    // A lollipop tree grows next to every hidden fountain, taking one of its eight
+    // rainbow slots away. The two fountains flanking the sun stay clear, so the
+    // opening income can never be blocked in.
+    const spots = getFreeNeighbours(map, position);
+    if (spots.length) getTile(map, getRandomItem(spots))!.object = GameObjectType.TREE;
+  }
+  for (let i = 1; i < UNICORN_COUNT; i++) getTile(map, getFreePosition(map))!.living = GameObjectType.UNICORN;
+  for (let i = 0; i < TREE_COUNT; i++) getTile(map, getFreePosition(map))!.object = GameObjectType.TREE;
 
   updateRainbows(map);
 
   return map;
 }
 
-/** A random still-hidden, empty tile. `margin` keeps that many tiles of distance to the border. */
-function getFreeTile(map: GameMap, margin = 0): Tile {
-  let tile: Tile;
+/** Nothing on it and still under the fog — where something new may be placed. */
+function isFree(tile: Tile | undefined): boolean {
+  return !!tile && !tile.isRevealed && tile.object === undefined && tile.living === undefined;
+}
+
+/** A random free tile's position. `margin` keeps that many tiles of distance to the border. */
+function getFreePosition(map: GameMap, margin = 0): Position {
+  let position: Position;
   do {
     const size = MAP_SIZE - 2 * margin;
-    tile = getTile(map, { x: margin + getRandomInt(size), y: margin + getRandomInt(size) })!;
-  } while (tile.isRevealed || tile.object !== undefined || tile.living !== undefined);
+    position = { x: margin + getRandomInt(size), y: margin + getRandomInt(size) };
+  } while (!isFree(getTile(map, position)));
 
-  return tile;
+  return position;
+}
+
+/** The free tiles of the surrounding 3x3 — the spots where a fountain's tree may grow. */
+function getFreeNeighbours(map: GameMap, { x, y }: Position): Position[] {
+  const free: Position[] = [];
+
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const position = { x: x + dx, y: y + dy };
+      if ((dx || dy) && isFree(getTile(map, position))) free.push(position);
+    }
+  }
+
+  return free;
 }
 
 /** Uncovers the vision square around a position. Revealed tiles stay revealed. */

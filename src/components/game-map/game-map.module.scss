@@ -231,4 +231,16 @@ $drop-fall: 0.6rem; // how far a spent drop falls before it goes
       background: rgba(theme.$main-color, 0.3);
     }
   }
+
+  // The glyph layer. `rotate` is used instead of `transform` on purpose: it composes
+  // with the tile's own scale instead of overwriting it.
+  > span {
+    pointer-events: none; // a click belongs to the tile, whatever glyph is drawn on it
+
+    // PLACEHOLDER art: the lollipop emoji is drawn on a 45° stick, so it is turned
+    // upright to read as a tree until it gets art of its own.
+    &.tree {
+      rotate: 45deg;
+    }
+  }
 }

@@ -47,7 +47,11 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
   let selected: Position | undefined;
   let targets: Position[] = [];
 
-  const tileElements = createElements({ cssClass: [styles.tile, CssClass.EMOJI] }, MAP_SIZE * MAP_SIZE);
+  // The emoji sits in a span of its own so a single glyph can be transformed — the
+  // lollipop tree is drawn tilted and gets stood upright — without turning the tile's
+  // background, its selection ring, or the grid cell with it.
+  const tileGlyphs = createElements({ tag: "span" }, MAP_SIZE * MAP_SIZE);
+  const tileElements = tileGlyphs.map((glyph) => createElement({ cssClass: [styles.tile, CssClass.EMOJI] }, [glyph]));
   // Light beams live in their own layer above the tiles: a tile can carry several at
   // once (the sun's does), which a per-tile pseudo-element could not draw.
   const beamLayer = createElement({ cssClass: styles.beams });
@@ -113,7 +117,10 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
       // no steps lit means the selection is only being looked at — see select()
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
       element.classList.toggle(styles.target, targetIndices.includes(index));
-      element.textContent = tile.isRevealed ? (objectType === undefined ? "" : OBJECT_CONFIG[objectType].emoji) : FOG_EMOJI;
+
+      const glyph = tileGlyphs[index];
+      glyph.classList.toggle(styles.tree, objectType === GameObjectType.TREE);
+      glyph.textContent = tile.isRevealed ? (objectType === undefined ? "" : OBJECT_CONFIG[objectType].emoji) : FOG_EMOJI;
     });
 
     turnCounter.textContent = `${map.turn}`;

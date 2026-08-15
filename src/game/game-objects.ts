@@ -17,6 +17,7 @@ export const GameObjectType = defineEnum({
   RAINBOW: 1,
   FOUNTAIN: 2,
   SUN: 3,
+  TREE: 4,
 });
 
 interface GameObjectConfig {
@@ -61,5 +62,15 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
     blocksVision: false,
     glows: true,
     info: TranslationKey.INFO_SUN,
+  },
+  // Candyland scenery that is also an obstacle: the glyph is drawn tilted at 45°,
+  // the stylesheet stands it upright (see .tile > span in game-map.module.scss).
+  [GameObjectType.TREE]: {
+    emoji: "🍭",
+    category: ObjectCategory.STATIC,
+    blocksMove: true,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_TREE,
   },
 };

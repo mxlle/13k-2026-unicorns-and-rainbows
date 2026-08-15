@@ -163,7 +163,9 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: () 
     jumpButton.disabled = !portalTarget || !canUsePortal(map, portalTarget);
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
-    endTurnButton.classList.toggle(CssClass.PRIMARY, needsIncome || isOver);
+    // Ending a turn is one step among many; starting the next run is the whole screen.
+    endTurnButton.classList.toggle(CssClass.PRIMARY, needsIncome && !isOver);
+    endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
     endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver);
   }
 

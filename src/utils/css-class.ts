@@ -4,6 +4,7 @@ import { defineEnum } from "./enums";
 export type CssClass = defineEnum<typeof CssClass>;
 export const CssClass = defineEnum({
   PRIMARY: "global__primary",
+  PRIMARY_HIGHLIGHT: "global__primary-highlight", // the loudest button on screen — rainbow, animated
   SECONDARY: "global__secondary",
   TERTIARY: "global__tertiary",
   WON: "global__won",

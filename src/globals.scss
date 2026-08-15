@@ -1,6 +1,9 @@
 @use "theme" as *;
 @use "names" as *;
 
+// how far the highlight button's rainbow is darkened so $text-primary stays readable on it
+$highlight-dim: #0003;
+
 html,
 body {
   height: 100%;
@@ -42,9 +45,9 @@ body::before {
   opacity: 0.12;
   inset: 0;
   position: absolute;
-  background: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3);
+  background: $rainbow-gradient;
 
-  animation: rainbow 10s ease infinite;
+  animation: $rainbow-animation;
 }
 
 @keyframes rainbow {
@@ -81,6 +84,13 @@ button {
     @include hover {
       background: rgba($main-color, 0.7);
     }
+  }
+
+  // Louder than primary: the page's rainbow, held still and dimmed far enough that the
+  // label reads over every band of it. For the one button that is the point of the screen.
+  &.#{$PRIMARY_HIGHLIGHT}:not([disabled]) {
+    background: linear-gradient($highlight-dim, $highlight-dim), $rainbow-gradient;
+    border-color: $bg-alpha-25;
   }
 
   &.#{$SECONDARY} {

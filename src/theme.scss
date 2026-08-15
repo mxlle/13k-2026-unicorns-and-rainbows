@@ -10,6 +10,10 @@ $success-color: #227744;
 $success-color-light: #44aa77;
 $warning-color: #ffaa00;
 $light-color: #ffe9a8; // warm sunlight — the glow on light sources and their beams
+// The rainbow: the page background wash and the highlight button share it, and both
+// cycle it with the same `rainbow` hue-rotate keyframes, so they stay in step.
+$rainbow-gradient: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3);
+$rainbow-animation: rainbow 10s ease infinite;
 $font-family: sans-serif;
 $font-family-special: monospace;
 $border-radius: 0.4rem;

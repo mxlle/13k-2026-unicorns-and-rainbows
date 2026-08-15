@@ -15,7 +15,6 @@ export const MAP_SIZES = [7, 13, 21];
 export let MAP_SIZE = MAP_SIZES[0];
 export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are none in the open any more
 export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every fountain
-export let UNICORN_COUNT = 0; // one at the start position, the others hidden in the fog
 export let FLOWER_COUNT = 0; // free stepping stones scattered over the meadow
 export let TURN_LIMIT = 0; // the whole run — as many turns as the board is wide
 export let MIN_PORTAL_DISTANCE = 0; // along both axes, so the pair sits diagonally across the board
@@ -32,7 +31,7 @@ export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
 function setMapSize(size: number) {
   const tiles = size * size;
   MAP_SIZE = size;
-  FOUNTAIN_COUNT = TREE_COUNT = UNICORN_COUNT = (tiles / 27 + 0.5) | 0;
+  FOUNTAIN_COUNT = TREE_COUNT = (tiles / 27 + 0.5) | 0;
   FLOWER_COUNT = (tiles / 12 + 0.5) | 0;
   TURN_LIMIT = size;
   // Half the width, on both axes. Absolute distances stop meaning anything once the board
@@ -55,9 +54,6 @@ const SPACING = 2;
 // would make the run about walking rather than building.
 const SCORE_PER_ECONOMY = 5; // per rainbow, per unicorn found, per earning tree
 const SCORE_PER_REVEALED = 1; // per tile no longer under cloud
-// PLACEHOLDER: sweets for a new unicorn. Flat for now — with income compounding once the
-// herd grows, a price that climbs per unicorn is the usual lever if runs snowball.
-export const CANDY_PRICE = 3;
 export const MOVE_COST = 1; // water drops per step
 export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs one drop more than a step
 // PLACEHOLDER: what one bathtub pays into the purse every turn, come what may. It is the
@@ -187,7 +183,8 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   getTile(map, getRandomItem(pairable.length ? pairable : spots))!.object = GameObjectType.DONUT;
   placeObject(map, GameObjectType.DONUT, 0, 0, MIN_PORTAL_DISTANCE);
 
-  for (let i = 1; i < UNICORN_COUNT; i++) placeObject(map, GameObjectType.UNICORN, SPACING);
+  // No unicorns are placed here: the one at the start position is the whole herd a run
+  // begins with, and every other one is bought from a tub. Nothing waits in the fog.
   for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, SPACING);
   for (let i = 0; i < FLOWER_COUNT; i++) placeObject(map, GameObjectType.FLOWER, SPACING);
 
@@ -484,7 +481,8 @@ export function moveCharacter(map: GameMap, from: Position, to: Position) {
  * this is live all through the run and its reading when the last turn closes is the final
  * score. Because it is a snapshot rather than a total, the closing turn counts as much as
  * the opening one, and a rainbow that goes out takes its points with it.
- * Unicorns still under the fog do not count — they are not yours until you have found them.
+ * The herd is counted the same way the fog rules count a glower: only what is out in the open.
+ * Nothing hides in the fog any more, so today that is every unicorn there is.
  *
  * Returned in parts rather than as one number so the end-of-run panel can show its working,
  * and so the breakdown can never disagree with the total: getScore adds these up.
@@ -525,6 +523,16 @@ export function isRunOver(map: GameMap): boolean {
 }
 
 /**
+ * What the next unicorn costs: one sweet per unicorn already standing on the board. The herd
+ * prices itself — the first newcomer is cheap, and every one after it costs what the herd has
+ * grown to, which is the brake on an income that would otherwise compound away. It is counted
+ * off the tiles rather than kept as a number, so it can never drift from the herd it prices.
+ */
+export function getCandyPrice(map: GameMap): number {
+  return map.tiles.filter((tile) => tile.living === GameObjectType.UNICORN).length;
+}
+
+/**
  * The fields a bathtub may put a new unicorn on: the neighbours a character could step onto,
  * which is exactly the right rule — a fountain or another unicorn is in the way, a flower or
  * a donut is not, and a rainbow lying there simply goes out under the newcomer. The list is
@@ -536,12 +544,12 @@ export function isRunOver(map: GameMap): boolean {
  * and a field between two of them is just offered twice.
  */
 export function getSpawnTargets(map: GameMap, position: Position): Position[] {
-  return map.candy >= CANDY_PRICE ? getMoveTargets(map, position) : [];
+  return map.candy >= getCandyPrice(map) ? getMoveTargets(map, position) : [];
 }
 
 /** Trades the jar of candy for a unicorn on `position` — which must come from getSpawnTargets. */
 export function buyUnicorn(map: GameMap, position: Position) {
-  map.candy -= CANDY_PRICE;
+  map.candy -= getCandyPrice(map); // before the newcomer is on the board, so it does not price itself
   getTile(map, position)!.living = GameObjectType.UNICORN;
   // it stands beside a tub the player was looking at, so there is no fog for the newcomer
   // to lift — but it may light a fountain straight away

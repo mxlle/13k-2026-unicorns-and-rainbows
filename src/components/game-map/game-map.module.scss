@@ -324,6 +324,23 @@ $win-hop-height: 2rem;
     @include theme.hover {
       background: rgba(theme.$main-color, 0.3);
     }
+
+    // The price tag on a tub's fields, written into --p by the board — see render().
+    // It sits along the bottom edge rather than in the middle, so it labels the field
+    // without covering whatever is lying on it.
+    .buying &::after {
+      content: var(--p);
+      position: absolute;
+      inset: auto 0 0;
+      // The tile carries the emoji font for its glyphs, whose digits are keycap parts
+      // rather than numerals — so the text font comes first here and the sweet falls
+      // through to the emoji one.
+      font-family: theme.$font-family, "Noto Color Emoji";
+      font-size: 0.45em; // em of the tile's glyph size, so the tag follows the zoom
+      line-height: 1;
+      text-align: center;
+      color: theme.$main-color-secondary;
+    }
   }
 
   // A step that costs no drop, in the success colour rather than the main one. It comes

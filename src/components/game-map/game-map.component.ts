@@ -8,13 +8,13 @@ import { TranslationKey } from "../../translations/translationKey";
 import {
   BASE_INCOME,
   buyUnicorn,
-  CANDY_PRICE,
   canUsePortal,
   createGameMap,
   createSeed,
   GameMap,
   getIndex,
   endTurn,
+  getCandyPrice,
   getMoveCost,
   getMoveTargets,
   getPortalTarget,
@@ -327,6 +327,13 @@ export function GameMapComponent(): [
     // A tub's fields are never free — they cost candy — so they keep the plain target ring
     // even when the flower under one of them would have made the step itself free.
     const freeIndices = isTubSelected ? [] : targets.filter((target) => !getMoveCost(map, target)).map(getIndex);
+    // A tub's fields are the one thing on the board whose price moves — it is the size of the
+    // herd, so it goes up with every unicorn bought. That makes it worth writing onto the
+    // fields themselves rather than leaving it to the info text, which would be read once and
+    // remembered wrong. Every field costs the same, so it is one property on the board that
+    // all of them read, rather than a label built per tile.
+    board.classList.toggle(styles.buying, isTubSelected);
+    if (isTubSelected) board.style.setProperty("--p", `"${getCandyPrice(map)}${CANDY_EMOJI}"`);
     // Guidance: an empty purse makes the income the only way on, so ending the turn
     // becomes the next step. Before that, on the opening turn, it is picking a character.
     // Once the run is over the same button is the only thing left to press.
@@ -566,13 +573,14 @@ export function GameMapComponent(): [
 
   /** Trades the jar of candy for a unicorn on one of the tub's fields, then hands the board back. */
   function buy(target: Position) {
+    const price = getCandyPrice(map); // read before the newcomer joins the herd and puts the price up
     buyUnicorn(map, target);
     select(selected); // the tub stays picked up, but the jar may no longer stretch to another
     render();
     // The jar empties the same way the purse does, from the field the unicorn appeared on —
-    // three sweets rather than one drop, but the same gesture, so a price is always counted
-    // out in the currency that paid it.
-    showSpending(target, CANDY_PRICE, 1);
+    // sweets rather than drops, but the same gesture, so a price is always counted out in the
+    // currency that paid it.
+    showSpending(target, price, 1);
 
     pubSubService.publish(PubSubEvent.STAR_COLLECT);
   }
@@ -594,7 +602,7 @@ export function GameMapComponent(): [
    * What something just cost, said where the player is looking: one glyph of the currency
    * rises off the tile it was paid on and fades, per unit paid. Counting in glyphs rather
    * than printing a number is what makes a higher price legible without explaining it — the
-   * portal throws two drops, a unicorn three sweets — and it is the same language the payout
+   * portal throws two drops, a unicorn one sweet per head of the herd — and it is the language the payout
    * speaks in. A free step over a flower pays nothing and so shows nothing, which says "free"
    * by itself.
    */

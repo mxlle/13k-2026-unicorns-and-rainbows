@@ -17,8 +17,9 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_RAINBOW]: "Rainbow|One 💧 every turn, and it scores while it shines.",
   [TranslationKey.INFO_FOUNTAIN]: "Fountain|Light comes out the other side as a rainbow: 🦄⛲🌈",
   // Both halves of what the tub is: the flat income, and the fields it can put a unicorn on.
-  // The two numbers repeat BASE_INCOME and CANDY_PRICE by hand — change them together.
-  [TranslationKey.INFO_BATHTUB]: "Bathtub|It makes 2 💧 a turn. Trade 3 🍬 for a new unicorn on a field beside it.",
+  // The number repeats BASE_INCOME by hand — change them together. The price is not a number
+  // here on purpose: it is the size of the herd, so it moves every time one is bought.
+  [TranslationKey.INFO_BATHTUB]: "Bathtub|It makes 2 💧 a turn. A new unicorn beside it costs one 🍬 per unicorn you have.",
   [TranslationKey.INFO_HINT]: "|Tap anything on the map to find out what it does.",
   // no turn count in the text — the turn bar shows it, and it stays right when TURN_LIMIT moves
   [TranslationKey.INFO_GOAL]: "|Build up before the turns run out. Rainbows, unicorns, 🍬 trees and cleared clouds score.",

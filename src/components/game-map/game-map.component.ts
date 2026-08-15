@@ -61,6 +61,15 @@ const HEART_EMOJI = "💗";
 const WIN_EMOJI = "🎉";
 const LOSE_EMOJI = "😢";
 const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
+// PLACEHOLDER zoom steps, as multiples of "the whole board fits in the view". Expressing
+// them as multiples rather than tile sizes is what makes step 0 a true overview on any map
+// size and any screen — a fixed tile size that suits a 9x9 phone board would leave a 20x20
+// one unreadable, and one that suits 20x20 would waste the screen at 9x9.
+const ZOOM_STEPS = [1, 1.5, 2.2, 3];
+// PLACEHOLDER: the tile size a run wants to open at — big enough for the emoji to read and
+// for a finger to hit. It picks the opening zoom step; see applyZoom.
+const COMFORT_TILE = 32;
+const MIN_TILE = 8; // a floor for the maths below, in case the map row is measured before it has a size
 const START_INDEX = getIndex(UNICORN_START); // the one field a bought unicorn ever appears on
 
 // The usual [host, update] tuple plus the status chip that belongs in the header — it is
@@ -154,9 +163,58 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     scoreBoard,
   ]);
 
-  // The board keeps its size whatever the screen does; this row scrolls to reach it.
+  // The board takes its size from the map and the zoom step; this row scrolls to reach the
+  // parts of it that do not fit. Panning is the browser's own scrolling — which brings touch
+  // momentum, trackpad gestures and keyboard scrolling along for nothing.
   const mapArea = createElement({ cssClass: styles.mapArea }, [board]);
-  const hostElement = createElement({ cssClass: styles.host }, [mapArea, infoPanel, turnBar]);
+  const zoomOutButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: () => zoom(-1) }, ["−"]);
+  const zoomInButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: () => zoom(1) }, ["+"]);
+  const zoomControl = createElement({ cssClass: styles.zoom }, [zoomOutButton, zoomInButton]);
+  const hostElement = createElement({ cssClass: styles.host }, [mapArea, zoomControl, infoPanel, turnBar]);
+
+  let zoomIndex = 0;
+
+  /**
+   * Turns the current zoom step into a tile size. Everything else — the board's width, the
+   * emoji size, the beams — is derived from --tile in the stylesheet, so this one property
+   * is the whole zoom. Measured against the shorter side of the map row so that step 0 fits
+   * whichever way the screen is turned, less one pixel per column for the grid lines.
+   *
+   * `reset` picks the opening step as well: the first one whose tiles are big enough to read
+   * and to hit, which on a small map is the overview itself and on a big one is a few steps
+   * in. That is what lets one setting suit a 9x9 and a 20x20 board — a fixed starting step
+   * would either scroll a small map for no reason or open a large one unreadably small.
+   */
+  function applyZoom(reset = false) {
+    const fit = Math.max((Math.min(mapArea.clientWidth, mapArea.clientHeight) - MAP_SIZE) / MAP_SIZE, MIN_TILE);
+
+    if (reset) {
+      const readable = ZOOM_STEPS.findIndex((step) => fit * step >= COMFORT_TILE);
+      zoomIndex = readable < 0 ? ZOOM_STEPS.length - 1 : readable;
+    }
+
+    board.style.setProperty("--tile", `${fit * ZOOM_STEPS[zoomIndex]}px`);
+    zoomOutButton.disabled = !zoomIndex;
+    zoomInButton.disabled = zoomIndex === ZOOM_STEPS.length - 1;
+  }
+
+  /** Steps the zoom, keeping whatever was in the middle of the view in the middle of it. */
+  function zoom(direction: number) {
+    const next = Math.min(ZOOM_STEPS.length - 1, Math.max(0, zoomIndex + direction));
+    if (next === zoomIndex) return;
+
+    // measured before the board resizes under it, or the old centre is already gone
+    const { scrollLeft, scrollTop, clientWidth, clientHeight } = mapArea;
+    const ratio = ZOOM_STEPS[next] / ZOOM_STEPS[zoomIndex];
+    zoomIndex = next;
+    applyZoom();
+    mapArea.scrollLeft = (scrollLeft + clientWidth / 2) * ratio - clientWidth / 2;
+    mapArea.scrollTop = (scrollTop + clientHeight / 2) * ratio - clientHeight / 2;
+  }
+
+  // A turned phone changes what "fits" means, and every step is defined against it. Wrapped
+  // rather than passed directly: the handler's Event argument would land in `reset`.
+  addEventListener("resize", () => applyZoom());
 
   function render() {
     const selectedIndex = selected && getIndex(selected);
@@ -411,6 +469,7 @@ export function GameMapComponent(): [hostElement: HTMLElement, startNewGame: (se
     isRunning = true; // before render(), which reads it for the turn button
     select(undefined);
     render();
+    applyZoom(true); // the map row can only be measured once it is on the page, so not before here
 
     pubSubService.publish(PubSubEvent.GAME_START);
   }

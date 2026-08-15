@@ -1,10 +1,13 @@
 @use "../../theme";
 @use "../../names";
 
-// --s (the map size) is set from MAP_SIZE in the component, so the grid and the
-// emoji size follow the map size without duplicating it here.
-// The height budget leaves room for the permanent info row below the board.
-$board-width: min(92vw, 55vh);
+// --s (the map size) and --tile (the tile size of the current zoom step) are both set from
+// the component. The board is deliberately NOT sized to the screen any more: a tile has a
+// given size and the board is as big as the map needs, so growing the map grows the board
+// instead of shrinking its tiles past legibility. .mapArea scrolls to reach the rest.
+// The info row and the turn bar keep a comfortable reading width of their own, independent
+// of however wide the board has become.
+$panel-width: min(92vw, 55vh);
 // Tall enough for the longest description, so switching objects never resizes the row
 // and the board never moves. Raise it if a description ever wraps to a fourth line — or
 // if an action button is added to a line and pushes it past this.
@@ -32,21 +35,35 @@ $covered-opacity: 0.55;
 .mapArea {
   grid-area: 1 / 1;
   display: grid;
-  // `safe` keeps the top-left of an oversized board reachable instead of clipping it
+  // `safe` keeps the top-left of an oversized board reachable instead of clipping it —
+  // which is now the normal case rather than an edge one, since the board is regularly
+  // larger than the view and this row is what pans around it.
   place-items: safe center;
   width: 100%;
   min-height: 0;
   overflow: auto;
 }
 
+// The zoom steps, laid over the top-right of the map rather than placed in the layout —
+// it shares the map's grid cell, so showing it costs the board no height. The map row is
+// the only place it can sit without competing with the info row or the turn bar for space.
+.zoom {
+  grid-area: 1 / 1;
+  justify-self: end;
+  align-self: start;
+  z-index: 1; // above the board it floats over
+  display: flex;
+  gap: 0.25rem;
+}
+
 .board {
   position: relative; // the beam layer is positioned against it
   display: grid;
-  grid-template-columns: repeat(var(--s), 1fr);
+  // Columns are a fixed tile wide rather than a fraction of the board, so the board takes
+  // its size from the map. The rows follow: every .tile carries aspect-ratio 1.
+  grid-template-columns: repeat(var(--s), var(--tile));
   gap: 1px; // the board background shows through as grid lines
-  width: $board-width;
-  aspect-ratio: 1;
-  font-size: calc(#{$board-width} / var(--s) * 0.62);
+  font-size: calc(var(--tile) * 0.62);
   border-radius: theme.$border-radius;
   overflow: hidden;
   background: theme.$bg-alpha-25;
@@ -86,7 +103,8 @@ $covered-opacity: 0.55;
   display: flex;
   align-items: center;
   gap: 0.8rem; // turn count and score need to read as two separate numbers
-  width: $board-width;
+  width: 100%;
+  max-width: $panel-width;
 
   > button {
     margin-left: auto; // turn count left, the button on the far right
@@ -129,7 +147,8 @@ $win-hop-height: 2rem;
 .info {
   grid-area: 2 / 1;
   @extend %gridCentered;
-  width: $board-width;
+  width: 100%;
+  max-width: $panel-width;
   min-height: $info-height;
   padding: 0.4rem 0.8rem;
   border-radius: theme.$border-radius;

@@ -133,6 +133,14 @@ $covered-opacity: 0.55;
   white-space: nowrap; // a counter and its income never wrap into a second line
 }
 
+// The closing turn. Colour rather than position, so nothing in the bar moves — and it is
+// readable from wherever on the screen the player is looking, which is the point: the
+// warning has to land while the turn is being planned, not when the button is pressed.
+.lastTurn {
+  color: theme.$warning-color;
+  font-weight: bold;
+}
+
 // The board-size choice. Its buttons are narrower than a normal secondary button — three
 // of them plus the new-game button have to share the turn bar on a phone.
 .sizes {

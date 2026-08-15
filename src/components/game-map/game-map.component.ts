@@ -41,6 +41,10 @@ import { GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
 const FOG_EMOJI = "☁️";
 const DROP_EMOJI = "💧";
 const TURN_EMOJI = "⏳";
+// The closing turn's own emoji: the same hourglass, run out. It is the whole "this is your
+// last turn" signal, and being an emoji rather than a word it needs no translation and
+// stays out of the end-turn button, which already carries three states of its own.
+const LAST_TURN_EMOJI = "⌛";
 const SCORE_EMOJI = "⭐";
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
@@ -224,6 +228,9 @@ export function GameMapComponent(): [
   // The score sits here rather than in the header chip because three "n (+n)" counters in a
   // row overflow the header on a phone — and the turn bar has the width going spare.
   const turnDisplay = counter(TURN_EMOJI, turnCounter);
+  // Reached for through counter() rather than built by hand, so every counter in the bar is
+  // still made the same way: the emoji span is always the first child of the row.
+  const turnEmoji = turnDisplay.firstChild!;
   const scoreDisplay = counter(SCORE_EMOJI, scoreCount);
   const turnBar = createElement({ cssClass: styles.turnBar }, [turnDisplay, scoreDisplay, sizeControl, endTurnButton]);
   // The two currencies as one chip in the middle of the header, in view wherever the player
@@ -380,6 +387,12 @@ export function GameMapComponent(): [
     // the player moves, so the cost of rearranging the board and its effect on next turn's
     // takings are visible in the same glance.
     turnCounter.textContent = `${Math.min(map.turn, TURN_LIMIT)}/${TURN_LIMIT}`;
+    // The closing turn, said twice over: the sand runs out and the whole counter goes
+    // warning-coloured. A warning while the turn is being planned, which is when it can
+    // still change what the player spends on.
+    const isLastTurn = map.turn >= TURN_LIMIT;
+    turnEmoji.textContent = isLastTurn ? LAST_TURN_EMOJI : TURN_EMOJI;
+    turnDisplay.classList.toggle(styles.lastTurn, isLastTurn);
     dropCount.textContent = `${map.drops} (+${map.rainbowCount})`;
     candyCount.textContent = `${map.candy} (+${map.candyIncome})`;
     scoreCount.textContent = `${getScore(map)}`; // a snapshot, so it has no "+" to show

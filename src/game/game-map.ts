@@ -25,10 +25,9 @@ export let CHEST_COUNT = 0; // what the fog is worth walking into
 // present stays worth the walk on a board where the walk is twenty tiles — see setMapSize.
 export let CHEST_DROPS = 0;
 export let CHEST_CANDY = 0;
-export let DONUT_COUNT = 0; // the portal: a pair, or nothing at all
+export let DONUT_COUNT = 0; // the portal network: a pair at least, or nothing at all
 export let SITE_COUNT = 0; // build sites, of each of the three kinds
 export let TURN_LIMIT = 0; // the whole run — as many turns as the board is wide
-export let MIN_PORTAL_DISTANCE = 0; // along both axes, so the pair sits diagonally across the board
 
 export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
 
@@ -43,6 +42,7 @@ export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
  */
 const TREE_SIZE = 7; // and with the trees comes candy, which is what gives the tub its second job
 const DONUT_SIZE = 9;
+const DONUT_DENSITY = 6; // tiles of width per donut — see setMapSize
 const SITE_SIZE = 13;
 
 // The tutorial board, which is simply the first rung of the ladder. Kept as a flag rather than
@@ -79,15 +79,16 @@ function setMapSize(size: number) {
   // counter nobody empties. Half the width, rounded up, is the smaller share of a smaller need.
   CHEST_DROPS = (size + 1) >> 1;
   CHEST_CANDY = (size / 2.5 + 0.5) | 0;
-  DONUT_COUNT = size < DONUT_SIZE ? 0 : 2;
+  // PLACEHOLDER: one donut per DONUT_DENSITY tiles of width, which comes out as 2 on the 9x9
+  // and the 13x13, 3 on the 17x17 and 4 on the boards above it. Linear in the width rather
+  // than the area, the same as the sites and the turns: what a portal is worth is how much of
+  // the walking it saves, and the walking grows with the width.
+  DONUT_COUNT = size < DONUT_SIZE ? 0 : (size / DONUT_DENSITY + 0.5) | 0;
   // Linear in the width rather than the area, the same as TURN_LIMIT and for the same reason:
   // what should stay steady across the boards is how many sites a run has the turns to reach,
   // not how many are on the map. Works out at 2 of each kind on the 13x13, 3 on the 21x21.
   SITE_COUNT = size < SITE_SIZE ? 0 : (size / 7 + 0.5) | 0;
   TURN_LIMIT = size;
-  // Half the width, on both axes. Absolute distances stop meaning anything once the board
-  // can be three times wider: four tiles apart is across the map at 7 and a stroll at 21.
-  MIN_PORTAL_DISTANCE = size >> 1;
 }
 
 /**
@@ -285,22 +286,24 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
     if (spots.length) getTile(map, getRandomItem(spots))!.object = GameObjectType.TREE;
   }
 
-  // The portal pair: placed early, because its rule is the hardest on the board to satisfy.
-  // The two ends keep MIN_PORTAL_DISTANCE along *both* axes, so they never share a row or a
-  // column — a jump that only slides sideways reads as a move rather than a portal, however
-  // many tiles it covers.
-  // The first end is drawn only from tiles that still have a legal partner free. Picking it
-  // blindly can strand the second end with nowhere to go — a donut in the middle of the
-  // board has only the four corners to pair with — and placeObject would then drop the rule
-  // rather than the donut, which is how a portal ends up leading to the tile next door.
-  // Taking the first end off the board cannot invalidate the partner it was chosen for, so
-  // the second placement always finds its spot and the rule never has to be relaxed.
-  // A portal is a pair or it is nothing, so the whole block is gated rather than a loop count.
+  // The portal network: placed early, because its rule is the hardest on the board to satisfy.
+  // The donuts keep their distance along *both* axes rather than as the crow flies, so no two
+  // of them share a row or a column — a jump that only slides sideways reads as a move rather
+  // than a portal, however many tiles it covers. That is the whole of `diagonal` below, and
+  // the spacing it demands is the ordinary one: for a pair it works out at half the width,
+  // exactly what the rule used to be written as, and it tightens on its own as the bigger
+  // boards get their third and fourth donut.
+  // The first one is drawn only from tiles that still have a legal partner free. Picking it
+  // blindly can strand the next with nowhere to go — a donut in the middle of the board has
+  // only the four corners to pair with — and placeObject would then relax the rule rather than
+  // drop the donut, which is how a portal ends up leading to the tile next door.
   if (DONUT_COUNT) {
+    const spacing = getSpacing(DONUT_COUNT);
     const spots = getFreePositions(map, 0);
-    const pairable = spots.filter((a) => spots.some((b) => getAxisDistance(a, b) >= MIN_PORTAL_DISTANCE));
+    const pairable = spots.filter((a) => spots.some((b) => getAxisDistance(a, b) >= spacing));
     getTile(map, getRandomItem(pairable.length ? pairable : spots))!.object = GameObjectType.DONUT;
-    placeObject(map, GameObjectType.DONUT, DONUT_COUNT, 0, MIN_PORTAL_DISTANCE);
+    // From 1: the one above is on the board already, and the rest space themselves off it.
+    for (let i = 1; i < DONUT_COUNT; i++) placeObject(map, GameObjectType.DONUT, DONUT_COUNT, 0, true);
   }
 
   // No unicorns are placed here: the one at the start position is the whole herd a run
@@ -398,26 +401,27 @@ function getPositionsOf(map: GameMap, objectType: GameObjectType): Position[] {
 /**
  * Puts one `objectType` on a free tile and reports where it landed. `count` is how many of
  * this kind the board is getting, which is what the spacing is worked out from (see SPREAD);
- * `margin` is the distance it keeps from the border, and `axisSpacing` demands that much
- * along *both* axes — the rule that stops the donut pair from lining up in one row or column.
- * Which layer it lands on follows from its category, so a unicorn walks over the ground and a
- * fountain becomes part of it.
+ * `margin` is the distance it keeps from the border, and `diagonal` asks for that spacing
+ * along *both* axes instead of as the crow flies — the rule that stops the donuts from lining
+ * up in one row or column. Which layer it lands on follows from its category, so a unicorn
+ * walks over the ground and a fountain becomes part of it.
  *
  * The spacing is stepped down rather than dropped when nothing satisfies it: the last few
  * things onto a filling board still get placed as far apart as that board still allows,
  * instead of falling back to no rule and landing in the first heap they find. It is also what
  * makes generation total — the loop is bounded by the spacing, so it can never spin looking
- * for a spot that is not there. `axisSpacing` is never relaxed, because it never has to be:
- * the donut pair is placed onto an empty board where its rule is always satisfiable.
+ * for a spot that is not there. The diagonal rule steps down with it, which is what lets a
+ * board carry four donuts: demanding half the width of every pair of them is impossible, and
+ * it is the step-down rather than a second constant that finds what such a board does allow.
  */
-function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin = 0, axisSpacing = 0): Position | undefined {
+function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin = 0, diagonal = false): Position | undefined {
   const free = getFreePositions(map, margin);
   const taken = getPositionsOf(map, objectType);
   let candidates = free;
 
   for (let spacing = getSpacing(count); spacing > 1; spacing--) {
     const spaced = free.filter((position) =>
-      taken.every((other) => getDistance(position, other) >= spacing && getAxisDistance(position, other) >= axisSpacing),
+      taken.every((other) => (diagonal ? getAxisDistance : getDistance)(position, other) >= spacing),
     );
 
     if (spaced.length) {
@@ -601,16 +605,27 @@ export function getMoveTargets(map: GameMap, { x, y }: Position): Position[] {
 }
 
 /**
- * The far end of the portal for a character standing on `from` — undefined if it is not
- * standing on a donut. The target may still be under the fog: the jump is offered as an
- * action rather than a highlighted tile precisely so it does not give its place away.
+ * Where a character standing on `from` can jump to: every other donut it has found, or an
+ * empty list if it is not standing on a donut at all — which is what lets the interface ask
+ * on every selection without checking first.
+ *
+ * Found ones only, and that is the fog rule rather than a portal rule: the far ends are
+ * offered as tiles to tap now, and a highlighted cloud would announce what is hiding under it.
+ * In practice it costs nothing, because arriving on a donut is what uncovers the rest of them
+ * (see moveCharacter) — the one case it rules out is a unicorn bought straight onto a donut on
+ * a board where nobody has walked one yet.
  */
-export function getPortalTarget(map: GameMap, from: Position): Position | undefined {
+export function getPortalTargets(map: GameMap, from: Position): Position[] {
   const fromIndex = getIndex(from);
-  if (map.tiles[fromIndex].object !== GameObjectType.DONUT) return undefined;
-  const index = map.tiles.findIndex((tile, i) => i !== fromIndex && tile.object === GameObjectType.DONUT);
+  const targets: Position[] = [];
 
-  return index < 0 ? undefined : getPosition(index);
+  if (map.tiles[fromIndex].object === GameObjectType.DONUT) {
+    map.tiles.forEach((tile, index) => {
+      if (index !== fromIndex && tile.isRevealed && tile.object === GameObjectType.DONUT) targets.push(getPosition(index));
+    });
+  }
+
+  return targets;
 }
 
 /** A jump is on only if it is paid for and nobody else is standing on the far donut. */
@@ -649,11 +664,27 @@ export function hasFreeMove(map: GameMap): boolean {
   );
 }
 
-/** Steps the character on `from` onto `to` — `to` must come from getMoveTargets. */
+/**
+ * Steps the character on `from` onto `to` — `to` must come from getMoveTargets, or from
+ * getPortalTargets for a jump.
+ *
+ * Arriving on a donut puts every other one on the map: the tile alone, with the cloud left
+ * over everything around it. So the portal tells you where it goes rather than where you are
+ * going, and a network of them is something the player can plan a route through — which is
+ * the whole of what a third and fourth donut are for. The tiles beside them stay hidden,
+ * so what has been given away is the exits, not the ground they open onto.
+ */
 export function moveCharacter(map: GameMap, from: Position, to: Position) {
   const fromTile = getTile(map, from)!;
-  getTile(map, to)!.living = fromTile.living;
+  const toTile = getTile(map, to)!;
+  toTile.living = fromTile.living;
   fromTile.living = undefined;
+
+  if (toTile.object === GameObjectType.DONUT) {
+    map.tiles.forEach((tile) => {
+      if (tile.object === GameObjectType.DONUT) tile.isRevealed = true;
+    });
+  }
 }
 
 /**

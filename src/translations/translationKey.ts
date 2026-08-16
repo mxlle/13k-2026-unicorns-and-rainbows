@@ -20,14 +20,16 @@ export const TranslationKey = defineEnum({
   INFO_GOAL: 11, // what the run is about, in place of INFO_HINT on the opening turn — no name either
   INFO_TREE: 12,
   INFO_DONUT: 13,
-  JUMP: 14, // the portal action offered in the info panel
-  INFO_FLOWER: 15,
-  INFO_CHEST: 16,
-  INFO_TUB_SITE: 17,
-  INFO_FOUNTAIN_SITE: 18,
-  INFO_TREE_SITE: 19,
-  PLAY: 20, // confirms the board picked on the launch screen and starts the run
+  // 14 was JUMP, the portal's own button in the info panel. The far donuts are tiles to tap
+  // now, so the button went and the numbers below closed up behind it — they have to stay
+  // contiguous for the enum-keyed translation maps to compact into arrays (see vite.config.ts).
+  INFO_FLOWER: 14,
+  INFO_CHEST: 15,
+  INFO_TUB_SITE: 16,
+  INFO_FOUNTAIN_SITE: 17,
+  INFO_TREE_SITE: 18,
+  PLAY: 19, // confirms the board picked on the launch screen and starts the run
   // The tub's second job, appended to INFO_BATHTUB only on boards that have candy to pay with.
   // A sentence rather than a key of its own so the first half is written once.
-  INFO_BATHTUB_SELL: 21,
+  INFO_BATHTUB_SELL: 20,
 });

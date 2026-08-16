@@ -14,7 +14,7 @@ import {
   getIndex,
   getMoveCost,
   getMoveTargets,
-  getPortalTarget,
+  getPortalTargets,
   getPosition,
   getSpawnTargets,
   getTile,
@@ -424,9 +424,10 @@ function getLegalActions(map: GameMap): BotAction[] {
       .filter((to) => getMoveCost(map, to) <= map.drops)
       .forEach((to) => actions.push({ kind: BotActionKind.MOVE, from, to, value: 0, label: `step to ${say(to)}` }));
 
-    const portal = getPortalTarget(map, from);
-    if (portal && canUsePortal(map, portal))
-      actions.push({ kind: BotActionKind.PORTAL, from, to: portal, value: 0, label: "take the portal" });
+    // One action per far donut: a board with four of them offers three jumps from any one.
+    getPortalTargets(map, from)
+      .filter((to) => canUsePortal(map, to))
+      .forEach((to) => actions.push({ kind: BotActionKind.PORTAL, from, to, value: 0, label: `jump to ${say(to)}` }));
   });
 
   map.tiles.forEach((tile, index) => {
@@ -614,10 +615,13 @@ function getReach(map: GameMap, start: Position) {
 
     getMoveTargets(map, position).forEach((target) => step(target, getMoveCost(map, target), false));
 
-    // The portal is an edge like any other, so a goal on the far side of the board comes out
-    // cheap the moment the bot is standing on a donut — which is exactly what it is for.
-    const portal = getPortalTarget(map, position);
-    if (portal && getTile(map, portal)!.living === undefined) step(portal, PORTAL_COST, true);
+    // Every donut is an edge like any other, so a goal on the far side of the board comes out
+    // cheap the moment the bot is standing on one — which is exactly what they are for. With
+    // three or four of them the edges chain, and the search walks a route through the network
+    // for nothing: this runs at every tile it settles, not only at the start.
+    getPortalTargets(map, position).forEach((target) => {
+      if (getTile(map, target)!.living === undefined) step(target, PORTAL_COST, true);
+    });
   }
 
   return { cost, first, viaPortal };

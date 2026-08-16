@@ -24,7 +24,7 @@ import {
   getFeedingRainbows,
   getMoveCost,
   getMoveTargets,
-  getPortalTarget,
+  getPortalTargets,
   getPosition,
   getScore,
   getScoreParts,
@@ -164,10 +164,11 @@ export function GameMapComponent(
   // can afford a step — tap one of its highlighted neighbours to move there.
   let selected: Position | undefined;
   let targets: Position[] = [];
-  // The far donut, when the selection is a character standing on the near one. It is an
-  // action rather than a highlighted tile, so taking the portal never gives the far end
-  // away before the player has walked there.
-  let portalTarget: Position | undefined;
+  // The far donuts, when the selection is a character standing on one of them. They are part
+  // of `targets` and lit exactly like a step, so a jump is the same two taps as a walk — the
+  // second tap simply lands across the board. Kept as a list of their own all the same,
+  // because that second tap has to know it is paying the portal's price rather than a step's.
+  let portalTargets: Position[] = [];
   // Whether the selection is a bathtub. A tub lights the fields it can put a unicorn on in
   // exactly the way a character lights the tiles it can step onto, so the second tap has to
   // know which of the two it is finishing: a step, or a purchase.
@@ -270,24 +271,17 @@ export function GameMapComponent(
   const infoEmoji = createElement({ tag: "span", cssClass: [styles.infoEmoji, CssClass.EMOJI] });
   const infoName = createElement({ tag: "span", cssClass: styles.infoName });
   const infoText = createElement({ tag: "span" });
-  // The portal action sits in the same line that explains it, so the offer and the
-  // description arrive together. Hidden unless the selection is standing on a donut.
-  const jumpButton = createButton({ cssClass: [CssClass.SECONDARY, styles.action], onClick: () => move(portalTarget!, PORTAL_COST) }, [
-    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: OBJECT_CONFIG[GameObjectType.DONUT].emoji }),
-    ` ${getTranslation(TranslationKey.JUMP)}`,
-  ]);
-  // The build action, offered on the site itself the way the portal is offered on the donut —
-  // same place in the same line, so an action on the board always turns up where the thing it
-  // acts on is being explained. Its face is filled in by renderBuildButton: what the site
-  // becomes and what that costs, which is why it carries no text of its own.
+  // The build action, offered on the site itself: an action on the board turns up where the
+  // thing it acts on is being explained. Its face is filled in by renderBuildButton: what the
+  // site becomes and what that costs, which is why it carries no text of its own.
+  // The portal used to have a button of its own beside it. It has not needed one since the
+  // far donuts became tiles to tap: the board can say "here, and here, and here", which no
+  // one button ever could.
   const buildButton = createButton({ cssClass: [CssClass.SECONDARY, styles.action], onClick: raise });
   // The end-of-run breakdown, one line per scoring category, stacked under the result line.
   // Empty while the run is on, and CSS hides it then, so it takes no room until it has any.
   const scoreBoard = createElement({ cssClass: styles.scoreBoard });
-  const infoPanel = createElement({ cssClass: styles.info }, [
-    createElement({}, [infoEmoji, infoName, infoText, jumpButton, buildButton]),
-    scoreBoard,
-  ]);
+  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText, buildButton]), scoreBoard]);
 
   // The board takes its size from the map and the zoom step; this row scrolls to reach the
   // parts of it that do not fit. Panning is the browser's own scrolling — which brings touch
@@ -567,13 +561,7 @@ export function GameMapComponent(
     if (isRunning) renderScoreBoard(showsScore);
     renderBeams();
 
-    // Offered wherever the character stands, but greyed out when it cannot be paid for or
-    // somebody else is already standing on the far donut.
-    jumpButton.classList.toggle(CssClass.HIDDEN, !portalTarget);
-    jumpButton.classList.toggle(CssClass.HINT, !!portalTarget && canUsePortal(map, portalTarget));
-    jumpButton.disabled = !portalTarget || !canUsePortal(map, portalTarget);
-
-    // The same three states for the build action: shown on a site, lit while the build is
+    // Three states for the build action: shown on a site, lit while the build is
     // really on, greyed out while it is only being looked at. Greyed rather than hidden is the
     // point — a site the player cannot afford yet still has to say what it would cost.
     const canRaise = !!buildSite && canBuild(map, buildSite);
@@ -634,9 +622,12 @@ export function GameMapComponent(
     // from then on the nudge to tap around is enough
     const isOpening = map.turn === FIRST_TURN;
 
-    // Standing on a donut, the portal is what there is to act on — it takes the line over
-    // the character's own description, right beside the button that uses it.
-    if (portalTarget) setInfo(TranslationKey.INFO_DONUT, OBJECT_CONFIG[GameObjectType.DONUT].emoji);
+    // The ground wins over whoever is standing on it, for the donut alone: a unicorn on a
+    // donut is a unicorn that can jump, and where it can jump to is the thing worth reading.
+    // It is also where the price of a jump is stated, which is why it is not conditional on
+    // the jump being affordable — a purse too empty for it is exactly when that has to be legible.
+    if (index !== undefined && map.tiles[index].isRevealed && map.tiles[index].object === GameObjectType.DONUT)
+      setInfo(TranslationKey.INFO_DONUT, OBJECT_CONFIG[GameObjectType.DONUT].emoji);
     else if (objectType !== undefined) {
       setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
       // The tub's second job is selling unicorns, and it is paid for in candy — which the
@@ -714,17 +705,19 @@ export function GameMapComponent(
     // character and one that can afford none of its steps all end up with no targets,
     // which is what render() draws as the neutral selection. A tub with too little candy
     // lands there too — the fields light up only once the trade can actually be made.
+    // Only a character can take the portal, and only from the donut it is standing on. The
+    // far ends are filtered exactly as the steps are — an unaffordable jump, or one onto a
+    // donut somebody is already standing on, is not lit, because it cannot be taken.
+    portalTargets = isCharacter ? getPortalTargets(map, position!).filter((target) => canUsePortal(map, target)) : [];
     targets = isCharacter
-      ? getMoveTargets(map, position!).filter((target) => getMoveCost(map, target) <= map.drops)
+      ? [...getMoveTargets(map, position!).filter((target) => getMoveCost(map, target) <= map.drops), ...portalTargets]
       : isTubSelected
         ? getSpawnTargets(map, position!)
         : [];
-    // only a character can take the portal, and only from the donut it is standing on
-    portalTarget = isCharacter ? getPortalTarget(map, position!) : undefined;
     // A site under the fog is not a site yet, for the same reason a character under it is not
     // a character: offering to build on it would give away that something is there.
     buildSite = tile?.isRevealed && getBuild(tile.object) ? position : undefined;
-    showInfo(index); // reads portalTarget, so it comes last
+    showInfo(index);
   }
 
   function onTileClick(index: number) {
@@ -732,9 +725,10 @@ export function GameMapComponent(
     showsScore = false; // the board takes the panel back, whether the tap moves or just looks
 
     if (targets.some((target) => getIndex(target) === index)) {
-      // the same second tap either way — what it finishes depends on what is selected
+      // the same second tap either way — what it finishes depends on what is selected, and
+      // for a character on whether the lit tile it landed on is next door or across the board
       if (isTubSelected) buy(getPosition(index));
-      else move(getPosition(index));
+      else move(getPosition(index), portalTargets.some((target) => getIndex(target) === index) ? PORTAL_COST : undefined);
     } else {
       // every tile can be picked up and explains itself, fog and bare ground included;
       // tapping the selected one again drops it and the panel falls back to its hint

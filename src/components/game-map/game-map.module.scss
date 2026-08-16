@@ -257,12 +257,13 @@ $win-hop-height: 2rem;
   }
 }
 
-// An action offered by the info panel — the portal jump, the unicorn purchase — flowing
-// inline at the end of the line that explains it.
+// An action offered by the info panel — raising a build site — flowing inline at the end
+// of the line that explains it. The portal's jump used to be the other one; the far donuts
+// are tiles to tap now, so the board carries that offer instead of this row.
 .action {
   margin-left: 0.6em;
   vertical-align: middle;
-  white-space: nowrap; // never breaks between the donut and its label
+  white-space: nowrap; // never breaks between what is being built and its price
 }
 
 .infoName {

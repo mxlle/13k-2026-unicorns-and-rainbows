@@ -33,8 +33,10 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
   [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
   [TranslationKey.INFO_TREE]: "Lollipop tree|It makes one 🍬 a turn per 🌈 next to it. No rainbow can appear here.",
-  [TranslationKey.INFO_DONUT]: "Donut|A portal to the other donut. Jumping costs one 💧 extra.",
-  [TranslationKey.JUMP]: "Jump",
+  // The whole price rather than the surcharge — "one more than a step" is arithmetic the
+  // player has to do at exactly the moment they are counting drops. The number repeats
+  // PORTAL_COST by hand, the same way the tub's line repeats BASE_INCOME: change them together.
+  [TranslationKey.INFO_DONUT]: "Donut|A portal. Tap another 🍩 to jump there for 2 💧.",
   // Says both halves of the trade: the free step, and the rainbow spot it takes up.
   [TranslationKey.INFO_FLOWER]: "Flower|Stepping on it is free. But no rainbow can appear here.",
   // Says what it is for without saying what is in it: the three outcomes, and the one action.

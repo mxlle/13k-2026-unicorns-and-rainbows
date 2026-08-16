@@ -9,7 +9,8 @@ export const enTranslations: Record<TranslationKey, string> = {
   // appended to the description by the component, so the line ends ready for a number.
   [TranslationKey.WON]: "Time is up!|Your final score:",
   [TranslationKey.END_TURN]: "End turn",
-  [TranslationKey.NEW_GAME]: "New game",
+  [TranslationKey.BACK]: "Back",
+  [TranslationKey.PLAY]: "Play now",
   // PLACEHOLDER wording — "Name|Description", split at the pipe by the info panel.
   // Plain, short words: many players will not be native speakers. The 🦄⛲🌈 pattern
   // carries the line-up rule without language, and repeats, so it costs almost nothing.

@@ -9,7 +9,12 @@
 $solidity: 0.45;
 // What a stripe goes to under the pointer — far enough above $solidity to read as a
 // response, not so far that hovering looks like the level has been earned.
-$hover-solidity: 0.75;
+$hover-solidity: 0.6;
+// The picked stripe. It has to sit above $hover-solidity or a stripe would go dimmer the
+// moment it was chosen. NOTE that this shares a channel with the score-driven solidity that
+// is coming: when that lands, the pick will need a look of its own — its ring, a brightness,
+// something that is not "how full is this stripe" — or the two will read as the same thing.
+$picked-solidity: 0.85;
 
 .host {
   // The easiest board is the first in MAP_SIZES and belongs at the bottom, so the column is
@@ -20,18 +25,20 @@ $hover-solidity: 0.75;
   overflow: hidden;
 }
 
-// One band per board, sharing the height equally however many there are.
+// One band per board, sharing the height equally however many there are. A flex row rather
+// than a centred box: the picked stripe grows a button at its end, and the label has to make
+// room for it rather than sit underneath it.
 .stripe {
+  position: relative; // on a wide screen the play button pins itself to the end of this
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
+  padding: 0 1rem;
   cursor: pointer;
   font-size: 1.2rem;
   // --h is the only per-stripe value; see the component. The alpha is what makes the rainbow
   // pale to begin with, and it is on the background rather than the element so the label
-  // stays fully readable over it.
+  // keeps its own contrast over it.
   // Legacy comma syntax, and it has to stay that way: lightningcss mis-parses the modern
   // `hsl(h s l / a)` form when the hue is a var() it cannot resolve — it reads the slash as a
   // division and folds the alpha into the lightness, which comes out white.
@@ -43,8 +50,50 @@ $hover-solidity: 0.75;
   }
 }
 
-// The board the last run was played on. An inset ring rather than a colour, so it marks the
-// stripe without competing with the solidity that will soon mean "how well you did here".
-.last {
+// The picked stripe: written as two classes so it beats the single-class :hover rule above
+// on specificity, whatever the source order ends up being.
+.stripe.picked {
+  background: hsla(var(--h), 95%, 60%, $picked-solidity);
   box-shadow: inset 0 0 0 2px theme.$text-primary;
+}
+
+// Left on a phone, and left whether the stripe is picked or not: there the button takes most
+// of the row, so a centred label would have to jump aside for it every time the pick moved.
+// The shadow is what keeps white text readable across the whole band: a picked stripe is
+// nearly solid, and at the yellow end of the rainbow that is a very light background.
+.label {
+  margin-right: auto;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px #000;
+}
+
+// The same breakpoint the board's own layout switches on — see $wide-screen in
+// game-map.module.scss, and the note there on why these are px rather than rem.
+@media (min-width: 900px) {
+  // A wide stripe has room for both, so the button comes out of the flow and the label
+  // centres on the whole stripe — which means it sits in exactly the same place on every
+  // stripe, picked or not. That is the point: nothing about the row moves as the pick does.
+  .label {
+    margin-left: auto;
+  }
+
+  .play {
+    position: absolute;
+    right: 1rem;
+  }
+}
+
+// The offer, at the end of the picked stripe. Dark rather than tinted, because it has to
+// read on any hue the stripe under it happens to be — which the game's own button
+// backgrounds, all pale washes of white, would not.
+.play {
+  flex-shrink: 0; // the label gives way first; the offer never wraps or shrinks
+  white-space: nowrap;
+  background: theme.$dialog-bg;
+
+  // Not redundant: the global `button:hover` rule would otherwise win on specificity and
+  // hand the button back its pale wash exactly when it is being pointed at.
+  &:hover {
+    background: theme.$dialog-bg;
+  }
 }

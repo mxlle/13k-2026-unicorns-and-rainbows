@@ -465,7 +465,7 @@ export function GameMapComponent(
     buildButton.disabled = !canRaise;
     if (buildSite) renderBuildButton(map.tiles[getIndex(buildSite)].object!);
 
-    endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
+    endTurnButton.textContent = getTranslation(isOver ? TranslationKey.BACK : TranslationKey.END_TURN);
     endTurnButton.disabled = isPaying; // no second turn until the first one has been paid out
     // Ending a turn is one step among many; starting the next run is the whole screen.
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);

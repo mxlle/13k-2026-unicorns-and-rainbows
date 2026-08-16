@@ -14,7 +14,6 @@ import {
   getMoveTargets,
   getPortalTarget,
   getPosition,
-  getScoreParts,
   getSpawnTargets,
   getTile,
   isRunOver,
@@ -547,10 +546,11 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // Every payout still to come. endTurn pays on every turn but the last, so this is exactly
   // how many times a stream of income will actually be paid.
   const turnsLeft = TURN_LIMIT - map.turn;
-  // What one more rainbow or one more unicorn adds to the score as the board stands — the
-  // game's own weight, scaled by how much of the board has been uncovered, because that is
-  // what the score multiplies everything by.
-  const thingValue = getScoreParts(map)[0][1] * (getExploration(map) / 100);
+  // What one more rainbow or one more unicorn adds to the score as the board stands, which
+  // the game now states directly: each is worth one point per percent of the board uncovered.
+  // The same number as before the score was rewritten — the two forms agree exactly — so
+  // every tuning constant below is still in the units it was tuned in.
+  const thingValue = getExploration(map);
   const rainbowValue = thingValue + turnsLeft * DROP_VALUE; // it scores, and it pays a drop a turn
   const unicornValue = thingValue + UNICORN_POTENTIAL;
   // What a price actually costs the run, which is not what it costs the purse: money left

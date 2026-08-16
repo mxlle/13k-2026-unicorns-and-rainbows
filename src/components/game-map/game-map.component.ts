@@ -64,8 +64,8 @@ const EMPTY_EMOJI = "🌾";
 const EXPLORE_EMOJI = FOG_EMOJI;
 const CANDY_EMOJI = "🍬";
 // One per scoring category, in the order getScoreParts returns them: rainbows shining and
-// unicorns found. Exploration is not in here — it multiplies the two rather than joining
-// them, so the panel gives it a line of its own.
+// unicorns found. Exploration is not in here — it is what each of the two is worth rather
+// than a third of them, so the panel gives it a line of its own at the top.
 const SCORE_EMOJIS = [OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, OBJECT_CONFIG[GameObjectType.UNICORN].emoji];
 const WIN_EMOJI = "🎉";
 const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
@@ -662,25 +662,28 @@ export function GameMapComponent(
   }
 
   /**
-   * The score's working: one entry per category showing what was counted, what each was
-   * worth and what it came to. Rebuilt on every render while it is open, so it stays live
-   * as the board changes — and it is the same panel at the end of the run, where it is the
-   * final reckoning rather than a running one. The emoji is a span of its own — the digits
-   * beside it must not be rendered in the emoji font.
+   * The score's working: what a rainbow and a unicorn are worth right now, one row per
+   * category, and the total they come to. Rebuilt on every render while it is open, so it
+   * stays live as the board changes — and it is the same panel at the end of the run, where
+   * it is the final reckoning rather than a running one. The emoji is a span of its own —
+   * the digits beside it must not be rendered in the emoji font.
    */
   function renderScoreBoard(show: boolean) {
-    // One row per built thing, then the exploration row, which is where the total lands: it
-    // reads "× 49% = 245" precisely because it is a multiplier on the rows above rather than
-    // another of them. Written with the same line-building as the others so the three sit in
-    // the panel's grid as one list.
     const line = (emoji: string, text: string) =>
       createElement({}, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }), text]);
+    // The share of the board that is out from under the clouds, which is also — exactly, not
+    // as an approximation — what one rainbow and one unicorn are each worth. It heads the
+    // list rather than closing it, because the rows below multiply by it: the panel now reads
+    // "here is the rate, here is what each of yours earns at it, here is the sum". Nothing is
+    // taken off anything, so every point in the total plainly belongs to something built.
+    const rate = getExploration(map);
 
     scoreBoard.replaceChildren(
       ...(show
         ? [
-            ...getScoreParts(map).map(([count, weight], index) => line(SCORE_EMOJIS[index], ` ${count} × ${weight} = ${count * weight}`)),
-            line(EXPLORE_EMOJI, ` × ${getExploration(map)}% = ${getScore(map)}`),
+            line(EXPLORE_EMOJI, ` ${rate}%`),
+            ...getScoreParts(map).map((count, index) => line(SCORE_EMOJIS[index], ` ${count} × ${rate} = ${count * rate}`)),
+            line(SCORE_EMOJI, ` ${getScore(map)}`),
           ]
         : []),
     );

@@ -29,7 +29,7 @@ export const enTranslations: Record<TranslationKey, string> = {
   // The shape of the sentence is the shape of the score: two things add up, and the cloud you
   // have cleared multiplies them. It is also the line held over the breakdown when the score is
   // opened, so the words and the arithmetic under them say the same thing.
-  [TranslationKey.INFO_GOAL]: "|Build up before the turns run out. 🌈 and 🦄 score. Clear more ☁️ to multiply it.",
+  [TranslationKey.INFO_GOAL]: "|Build up before the turns run out. Every 🌈 and 🦄 scores 1 point per % of ☁️ you cleared.",
   [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
   [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
   [TranslationKey.INFO_TREE]: "Lollipop tree|Next to a rainbow it makes one 🍬 a turn. No rainbow can appear here.",

@@ -43,6 +43,7 @@ import {
   updateRainbows,
 } from "../../game/game-map";
 import { ChestLoot, GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
+import { BOT_STRATEGIES, BOT_STRATEGY_EMOJIS, BOT_STRATEGY_NAMES, BotActionKind, BotStrategy, getBotAction, resetBot } from "../../dev/bot";
 
 const FOG_EMOJI = "☁️";
 const DROP_EMOJI = "💧";
@@ -107,6 +108,11 @@ const SPEND_SPREAD = 400;
 const SPEND_RISE = 2.2;
 // Every counter reaction is this same beat, whichever direction the money went.
 const POP_OPTIONS: KeyframeAnimationOptions = { "duration": POP_DURATION, "direction": "alternate", "iterations": 2 };
+// PLACEHOLDER: the beat between two actions while the dev bot is playing a run out by itself.
+// Fast enough to watch a 25-turn run in under a minute, slow enough to follow what moved.
+// It is also how often the timer looks to see whether the payout has finished, which is the
+// one thing that makes it wait — see toggleAutoPlay.
+const AUTO_STEP_DELAY = 120;
 
 /**
  * Where an element sits on the screen, as its centre — a tile a glyph leaves from and a
@@ -184,6 +190,11 @@ export function GameMapComponent(
   // seam is that a tile the game still counts as fogged reads as "Cloud" in the info panel
   // even while you can see what is on it — the panel is telling the truth, not the board.
   let xray = false;
+  // Dev-only (see createBotControls): the one thing outside the bot's own corner that has to
+  // know it exists — render() calls this to put its buttons in and out of reach, exactly as
+  // it does the end-turn button. Declared without a value so that nothing in the bot is so
+  // much as named outside HAS_DEV_TOOLS.
+  let updateBotControls: (() => void) | undefined;
 
   // Two stacked glyph layers per tile, mirroring the two layers of the model: the ground
   // first, the character standing on it painted over it (later sibling, same grid cell).
@@ -307,8 +318,113 @@ export function GameMapComponent(
     return button;
   }
 
+  /**
+   * Dev-only: the bot's controls — which bot is playing, one action from it, and the rest of
+   * the run at once. It is for balancing rather than for playing: a run driven by a bot with
+   * a stated policy is a reading of what the board is worth to *that* policy, and four of
+   * them side by side on the same seed say more about the numbers than any amount of playing
+   * it by hand. For the same four bots over a hundred runs, see `npm run bot`.
+   *
+   * Everything the bot needs lives in here, the strategy included, so that the whole thing
+   * is one uncalled declaration once HAS_DEV_TOOLS folds to false — see createFogButton.
+   *
+   * Stepping is the interesting one: which action came next and what the bot thought it was
+   * worth is the whole reason to watch a bot at all, and both are gone if the run plays
+   * itself. Playing it out is for the other question — what the board comes to in the end —
+   * and it is the same actions at the same speed, just without a finger on the button. Either
+   * way the working goes to the console, which is where a run is read back afterwards.
+   */
+  function createBotControls(): HTMLElement[] {
+    let botStrategy: BotStrategy = BotStrategy.MIXED;
+    let autoTimer: number | undefined; // the run playing itself; undefined while it is not
+
+    const face = createElement({ tag: "span", cssClass: CssClass.EMOJI });
+    // One button cycling the four rather than four buttons: the dev corner is already three
+    // controls wide, and which bot is playing is exactly what its face says.
+    const strategyButton = createButton(
+      {
+        cssClass: CssClass.ICON_BTN,
+        onClick: () => setStrategy(BOT_STRATEGIES[(BOT_STRATEGIES.indexOf(botStrategy) + 1) % BOT_STRATEGIES.length]),
+      },
+      [face],
+    );
+
+    function setStrategy(strategy: BotStrategy) {
+      botStrategy = strategy;
+      face.textContent = BOT_STRATEGY_EMOJIS[strategy];
+      strategyButton.title = `bot: ${BOT_STRATEGY_NAMES[strategy]}`;
+    }
+
+    /**
+     * One action from the bot, carried out through exactly the paths a tap goes through —
+     * select, then move / buy / raise / end the turn. So the bot can only ever do what a
+     * player could have done, the animations and sounds are the ones a human run produces,
+     * and there is no second implementation of the rules to drift out of step with these.
+     */
+    function stepBot() {
+      const action = isRunning && !isPaying ? getBotAction(map, botStrategy) : undefined;
+
+      if (!action) return;
+
+      console.log(
+        `🤖 ${BOT_STRATEGY_NAMES[botStrategy]} · turn ${map.turn}/${TURN_LIMIT} · ${map.drops}💧 ${map.candy}🍬 · ` +
+          `${getScore(map)}⭐ (${getExploration(map)}% seen) → ${action.label} [${Math.round(action.value)}]`,
+      );
+
+      if (action.kind === BotActionKind.END_TURN) return finishTurn();
+
+      select(action.from); // the actions below all read the selection, exactly as the taps do
+      if (action.kind === BotActionKind.BUY) buy(action.to!);
+      else if (action.kind === BotActionKind.BUILD) raise();
+      // a jump is a move at the portal's price; undefined lets a plain step price itself
+      else move(action.to!, action.kind === BotActionKind.PORTAL ? PORTAL_COST : undefined);
+    }
+
+    /**
+     * The rest of the run, played by itself: the same stepBot on a timer, which is what keeps
+     * the two buttons honest — watching a run and reading its final score are the same run.
+     *
+     * A timer that polls rather than a chain that schedules itself, because the thing it has
+     * to wait for is the payout flight, and how long that takes is the board's business
+     * rather than the bot's. A tick while the income is in the air simply does nothing and
+     * comes round again. It stops itself the moment the run is over, so nothing has to
+     * remember to switch it off — leaving the board or starting another one cannot leave a
+     * bot running behind it.
+     */
+    function toggleAutoPlay() {
+      if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = undefined;
+      } else {
+        autoTimer = setInterval(() => {
+          if (isPaying) return; // the board is paying out; there is nothing to decide yet
+          if (isRunning) stepBot();
+          else toggleAutoPlay(); // the run is over — and this is the one call that stops it
+        }, AUTO_STEP_DELAY);
+      }
+
+      updateBotControls!();
+    }
+
+    setStrategy(botStrategy);
+    const stepButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: stepBot }, ["▶"]);
+    const playButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: toggleAutoPlay }, ["⏩"]);
+    stepButton.title = "one bot action";
+    playButton.title = "play the rest of the run";
+
+    // The bot's own bit of render(): the two buttons are out of reach for the same reasons
+    // the end-turn button is, and the play button is lit while it is the one driving.
+    updateBotControls = () => {
+      stepButton.disabled = isPaying || !isRunning;
+      playButton.disabled = !isRunning;
+      playButton.classList.toggle(CssClass.PRIMARY, !!autoTimer);
+    };
+
+    return [strategyButton, stepButton, playButton];
+  }
+
   const zoomControl = createElement({ cssClass: styles.zoom }, [
-    ...(HAS_DEV_TOOLS ? [createFogButton()] : []),
+    ...(HAS_DEV_TOOLS ? [createFogButton(), ...createBotControls()] : []),
     zoomOutButton,
     zoomInButton,
   ]);
@@ -472,6 +588,8 @@ export function GameMapComponent(
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
     endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver);
+    // The bot acts under the same conditions the player does.
+    if (HAS_DEV_TOOLS) updateBotControls!();
   }
 
   /**
@@ -877,6 +995,9 @@ export function GameMapComponent(
   // snapshot, only remembering the number it was built from.
   function startNewGame(size: number, seed = createSeed()) {
     map = createGameMap(seed, size); // sets MAP_SIZE, so everything below reads the new board
+    // The bot rolls on a generator of its own — see bot.ts — and it is seeded from the map
+    // so that the same board played by the same bot plays out the same way twice.
+    if (HAS_DEV_TOOLS) resetBot(seed);
     if (tileElements.length !== MAP_SIZE * MAP_SIZE) buildBoard();
     showsScore = false; // render() clears last run's working with it, before the new board shows
     isRunning = true; // before render(), which reads it for the turn button

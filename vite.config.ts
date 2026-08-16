@@ -28,7 +28,10 @@ export default defineConfig(({ mode, command }) => {
   const production = command === "build";
   const poki = mode === "poki";
   const js13k = mode === "js13k";
-  const analyze = true;
+  // The headless bot harness (`npm run bot`), which is an --ssr build of a node entry rather
+  // than a build of the game. It only wants a predictable output name and no treemap.
+  const bot = mode === "bot";
+  const analyze = !bot;
   const analyzeOutputJson = false;
 
   const getCssIdentifier = memoize(idGenerator(), 2);
@@ -71,7 +74,7 @@ export default defineConfig(({ mode, command }) => {
         output: {
           // filenames are stored twice in the zip — keep them short for js13k
           assetFileNames: js13k ? "a[extname]" : "[hash][extname]",
-          entryFileNames: js13k ? "a.js" : "[hash].js",
+          entryFileNames: js13k ? "a.js" : bot ? "bot.js" : "[hash].js",
         },
       },
       modulePreload: { polyfill: false },

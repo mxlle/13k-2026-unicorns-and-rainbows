@@ -38,6 +38,7 @@ typings/
 .nuxt
 dist
 dist-analyzation
+dist-bot
 out
 dist.zip
 

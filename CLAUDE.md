@@ -36,6 +36,8 @@ implementation support**. Creative decisions stay on Almut's side.
 - `npm run build-js13k-roadroller` — same + Roadroller-crunched JS inlined into the HTML (test in browser afterwards, it is eval-based!)
 - `npm run build-poki` — Poki platform build (Poki SDK, no property mangling)
 - `npm run size` — re-report last `dist.zip` size without rebuilding
+- `npm run bot` — headless balancing runs: the dev bot plays every board with every strategy
+  (see "Dev tools" below). Never shipped, never part of a build
 - `npm run typecheck` — strict `tsc` check (the vendored `small-player*.ts` are `@ts-nocheck`'d,
   typed via `src/audio/player-interface.ts`); CI runs this on every push
 - `npm run lint` — `scripts/lint-invariants.mjs` mechanically checks the size-machinery rules
@@ -60,6 +62,51 @@ friends-&-family build carry extra content without costing the js13k build a sin
 - js13k mode: short texts, no console logs, no manifest/meta tags, no nice-to-have styles
 - poki mode: loads the Poki SDK (`src/poki-integration.ts`), gameplayStart/Stop wired in `index.ts`;
   terser property mangling is DISABLED for poki (their SDK breaks otherwise)
+
+## Dev tools — and keeping the bot in step with the game
+
+Everything under `src/dev/` is for looking at the game rather than playing it, and none of it
+ships: it is reached only from behind `HAS_DEV_TOOLS` (which is `IS_DEV`, so it is absent from
+the friends-&-family build too) and tree-shaken out of every real build. Keep it that way —
+`npm run build-js13k` is the check, and the whole bot currently costs the competition build
+0 bytes. Nothing in there is byte-golfed, and it should not be: clarity and being easy to
+re-tune are worth more in a file that never leaves the machine.
+
+- **☁️ fog toggle** — the clouds off, for looking at how a board actually came out. Drawing
+  only; the model's `isRevealed` is untouched, so the run behaves exactly as it would with the
+  clouds on.
+- **The bot** (`src/dev/bot.ts`), in the same corner: ⚖️ cycles the four strategies
+  (random / explore / economy / mixed), ▶ takes one action, ⏩ plays the rest of the run out on
+  a timer. Every action prints to the console with what the bot thought it was worth. The
+  buttons are for seeing *why* a bot does something; the numbers come from the harness.
+- **`npm run bot`** (`scripts/bot-harness.ts`) plays whole runs with nobody watching — every
+  board × every strategy × N seeds — and prints score, exploration, rainbows, herd, what the
+  actions were spent on, and what was left unspent at the whistle. It is a vite `--ssr` build
+  of a node entry, so it imports the game's own TypeScript out of `src` and there is no second
+  copy of the rules in it. `npm run bot -- --size=13 --seed=7 --strategy=mixed --verbose`
+  replays one run action by action. Runs are seeded from the map seed, so they repeat exactly.
+  It asserts nothing and cannot fail: read the numbers against each other and against the last
+  time you ran it, never as a verdict.
+
+**When the rules change, change the bot.** Nothing will break if you don't — it will quietly
+go on playing a game that no longer exists and hand you balancing numbers for it. After a
+change to the economy, the objects or the board, walk `src/dev/bot.ts`:
+
+- `getLegalActions` — anything a player can now do that is not in there is invisible to the bot.
+- the value model (`getBestAction`, `getStandingValue`, `getBuildValue`) — a new object, price
+  or income stream needs a worth in score points, or the bot plays as if it were worth nothing.
+- `applyBotAction` — the one place in the repo that says a second time what the interface does
+  when it carries an action out. If `move` / `buy` / `raise` / `finishTurn` in
+  `game-map.component.ts` change, this changes with them, or the headless runs quietly stop
+  matching the game that is actually played. (The interface itself does *not* go through it:
+  the buttons play a bot action through `select` + the real handlers, so the bot can only ever
+  do what a tap can do.)
+- the tuning constants at the top are the bot's *beliefs* about what things are worth — not the
+  game's balance. A bot that plays badly after a change is a finding about the change or about
+  the constants, and telling those two apart is the work.
+
+The bot plays fair: it decides only from revealed tiles, never from what the fog is hiding.
+Hold any new heuristic to that, or its runs stop saying anything about what a player could do.
 
 ## Size machinery — read before touching vite.config.ts or adding enums
 

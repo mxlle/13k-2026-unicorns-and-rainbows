@@ -75,7 +75,13 @@ const STRATEGY_WEIGHTS: [explore: number, economy: number][] = [
   [0, 0], // RANDOM — unused
   [1, 0.25], // EXPLORE
   [0.25, 1], // ECONOMY
-  [0.6, 0.6], // MIXED
+  // Leaning towards the fog rather than balanced, and that is a finding rather than a taste:
+  // swept with `npm run bot -- --strategy=mixed --seeds=20`, every step up from 0.6 scored
+  // better than the last on nearly every board, peaking around 1.0 and falling off a cliff by
+  // 1.5. Which is the score formula showing through — what is built is multiplied by how much
+  // of the board has been seen, so seeing more is worth more than it costs, right up until
+  // there is nobody left doing any building.
+  [0.8, 0.6], // MIXED
 ];
 
 // PLACEHOLDER tuning. Everything is in "score points", the unit the game's own score is in,

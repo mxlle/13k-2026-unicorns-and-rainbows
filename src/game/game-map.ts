@@ -513,54 +513,51 @@ export function updateRainbows(map: GameMap) {
   // so a tub built mid-run starts paying without anything having to be told about it.
   map.dropIncome = map.rainbowCount + BASE_INCOME * map.tiles.filter((tile) => tile.object === GameObjectType.BATHTUB).length;
 
-  // The second income, counted once the rainbows are in place: a lollipop tree standing
-  // next to one turns the light into sweets. One candy per earning tree, however many
-  // rainbows happen to surround it — a tree either pays out or it does not.
-  // Only trees the player has found earn: an unseen one paying into the jar would give
-  // its position away, the same reason a fogged glower casts no light.
-  // Each one also gets a pink beam from the rainbow that feeds it, drawn in the same pass so
-  // the line the player sees and the candy the jar is paid are counted from the same pairing.
+  // The second income, counted once the rainbows are in place: a lollipop tree standing next
+  // to one turns the light into sweets. One candy per rainbow beside it, so a tree with two
+  // of them pays twice — the light is the thing being turned into sweets, and there is simply
+  // more of it. It also means lighting a fountain's second and third side is worth doing for
+  // the jar and not only for the score, which is what ties the sweets to how built-up the
+  // board is rather than to how many trees happen to be standing on it.
+  // Every pairing gets a pink beam of its own, drawn in the same pass, so the lines the player
+  // sees and the candy the jar is paid are counted off exactly the same rainbows.
   map.candyIncome = 0;
 
   map.tiles.forEach((_, index) => {
     const position = getPosition(index);
-    const rainbow = getFeedingRainbow(map, position);
 
-    if (!rainbow) return;
-
-    map.candyIncome++;
-    map.beams.push({ ...rainbow, dx: position.x - rainbow.x, dy: position.y - rainbow.y, isLit: false, isCandy: true });
+    getFeedingRainbows(map, position).forEach((rainbow) => {
+      map.candyIncome++;
+      map.beams.push({ ...rainbow, dx: position.x - rainbow.x, dy: position.y - rainbow.y, isLit: false, isCandy: true });
+    });
   });
 }
 
 /**
- * The rainbow making a lollipop tree earn, or undefined if this tile is not a tree, is one
- * the player has not found, or has no rainbow beside it. One rainbow rather than all of
- * them: the tree pays a single candy however many surround it, so a single beam is what
- * says so — the pairing is what earns, not the count.
+ * Every rainbow making a lollipop tree earn — one candy apiece — or an empty list if this
+ * tile is not a tree, is a tree the player has not found, or has no rainbow beside it.
+ *
+ * Only trees the player has found earn: an unseen one paying into the jar would give its
+ * position away, the same reason a fogged glower casts no light.
+ *
+ * The board draws its glowing trees from this and the payout flies one sweet per entry, so
+ * what the player sees lit, what flies at the end of the turn and what the jar is actually
+ * paid are all counted off the one list and cannot drift apart.
  */
-function getFeedingRainbow(map: GameMap, { x, y }: Position): Position | undefined {
+export function getFeedingRainbows(map: GameMap, { x, y }: Position): Position[] {
+  const rainbows: Position[] = [];
   const tile = getTile(map, { x, y })!;
 
-  if (!tile.isRevealed || tile.object !== GameObjectType.TREE) return undefined;
-
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const position = { x: x + dx, y: y + dy };
-      if ((dx || dy) && getTile(map, position)?.object === GameObjectType.RAINBOW) return position;
+  if (tile.isRevealed && tile.object === GameObjectType.TREE) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const position = { x: x + dx, y: y + dy };
+        if ((dx || dy) && getTile(map, position)?.object === GameObjectType.RAINBOW) rainbows.push(position);
+      }
     }
   }
 
-  return undefined;
-}
-
-/**
- * Whether a tile is a lollipop tree that is earning right now — one candy's worth of the
- * income above. The board draws its trees from this too, so what the player sees glowing
- * and what the jar is paid cannot drift apart.
- */
-export function isEarningTree(map: GameMap, position: Position): boolean {
-  return !!getFeedingRainbow(map, position);
+  return rainbows;
 }
 
 function blocksMove(objectType: GameObjectType | undefined): boolean {

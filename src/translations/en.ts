@@ -32,7 +32,7 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_GOAL]: "|Build up before the turns run out. Every 🌈 and 🦄 scores 1 point per % of ☁️ you cleared.",
   [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
   [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
-  [TranslationKey.INFO_TREE]: "Lollipop tree|Next to a rainbow it makes one 🍬 a turn. No rainbow can appear here.",
+  [TranslationKey.INFO_TREE]: "Lollipop tree|It makes one 🍬 a turn per 🌈 next to it. No rainbow can appear here.",
   [TranslationKey.INFO_DONUT]: "Donut|A portal to the other donut. Jumping costs one 💧 extra.",
   [TranslationKey.JUMP]: "Jump",
   // Says both halves of the trade: the free step, and the rainbow spot it takes up.

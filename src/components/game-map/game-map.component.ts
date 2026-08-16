@@ -21,6 +21,7 @@ import {
   getBuild,
   getCandyPrice,
   getExploration,
+  getFeedingRainbows,
   getMoveCost,
   getMoveTargets,
   getPortalTarget,
@@ -29,7 +30,6 @@ import {
   getScoreParts,
   getSpawnTargets,
   hasFreeMove,
-  isEarningTree,
   isRunOver,
   MAP_SIZE,
   moveCharacter,
@@ -533,9 +533,9 @@ export function GameMapComponent(
       ground.classList.toggle(styles.tree, isSeen && tile.object === GameObjectType.TREE);
       // a site is drawn back from the things that are actually there — see .site
       ground.classList.toggle(styles.site, isSeen && !!getBuild(tile.object));
-      // which trees are paying into the jar this turn — read from the same predicate the
-      // income itself is counted with, so the glow can never promise candy that never comes
-      ground.classList.toggle(styles.earning, isEarningTree(map, getPosition(index)));
+      // which trees are paying into the jar this turn — read off the same list the income
+      // itself is counted from, so the glow can never promise candy that never comes
+      ground.classList.toggle(styles.earning, !!getFeedingRainbows(map, getPosition(index)).length);
       ground.classList.toggle(styles.covered, hasLiving); // steps back behind the character
       ground.textContent = isSeen ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
 
@@ -927,7 +927,10 @@ export function GameMapComponent(
       // A tub pays its flat drops out of itself, one glyph each, so the income that needs no
       // setting up is counted out on the board exactly like the income that does.
       else if (tile.object === GameObjectType.BATHTUB) groups[0].push(...Array<number>(BASE_INCOME).fill(index));
-      else if (isEarningTree(map, getPosition(index))) groups[1].push(index);
+      // And a lollipop tree one sweet per rainbow feeding it — same rule, so a tree catching
+      // two of them throws two, and the flight counts out the price of a unicorn in the same
+      // glyphs the purchase will spend.
+      else groups[1].push(...Array<number>(getFeedingRainbows(map, getPosition(index)).length).fill(index));
     });
 
     let start = 0; // when this currency's first glyph sets off

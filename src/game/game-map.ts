@@ -149,12 +149,18 @@ const CHEST_DENSITY = 45;
 const LOOT_TABLE = [ChestLoot.DROPS, ChestLoot.CANDY, ChestLoot.UNICORN];
 // PLACEHOLDER build prices. The shape is settled even where the numbers are not: a building is
 // paid for in the currency it goes on to produce — a fountain in water, a lollipop tree in
-// sweets — and the tub, which produces both, is paid for in both, equally.
+// sweets — and the tub, which produces both, is paid for in both.
+//
+// Swept against controls: a price is felt in its *candy* half and barely in its water, because
+// sweets buy unicorns and unicorns are what everything else scales off. The tub went 4💧4🍬 →
+// 6💧2🍬 for +3%. Water-only (8💧0🍬) was worth +5% and turned down, not missed: it would make
+// the tub a second fountain, and the rule above is worth more than the two points.
+//
 // Indexed by site type less the first site, which is why the three sites are consecutive
 // members at the end of the enum: it makes this a three-entry array rather than a lookup with
 // holes in it where the real objects are.
 const BUILD_TABLE: [built: GameObjectType, drops: number, candy: number][] = [
-  [GameObjectType.BATHTUB, 4, 4],
+  [GameObjectType.BATHTUB, 6, 2],
   [GameObjectType.FOUNTAIN, 6, 0],
   [GameObjectType.TREE, 0, 4],
 ];

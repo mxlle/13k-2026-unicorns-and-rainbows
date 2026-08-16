@@ -16,7 +16,7 @@ export const TranslationKey = defineEnum({
   INFO_HINT: 7, // shown in the info panel while nothing is selected — no name, hence the leading "|"
   INFO_FOG: 8,
   INFO_EMPTY: 9,
-  BACK: 10, // out of a finished run and back to the launch screen, which is where a board is picked
+  NEW_GAME: 10,
   INFO_GOAL: 11, // what the run is about, in place of INFO_HINT on the opening turn — no name either
   INFO_TREE: 12,
   INFO_DONUT: 13,

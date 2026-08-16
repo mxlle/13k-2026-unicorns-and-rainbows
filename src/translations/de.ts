@@ -8,7 +8,7 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.CONTINUE]: "Weiter",
     [TranslationKey.WON]: "Die Zeit ist um!|Dein Endstand:",
     [TranslationKey.END_TURN]: "Zug beenden",
-    [TranslationKey.BACK]: "Zurück",
+    [TranslationKey.NEW_GAME]: "Neues Spiel",
     [TranslationKey.PLAY]: "Jetzt spielen",
     [TranslationKey.INFO_UNICORN]: "Einhorn|Es leuchtet. Stell es so auf: 🦄⛲🌈",
     [TranslationKey.INFO_RAINBOW]: "Regenbogen|Ein 💧 pro Zug, und er zählt, solange er leuchtet.",

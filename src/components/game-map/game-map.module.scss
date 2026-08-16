@@ -60,16 +60,12 @@ $sidebar-width: min(20rem, 30vw);
   overflow: auto;
 }
 
-// The zoom steps, laid over the top-right of the map rather than placed in the layout —
-// it shares the map's grid cell, so showing it costs the board no height. The map row is
-// the only place it can sit without competing with the info row or the turn bar for space.
-.zoom {
-  grid-area: 1 / 1;
-  justify-self: end;
-  align-self: start;
-  z-index: 1; // above the board it floats over
-  display: flex;
-  gap: 0.25rem;
+// What the run hands the header: the status chip and the zoom steps, wrapped only so that
+// the launch screen can hide them with one class. It generates no box of its own, so the
+// header lays its contents out directly and they take the header's own gap — see the
+// component for why the zoom buttons are up there rather than over the board.
+.headerControls {
+  display: contents;
 }
 
 .board {
@@ -184,6 +180,18 @@ $sidebar-width: min(20rem, 30vw);
   padding: 0.15rem 0.6rem;
   border-radius: 999px; // pill, whatever the chip's height turns out to be
   background: theme.$bg-alpha-15;
+
+  // On a phone it stops floating over the header and takes the whole of its second line —
+  // see the header's own styles for the stacking. In the flow, so the line is exactly as
+  // tall as the chip and disappears with it between runs, rather than being a gap the
+  // header reserves whether or not there is a run to count.
+  @include theme.stackedHeader {
+    position: static;
+    transform: none;
+    order: 1; // last, or a full-width item in the middle would make three lines of two
+    flex-basis: 100%;
+    justify-content: center; // it owns the line, so it centres on the window, not on a remnant
+  }
 }
 
 // Object info panel: emoji, name and description as one wrapping line, in a slot of

@@ -151,13 +151,14 @@ function flyGlyph(emoji: string, [x, y]: number[], keyframe: Keyframe, options: 
   };
 }
 
-// The usual [host, update] tuple plus the status chip that belongs in the header — it is
-// part of the game state, so the game owns it; only its place in the DOM is elsewhere.
+// The usual [host, update] tuple plus the controls that belong in the header — the status
+// chip and the zoom steps. They are part of the run, so the game owns them; only their place
+// in the DOM is elsewhere.
 // `onExit` is the way back out to the launch screen, which is where a board is chosen: this
 // component is handed one to play and never picks its own.
 export function GameMapComponent(
   onExit: () => void,
-): [hostElement: HTMLElement, startNewGame: (size: number, seed?: number) => void, statusChip: HTMLElement] {
+): [hostElement: HTMLElement, startNewGame: (size: number, seed?: number) => void, headerControls: HTMLElement] {
   let map: GameMap;
   let isRunning = false;
   // Two-tap navigation: tap an object to select it, then — if it is a character that
@@ -420,12 +421,23 @@ export function GameMapComponent(
     return [strategyButton, stepButton, playButton];
   }
 
-  const zoomControl = createElement({ cssClass: styles.zoom }, [
+  // Everything the run puts in the header, as one thing to hand over and one thing to hide
+  // between runs. It used to float over the top-right of the map row, which read as free
+  // real estate and was not: at the opening zoom step the board fits the row exactly, so
+  // there is nothing to scroll, and on a portrait screen the buttons sat on top of the
+  // corner tiles with no way to pan out from under them. The header costs the board nothing
+  // and cannot overlap it at any size.
+  // `display: contents`, so the pieces are laid out by the header's own row rather than
+  // nesting a second flex box inside it — the chip still centres itself on the header, and
+  // the buttons still take the header's gap. Hiding the wrapper hides all of them, which is
+  // what the launch screen wants: none of it means anything before a run.
+  const headerControls = createElement({ cssClass: styles.headerControls }, [
+    status,
     ...(HAS_DEV_TOOLS ? [createFogButton(), ...createBotControls()] : []),
     zoomOutButton,
     zoomInButton,
   ]);
-  const hostElement = createElement({ cssClass: styles.host }, [mapArea, zoomControl, infoPanel, turnBar]);
+  const hostElement = createElement({ cssClass: styles.host }, [mapArea, infoPanel, turnBar]);
 
   let zoomIndex = 0;
 
@@ -1022,5 +1034,5 @@ export function GameMapComponent(
     pubSubService.publish(PubSubEvent.GAME_START);
   }
 
-  return [hostElement, startNewGame, status];
+  return [hostElement, startNewGame, headerControls];
 }

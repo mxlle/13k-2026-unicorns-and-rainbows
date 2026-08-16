@@ -28,12 +28,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-
-  // Below this the centred status chip is close enough to the words to crowd them, so
-  // the emoji carries the header alone.
-  @media (max-width: 999px) {
-    display: none;
-  }
 }
 
 .endElements {
@@ -41,4 +35,38 @@
   align-items: center;
   gap: 0.5rem;
   white-space: nowrap;
+}
+
+// The narrow header, in one block: a row of controls plus an end element carrying live
+// counters does not fit a phone's width, so the header takes two lines instead of shrinking
+// what is on them. The header is min-content in the page's grid, so the line it gains is
+// taken off the row below and the board's own sizing measures the difference by itself —
+// nothing has to be told the header got taller.
+// Gathered here rather than nested in the rules above for the same reason the game map
+// gathers its wide-screen layout at the end of its own stylesheet: five media blocks
+// scattered through a file cost more than one, and none of these selectors is more specific
+// than the rule it overrides, so it is source order alone that lets them win.
+@include theme.stackedHeader {
+  .host {
+    flex-wrap: wrap;
+    gap: 0.5rem; // a row gap as well now, and 1rem between the two lines is a gulf
+  }
+
+  // space-between has the whole first line to spread once the end group dissolves below;
+  // this keeps the title at one edge and the controls grouped at the other.
+  .title {
+    margin-right: auto;
+  }
+
+  // The words are the first thing to go: the emoji carries the header alone.
+  .titleText {
+    display: none;
+  }
+
+  // Dissolved, so that what it holds becomes items of the header's own row and can wrap
+  // into the second line with it. An end element that wants a line to itself is nested two
+  // levels down otherwise — inside this box, which would wrap nothing but its own contents.
+  .endElements {
+    display: contents;
+  }
 }

@@ -53,6 +53,16 @@ $tile-color-1: $tile-color-1-dark;
 $tile-color-2: $tile-color-2-dark;
 $tile-color-alpha: $tile-color-1-dark-alpha;
 
+// Below this width the header gives up on one line: the title's words step aside, and the
+// run's counters drop to a line of their own under the title row. Shared rather than written
+// twice, because the header is what stacks and the chip that lands in the second line belongs
+// to the game — the two have to agree on where the change happens.
+@mixin stackedHeader {
+  @media (max-width: 999px) {
+    @content;
+  }
+}
+
 @mixin hover {
   @media (hover: hover) and (pointer: fine) {
     &:hover {

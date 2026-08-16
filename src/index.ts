@@ -25,7 +25,7 @@ function init() {
   if (isInitialized) return;
   isInitialized = true;
 
-  const [gameArea, startNewGame, statusChip] = GameMapComponent(() => showLaunchScreen(true));
+  const [gameArea, startNewGame, headerControls] = GameMapComponent(() => showLaunchScreen(true));
   const launchScreen = LaunchScreenComponent((size) => {
     // Shown before the run starts, or applyZoom would be measuring a hidden map row and
     // every board would open at the wrong step.
@@ -34,16 +34,18 @@ function init() {
   });
 
   // The launch screen and the board take turns in the same row under the header, so whichever
-  // is up has the whole window. The status chip belongs to the run rather than to the header,
-  // and goes with the board — its counters have nothing to say before one is being played.
+  // is up has the whole window. What the run lends the header — its counters and its zoom —
+  // belongs to the run rather than to the header, and goes with the board: neither has
+  // anything to say before one is being played.
   function showLaunchScreen(show: boolean) {
     gameArea.classList.toggle(CssClass.HIDDEN, show);
-    statusChip.classList.toggle(CssClass.HIDDEN, show);
+    headerControls.classList.toggle(CssClass.HIDDEN, show);
     launchScreen.classList.toggle(CssClass.HIDDEN, !show);
   }
 
-  // the chip takes itself out of the flow and centres on the header — see its styles
-  document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [statusChip, MuteButton()]), gameArea, launchScreen);
+  // the run's controls sit in the header rather than over the board, so they can never cover
+  // a tile; the chip among them takes itself out of the flow and centres — see its styles
+  document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [headerControls, MuteButton()]), gameArea, launchScreen);
 
   showLaunchScreen(true);
 

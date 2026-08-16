@@ -84,8 +84,30 @@ export function LaunchScreenComponent(onPlay: (size: number) => void): HTMLEleme
       // The label is wrapped rather than dropped straight into the stripe: it has to centre
       // and give way as one thing when the play button lands beside it, and a bare text node
       // would be a flex item of its own.
+      // What is in it is the rung's number first and biggest — that is what a level selector
+      // is a list of, and it is the one thing that will still be true once the stripes stop
+      // being seven sizes of the same generator. The board comes second and smaller, as the
+      // detail about the level rather than its name, and states both axes because "9" alone
+      // reads as an amount of something rather than as how big the map is.
+      // The ladder runs 5 to 25, so the dimensions are three characters wide on the bottom
+      // three rungs and five on the rest — and on a wide screen, where the label is centred,
+      // that difference walks the level number sideways as the eye goes down the column.
+      // Padding the short ones out to the same width is what holds it still; the page is set
+      // in a monospace face, so one character is one exact amount of space and this comes out
+      // straight rather than nearly straight.
+      // The padding goes on the outside of the pair rather than in front of each half, so
+      // "5×5" stays tight around its × and it is the slack that is centred. No-break spaces
+      // because ordinary ones at the edges of a text node collapse away to nothing.
+      const width = `${size}`;
+      const left = width.padStart(2, "\u00a0");
+      const right = width.padEnd(2, "\u00a0");
       const stripe = createElement({ cssClass: styles.stripe, onClick: () => pick(index) }, [
-        createElement({ cssClass: styles.label }, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: MAP_EMOJI }), ` ${size}`]),
+        createElement({ cssClass: styles.label }, [
+          createElement({ cssClass: styles.level, text: `${index + 1}` }),
+          // Wrapped so the emoji and the dimensions are one flex item; loose, they would be two,
+          // and the label's gap would open up in the middle of the board's own name.
+          createElement({ tag: "span" }, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: MAP_EMOJI }), ` ${left}×${right}`]),
+        ]),
       ]);
 
       // The one thing that differs per stripe. Everything else about how a stripe is drawn —

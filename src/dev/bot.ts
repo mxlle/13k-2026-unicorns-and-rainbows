@@ -562,11 +562,18 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // So it is bought on the average of the two weights rather than under either of them.
   const unicornWeight = (explore + economy) / 2;
 
+  /**
+   * What raising a site is worth, already carrying its own strategy weight — the tub is the
+   * reason for that: filling it takes the clouds off its own square (see build()), which is
+   * an *exploring* gain sitting inside an economy building, and the two halves cannot share
+   * one multiplier applied by the caller.
+   */
   const getBuildValue = (objectType: GameObjectType, position: Position) => {
-    if (objectType === GameObjectType.TUB_SITE) return turnsLeft * BASE_INCOME * DROP_VALUE + TUB_UNICORN_VALUE;
-    if (objectType === GameObjectType.FOUNTAIN_SITE) return hasRainbowSpot(map, position) ? rainbowValue : 0;
+    if (objectType === GameObjectType.TUB_SITE)
+      return economy * (turnsLeft * BASE_INCOME * DROP_VALUE + TUB_UNICORN_VALUE) + explore * countFog(map, position) * TILE_VALUE;
+    if (objectType === GameObjectType.FOUNTAIN_SITE) return economy * (hasRainbowSpot(map, position) ? rainbowValue : 0);
 
-    return isFeedable(map, position) ? turnsLeft * CANDY_VALUE : 0; // a lollipop tree: one sweet a turn
+    return economy * (isFeedable(map, position) ? turnsLeft * CANDY_VALUE : 0); // a lollipop tree: one sweet a turn
   };
 
   /**
@@ -593,7 +600,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
 
     if (build) {
       const [built, dropCost, candyCost] = build;
-      const gain = economy * getBuildValue(tile.object!, position);
+      const gain = getBuildValue(tile.object!, position); // already weighted — see getBuildValue
       const value = gain - dropCost * dropPrice - candyCost * candyPrice;
 
       if (canBuild(map, position)) {
@@ -647,7 +654,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    * for the rest of the run.
    */
   const getStandingValue = (position: Position, lit: boolean, ignore: Position) => {
-    let value = countRainbows(map, position, lit) * rainbowValue;
+    let value = economy * countRainbows(map, position, lit) * rainbowValue;
 
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
@@ -661,7 +668,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
       }
     }
 
-    return economy * value;
+    return value; // both halves already carry their own weight
   };
 
   /** What walking to a tile is worth: the fog it lifts, what is lying on it, what it posts a unicorn to. */

@@ -677,6 +677,12 @@ export function canBuild(map: GameMap, position: Position): boolean {
  * because the income counts tub tiles, a rebuilt fountain can be lit the moment a unicorn is
  * beside it, and a grown tree earns as soon as a rainbow reaches it — all of it recomputed
  * from the tiles, which is what this one call does.
+ *
+ * A filled tub also lifts the fog around itself, and that is the one build that does. The
+ * unicorn that raised it stands beside it and has seen only its own square, so up to five of
+ * the tub's eight fields can still be under cloud — and those fields are what the tub is *for*.
+ * A newcomer would then be put down blind, onto a tile the player cannot see. The tub is where
+ * unicorns come from, so it gets to look at where it is putting them.
  */
 export function build(map: GameMap, position: Position) {
   const [built, drops, candy] = getBuild(getTile(map, position)!.object)!;
@@ -684,6 +690,7 @@ export function build(map: GameMap, position: Position) {
   map.drops -= drops;
   map.candy -= candy;
   getTile(map, position)!.object = built;
+  if (built === GameObjectType.BATHTUB) revealAround(map, position);
   updateRainbows(map);
 }
 
@@ -816,7 +823,9 @@ export function getSpawnTargets(map: GameMap, position: Position): Position[] {
 export function buyUnicorn(map: GameMap, position: Position) {
   map.candy -= getCandyPrice(map); // before the newcomer is on the board, so it does not price itself
   getTile(map, position)!.living = GameObjectType.UNICORN;
-  // it stands beside a tub the player was looking at, so there is no fog for the newcomer
-  // to lift — but it may light a fountain straight away
-  updateRainbows(map);
+  // A newcomer opens its own square, exactly like one stepping out of a present or out of the
+  // fog: the tub it came from has looked at its own fields, but the ring beyond them is still
+  // cloud, and a unicorn standing in it can see.
+  revealAround(map, position);
+  updateRainbows(map); // and it may light a fountain straight away
 }

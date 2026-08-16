@@ -104,11 +104,11 @@ const TUB_UNICORN_VALUE = 80;
  * makes a unicorn set off across the board at all, and turning it down makes a bot that only
  * ever picks up what is under its nose.
  *
- * Geometric rather than "worth divided by the distance", and that is what keeps the bot from
- * pacing. A move is worth the discounted prize less the whole of what walking away from the
- * current tile gives up, and under a geometric discount those two can never both be positive
- * between the same pair of tiles — so a unicorn that leaves a post for something better never
- * finds the post it left the better prize one step later.
+ * Geometric rather than "worth divided by the distance", which matters: a move is worth the
+ * discounted prize less the whole of what walking away gives up, and under a geometric
+ * discount no pair of tiles can make both directions look profitable *while nothing else
+ * changes*. That last clause is doing a great deal of work — the things a unicorn's own step
+ * changes are what the three rules below exist for.
  */
 const DISTANCE_DISCOUNT = 0.85;
 /**
@@ -120,10 +120,28 @@ const DISTANCE_DISCOUNT = 0.85;
  * That blind spot is why a lone unicorn holding a rainbow will stand there for eight turns
  * rather than walk three tiles for a present — which is a real thing about greedy play, not
  * about the board. Turn this down to make every bot more restless without touching what
- * anything is worth; it changes only how dearly a post is held, never which of two posts is
- * preferred, so the no-pacing property above survives it.
+ * anything is worth: it changes only how dearly a post is held, never which of two posts is
+ * preferred.
  */
 const LEAVING_WEIGHT = 1;
+/**
+ * How much better than the plan in progress a new idea has to be before a unicorn abandons
+ * what it was doing: half again as good, as it stands. It is the one thing in here that is
+ * not about what the board is worth but about how a decision taken one step at a time can
+ * fail to add up to anything.
+ *
+ * Two ways it fails without this, both watched happening. A goal's fog is uncovered from the
+ * tile *beside* it, so what a unicorn set out for is worth almost nothing by the time it is
+ * one step away, while whatever lies behind it still has all of its fog — and it turns round.
+ * And a post it steps off is an empty post one step away, which is a prize like any other, so
+ * it gets tempted straight back onto the tile it has just decided to leave. Either way it
+ * paces on the spot until the purse is empty, and every half of every decision is correct.
+ *
+ * The price is a little deafness: a present that turns up mid-walk is ignored unless it is
+ * half again better than finishing the walk. That is the trade, and it is the right way
+ * round — a bot that finishes things plays a board a person would recognise.
+ */
+const COMMITMENT_BREAK = 1.5;
 // How long the bot is willing to stand still saving up for a building it is already next to,
 // in turns. Beyond that it gives up on the plan and goes back to spending its drops on steps.
 const RESERVE_PATIENCE = 3;
@@ -148,11 +166,15 @@ export type BotActionKind = (typeof BotActionKind)[keyof typeof BotActionKind];
  * it lands. `value` and `label` are the bot showing its working — they are what makes a run
  * readable in the console, and they are the whole reason the decision is returned as data
  * rather than simply performed.
+ *
+ * `goal` is where a step is ultimately headed, as a tile index — `to` is only the first step
+ * of the way there. It is what the bot remembers between decisions; see `goals`.
  */
 export interface BotAction {
   kind: BotActionKind;
   from?: Position;
   to?: Position;
+  goal?: number;
   value: number;
   label: string;
 }
@@ -164,8 +186,60 @@ export interface BotAction {
 const MODULUS = 2147483647;
 let botState = 1;
 
+/**
+ * Where each unicorn is headed, as tile index → tile index — the first of the three things
+ * the bot remembers, and all three exist for the same reason: a decision re-taken from
+ * scratch every step has no way to *finish* anything. A goal's fog is uncovered as soon as a
+ * unicorn is beside it rather than on it, so what it set off for is worth almost nothing by
+ * the time it gets close, while whatever lies behind it still has all of its own. Two prizes
+ * on opposite sides and it steps between them until the purse is empty, reaching neither.
+ * This is what a plan in progress is kept in; see COMMITMENT_BREAK for what it buys.
+ *
+ * Keyed by where the unicorn is standing, since that is the only name a unicorn has. Kept up
+ * to date by rememberGoal, which every decision goes through. A player moving a unicorn by
+ * hand in between can leave an entry behind on a tile — worth nothing worse than one
+ * inherited plan for whoever wanders onto it next.
+ */
+const goals = new Map<number, number>();
+/**
+ * Everywhere each unicorn has stood this turn, in the same keying: the trail travels with the
+ * unicorn, so the entry under a tile is the story of whoever is standing on it. It is the
+ * other half of the problem above, and the half a plan cannot fix — a goal one step away is
+ * *reached* in one step, so there is never a plan in progress to hold on to. A unicorn steps
+ * off a post onto something next door, and the post, empty again and one step away and worth
+ * exactly what it always was, is the best thing on the board again. Back it goes, and round
+ * it goes, all turn.
+ *
+ * So: a tile a unicorn has already stood on this turn is not a destination worth paying to
+ * reach. If it were, the unicorn would not have left it. It may still be walked *through* on
+ * the way to somewhere else, which is why this bans a goal rather than a step — and it is
+ * forgotten at the turn boundary, so a post given up to open a present is not given up for
+ * good. It is the only rule in here that is about the shape of the search rather than about
+ * the game, and it is what finally stopped the pacing.
+ */
+const trails = new Map<number, number[]>();
+let lastTurn = 0;
+/**
+ * What the board could pay with when the turn began: the purse, the jar, and what the two
+ * incomes were paying. Whether a building is worth caring about is judged against this rather
+ * than against the live numbers, and the reason is a loop that took some finding.
+ *
+ * A tub site is only worth walking to if the run can still pay for it, and paying for it needs
+ * candy, and the candy income comes from a lollipop tree lit by a rainbow — which was being
+ * cast by the very unicorn setting off to build the tub. One step and its rainbow went out,
+ * the jar's income fell to nothing, the site it was walking to became unaffordable and
+ * therefore worthless, and the best thing on the board was the tile it had just left. Back it
+ * went, the rainbow came on, the site was worth 120 again — and so on until the drops ran out.
+ * What the board earns is a fact about the turn, not about the step, and reading it once a
+ * turn is both truer and unshakeable.
+ */
+let income = { drops: 0, candy: 0, dropIncome: 0, candyIncome: 0 };
+
 export function resetBot(seed: number) {
   botState = ((Math.imul(seed, 2654435761) >>> 0) % (MODULUS - 1)) + 1;
+  goals.clear(); // a new board, and nobody on it is on their way anywhere
+  trails.clear();
+  lastTurn = 0; // so the first decision of the run reads the board's income afresh
 }
 
 function botRandom(): number {
@@ -186,7 +260,42 @@ function pickRandom<T>(items: T[]): T {
 export function getBotAction(map: GameMap, strategy: BotStrategy): BotAction | undefined {
   if (isRunOver(map)) return undefined;
 
-  return strategy === BotStrategy.RANDOM ? pickRandom(getLegalActions(map)) : getBestAction(map, STRATEGY_WEIGHTS[strategy]);
+  // A new turn: the board has paid out, everybody may think again about where they have been,
+  // and what the board earns is read afresh.
+  if (map.turn !== lastTurn) {
+    lastTurn = map.turn;
+    trails.clear();
+    income = { drops: map.drops, candy: map.candy, dropIncome: map.dropIncome, candyIncome: map.candyIncome };
+  }
+
+  const action = strategy === BotStrategy.RANDOM ? pickRandom(getLegalActions(map)) : getBestAction(map, STRATEGY_WEIGHTS[strategy]);
+  rememberGoal(action);
+
+  return action;
+}
+
+/**
+ * Files the plan the action just committed to: whoever was standing on `from` is not there
+ * any more, and whoever ends up on `to` is on their way to `goal` — unless `goal` is `to`
+ * itself, which means they have arrived and are free to think again.
+ *
+ * Done here rather than by the caller because every caller applies what it is given; the
+ * interface's ▶ and the harness both act on the action they asked for. A caller that asked
+ * and then did nothing would leave the bot believing in a step that was never taken.
+ */
+function rememberGoal({ kind, from, to, goal }: BotAction) {
+  if (!from) return;
+
+  const fromIndex = getIndex(from);
+  const trail = trails.get(fromIndex) ?? [fromIndex];
+  goals.delete(fromIndex);
+  trails.delete(fromIndex);
+
+  if (kind !== BotActionKind.MOVE && kind !== BotActionKind.PORTAL) return;
+
+  const toIndex = getIndex(to!);
+  trails.set(toIndex, [...trail, toIndex]);
+  if (goal !== undefined && goal !== toIndex) goals.set(toIndex, goal);
 }
 
 /**
@@ -455,13 +564,15 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   };
 
   /**
-   * Whether the purse and the jar will have covered a price `turns` turns from now, at the
-   * income the board is paying today. It is what keeps the bot from walking across the map
-   * to a building it could never pay for, and from standing next to one waiting for money
-   * that is not coming.
+   * Whether the purse and the jar will have covered a price `turns` turns from now, at what
+   * the board was earning when this turn began. It is what keeps the bot from walking across
+   * the map to a building it could never pay for, and from standing next to one waiting for
+   * money that is not coming — and it reads `income` rather than the live counters on purpose,
+   * because the live ones answer differently depending on where the unicorn asking is standing.
+   * See `income`.
    */
   const isAffordable = (dropCost: number, candyCost: number, turns: number) =>
-    map.drops + map.dropIncome * turns >= dropCost && map.candy + map.candyIncome * turns >= candyCost;
+    income.drops + income.dropIncome * turns >= dropCost && income.candy + income.candyIncome * turns >= candyCost;
 
   const candidates: BotAction[] = [];
 
@@ -562,13 +673,20 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   getUnicorns(map).forEach((from) => {
     const { cost, first, viaPortal } = getReach(map, from);
     const fromIndex = getIndex(from);
+    const committed = goals.get(fromIndex); // where this one was already headed, if anywhere
+    const walked = trails.get(fromIndex); // and everywhere it has been since the turn began
     // What walking away costs: the rainbows this unicorn is holding up go out behind it and
     // the site it is standing beside loses the hands that were going to raise it. Charged
     // against every goal alike, which is what keeps a posted unicorn at its post.
     const leaving = LEAVING_WEIGHT * getStandingValue(from, true, from);
+    // The best this unicorn could do, and the step that carries on with what it was already
+    // doing. Only one of the two is ever offered — see the choice below.
+    let best: BotAction | undefined;
+    let planned: BotAction | undefined;
 
     map.tiles.forEach((_, index) => {
-      if (index === fromIndex || !isFinite(cost[index])) return;
+      // Not the tile it is on, not one it has already stood on this turn, nothing out of reach.
+      if (index === fromIndex || walked?.includes(index) || !isFinite(cost[index])) return;
 
       const to = getPosition(first[index]);
       const isPortal = viaPortal[index];
@@ -577,21 +695,50 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
       // The step has to be one the interface would actually offer: paid for, and — for a
       // jump — with nobody standing on the far donut.
       if (stepCost > map.drops || (isPortal && !canUsePortal(map, to))) return;
-      // Drops that are spoken for by a building are not available for walking. A free step
-      // over a flower is, which is exactly the move worth having while saving up.
-      if (reserve && stepCost) return;
+      // And the walk has to be one the purse can actually finish. A goal further off than
+      // there are drops to reach it is not a plan, it is a wish — and it was the source of
+      // the bot's silliest habit: with an empty purse the only affordable step is a free one
+      // over a flower, so it would shuffle on and off the flower "on its way" to something it
+      // could not have reached in a hundred turns. Anything out of reach is simply not
+      // considered; next turn the board pays out and it may well be in reach then.
+      if (cost[index] > map.drops) return;
+      // Drops that are spoken for by a building are not available for walking — but only the
+      // ones that are actually needed. What this used to say was "while anything is being
+      // saved for, no step may cost anything", which froze a unicorn standing beside a site
+      // it could already afford the water for and was only waiting on sweets for: it had
+      // forty drops, could not spend one of them, and shuffled on and off the flower next to
+      // it until the turn ended. A step is fine as long as it leaves the building's water in
+      // the purse; a free one over a flower is fine regardless.
+      if (stepCost && map.drops - stepCost < reserve) return;
 
       const value = getGoalGain(getPosition(index), from) * DISTANCE_DISCOUNT ** cost[index] - leaving;
 
-      if (value > MIN_ACTION_VALUE)
-        candidates.push({
-          kind: isPortal ? BotActionKind.PORTAL : BotActionKind.MOVE,
-          from,
-          to,
-          value,
-          label: `${isPortal ? "jump" : "step"} ${say(from)} → ${say(to)}, heading for ${say(getPosition(index))} (${cost[index]}💧 away)`,
-        });
+      if (value <= MIN_ACTION_VALUE) return;
+
+      const candidate: BotAction = {
+        kind: isPortal ? BotActionKind.PORTAL : BotActionKind.MOVE,
+        from,
+        to,
+        goal: index,
+        value,
+        label:
+          `${isPortal ? "jump" : "step"} ${say(from)} → ${say(to)}, heading for ${say(getPosition(index))} ` +
+          `(${cost[index]}💧 away${index === committed ? ", as planned" : ""})`,
+      };
+
+      if (index === committed) planned = candidate;
+      if (!best || value > best.value) best = candidate;
     });
+
+    // One offer per unicorn, and it is the plan already under way unless something is a good
+    // deal better. Carrying on has to be a decision rather than a bonus on a score, because
+    // what it is up against is not a rival plan but the unicorn's own last position: a post
+    // it steps off is empty again, and an empty post one step away is a prize like any other,
+    // so it gets tempted straight back onto the tile it has just decided to leave. That is a
+    // loop no weighting settles, since both halves of it are correct in isolation.
+    const move = planned && (!best || best.value < planned.value * COMMITMENT_BREAK) ? planned : best;
+
+    if (move) candidates.push(move);
   });
 
   const best = candidates.reduce<BotAction | undefined>((best, action) => (!best || action.value > best.value ? action : best), undefined);

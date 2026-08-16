@@ -105,6 +105,15 @@ change to the economy, the objects or the board, walk `src/dev/bot.ts`:
   game's balance. A bot that plays badly after a change is a finding about the change or about
   the constants, and telling those two apart is the work.
 
+One class of bug is worth knowing about before you go looking for it, because it looks like
+bad tuning and is not: **anything a unicorn's own step changes can feed back into the value of
+where it was going.** Deciding one step at a time, the bot will happily walk towards a prize
+that its own walking destroys, and then back towards what it just left. That is where the
+memory at the top of the file comes from — a plan in progress, the tiles a unicorn has already
+stood on this turn, and the board's income read once a turn rather than after every step — and
+it is what stopped the bot pacing on the spot. If a change makes a value depend on where the
+deciding unicorn happens to be standing, expect pacing, and fix it there rather than by tuning.
+
 The bot plays fair: it decides only from revealed tiles, never from what the fog is hiding.
 Hold any new heuristic to that, or its runs stop saying anything about what a player could do.
 

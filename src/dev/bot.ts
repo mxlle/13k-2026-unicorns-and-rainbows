@@ -7,7 +7,9 @@ import {
   endTurn,
   GameMap,
   getBuild,
-  getCandyPrice,
+  CHEST_CANDY,
+  CHEST_DROPS,
+  getUnicornPrice,
   getExploration,
   getIndex,
   getMoveCost,
@@ -143,9 +145,11 @@ const TILE_VALUE = 12;
 const DROP_VALUE = 4;
 // One sweet in the jar. Worth more than a drop because it buys unicorns, which score.
 const CANDY_VALUE = 12;
-// An unopened present, before it is known what is in it: two fifths of a pile of drops, two
-// fifths of a pile of sweets, a fifth of a unicorn — plus the tile it is standing on.
-const CHEST_VALUE = 70;
+// The loot table's odds: three outcomes, one entry each, so an unopened present is worth the
+// plain mean of a pile of drops, a pile of sweets and a whole unicorn. A number rather than a
+// value, because what is in a present now depends on the board it is on — see CHEST_DROPS — so
+// the bot has to work out what an unopened one is worth instead of being told.
+const CHEST_ODDS = 1 / 3;
 // What a unicorn is worth beyond the score it carries: a second pair of eyes and a second
 // light, for the rest of the run.
 const UNICORN_POTENTIAL = 60;
@@ -646,6 +650,10 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // A unicorn is both halves of the game at once: another pair of eyes and another light.
   // So it is bought on the average of the two weights rather than under either of them.
   const unicornWeight = (explore + economy) / 2;
+  // What an unopened present is worth: its three outcomes at their odds, priced in what this
+  // board's presents actually hold. It used to be a flat 70, which was fine while the contents
+  // were flat too — now a 25x25 present carries five times a 5x5 one and the bot has to know.
+  const chestValue = CHEST_ODDS * (CHEST_DROPS * DROP_VALUE + CHEST_CANDY * CANDY_VALUE + unicornValue);
 
   /**
    * What a set of rainbows is worth. Every one of them scores and pays a drop a turn, and one
@@ -722,7 +730,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
     }
 
     if (tile.object === GameObjectType.BATHTUB) {
-      const price = getCandyPrice(map);
+      const price = getUnicornPrice(map);
 
       getSpawnTargets(map, position).forEach((to) => {
         // Where the newcomer is put matters as much as buying it: a field with fog around it
@@ -775,7 +783,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
 
     // A present is worth walking to whichever bot is playing: it is drops, sweets or a whole
     // unicorn, and every one of those is worth having.
-    if (tile.isRevealed && tile.object === GameObjectType.CHEST) gain += unicornWeight * CHEST_VALUE;
+    if (tile.isRevealed && tile.object === GameObjectType.CHEST) gain += unicornWeight * chestValue;
 
     return gain;
   };

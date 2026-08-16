@@ -21,6 +21,10 @@ export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are no
 export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every fountain
 export let FLOWER_COUNT = 0; // free stepping stones scattered over the meadow
 export let CHEST_COUNT = 0; // what the fog is worth walking into
+// What one of them holds. Derived from the board like the counts above rather than fixed, so a
+// present stays worth the walk on a board where the walk is twenty tiles — see setMapSize.
+export let CHEST_DROPS = 0;
+export let CHEST_CANDY = 0;
 export let DONUT_COUNT = 0; // the portal: a pair, or nothing at all
 export let SITE_COUNT = 0; // build sites, of each of the three kinds
 export let TURN_LIMIT = 0; // the whole run — as many turns as the board is wide
@@ -64,10 +68,17 @@ function setMapSize(size: number) {
   FOUNTAIN_COUNT = (tiles / 27 + 0.5) | 0;
   TREE_COUNT = size < TREE_SIZE ? 0 : FOUNTAIN_COUNT;
   FLOWER_COUNT = (tiles / 12 + 0.5) | 0;
-  // Rarer than anything else on the board, and the divisor is picked to land inside the
-  // hand-set targets: 1 on the 7x7, 3 on the 13x13, 7 on the 21x21. Floored at one, because
-  // the smallest board rounds down to none and its single present is the whole point of it.
-  CHEST_COUNT = (tiles / 60 + 0.5) | 0 || 1;
+  // Rarer than anything else on the board. Floored at one, because the smallest board rounds
+  // down to none and its single present is the whole point of it.
+  CHEST_COUNT = (tiles / CHEST_DENSITY + 0.5) | 0 || 1;
+  // What is inside grows with the board rather than staying put, which is what keeps a present
+  // worth walking to on the biggest one — see CHEST_DENSITY for why the count alone was not
+  // enough. The two currencies climb at different rates on purpose: sweets buy unicorns and
+  // are what a run is actually short of, while drops are the currency a well-built board ends
+  // up with a pile of, so a present that paid a full width in water was topping up the one
+  // counter nobody empties. Half the width, rounded up, is the smaller share of a smaller need.
+  CHEST_DROPS = (size + 1) >> 1;
+  CHEST_CANDY = (size / 2.5 + 0.5) | 0;
   DONUT_COUNT = size < DONUT_SIZE ? 0 : 2;
   // Linear in the width rather than the area, the same as TURN_LIMIT and for the same reason:
   // what should stay steady across the boards is how many sites a run has the turns to reach,
@@ -122,16 +133,20 @@ export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs
 // floor under the economy — with it, a run can never seize up, which is why there is no
 // losing any more. Every tub on the board pays it, so a second one doubles the base.
 export const BASE_INCOME = 2;
-// PLACEHOLDER chest contents. Flat rather than scaled by the turn, which makes them worth
-// most in the opening — five drops is two and a half turns' income while the tub is the whole
-// economy, and barely half a turn's once the rainbows are up. That decay is the point: the
-// slow part of a run is the start, and this is what shortens it.
-export const CHEST_DROPS = 5;
-export const CHEST_CANDY = 2;
-// What is inside, rolled from this list: writing the two common outcomes twice is the whole
-// weighting — 40% drops, 40% candy, 20% a unicorn. A unicorn is worth far more than either
-// pile, so it comes up half as often as they do.
-const LOOT_TABLE = [ChestLoot.DROPS, ChestLoot.DROPS, ChestLoot.CANDY, ChestLoot.CANDY, ChestLoot.UNICORN];
+// PLACEHOLDER: how much board there is per present. Lowered from 60, which is a couple more on
+// every board from the 9x9 up — but the count was never the weak part. Tripling the presents on
+// the 25x25 was measured at 8%, because a present's *contents* were flat: five drops against a
+// thirty-a-turn income is a sixth of a turn, and two sweets against a twenty-sweet unicorn is a
+// rounding error. Four fifths of the loot table had quietly stopped mattering. So the contents
+// scale with the board now — see setMapSize — and this is the smaller half of the fix.
+const CHEST_DENSITY = 45;
+// What is inside, rolled from this list — one entry each, so the three outcomes are equally
+// likely. A unicorn used to come up half as often as either pile on the grounds that it is
+// worth far more, which had it right about the worth and wrong about what that should buy:
+// the piles are the two outcomes that stop mattering as a run grows, and the unicorn is the
+// only one that never does. Evening the odds puts the weight on the outcome that keeps its
+// value, rather than on the two that need scaling to hold theirs.
+const LOOT_TABLE = [ChestLoot.DROPS, ChestLoot.CANDY, ChestLoot.UNICORN];
 // PLACEHOLDER build prices. The shape is settled even where the numbers are not: a building is
 // paid for in the currency it goes on to produce — a fountain in water, a lollipop tree in
 // sweets — and the tub, which produces both, is paid for in both, equally.
@@ -796,8 +811,16 @@ export function isRunOver(map: GameMap): boolean {
  * prices itself — the first newcomer is cheap, and every one after it costs what the herd has
  * grown to, which is the brake on an income that would otherwise compound away. It is counted
  * off the tiles rather than kept as a number, so it can never drift from the herd it prices.
+ *
+ * Sweets only, and that is a finding rather than an oversight. Charging drops as well was
+ * tried, to drain the hundred-odd that a well-played big board has left over at the whistle,
+ * and it cost 27-48% of the score on every board with an economy: drops buy steps, steps clear
+ * fog, and fog is the score's own multiplier, so taxing the purse taxes exploring. The herd
+ * came out *smaller* too, and the leftovers simply changed currency — unspent candy went from
+ * 9.6 to 24.4 on the 25x25. The end-of-run purse is a last-few-turns artefact of nothing being
+ * left in reach, not a currency sitting idle. Leave it alone.
  */
-export function getCandyPrice(map: GameMap): number {
+export function getUnicornPrice(map: GameMap): number {
   return map.tiles.filter((tile) => tile.living === GameObjectType.UNICORN).length;
 }
 
@@ -813,12 +836,12 @@ export function getCandyPrice(map: GameMap): number {
  * and a field between two of them is just offered twice.
  */
 export function getSpawnTargets(map: GameMap, position: Position): Position[] {
-  return map.candy >= getCandyPrice(map) ? getMoveTargets(map, position) : [];
+  return map.candy >= getUnicornPrice(map) ? getMoveTargets(map, position) : [];
 }
 
 /** Trades the jar of candy for a unicorn on `position` — which must come from getSpawnTargets. */
 export function buyUnicorn(map: GameMap, position: Position) {
-  map.candy -= getCandyPrice(map); // before the newcomer is on the board, so it does not price itself
+  map.candy -= getUnicornPrice(map); // before the newcomer is on the board, so it does not price itself
   getTile(map, position)!.living = GameObjectType.UNICORN;
   // A newcomer opens its own square, exactly like one stepping out of a present or out of the
   // fog: the tub it came from has looked at its own fields, but the ring beyond them is still

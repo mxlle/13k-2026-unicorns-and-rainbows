@@ -19,7 +19,7 @@ import {
   getIndex,
   endTurn,
   getBuild,
-  getCandyPrice,
+  getUnicornPrice,
   getExploration,
   getFeedingRainbows,
   getMoveCost,
@@ -488,7 +488,7 @@ export function GameMapComponent(
     // remembered wrong. Every field costs the same, so it is one property on the board that
     // all of them read, rather than a label built per tile.
     board.classList.toggle(styles.buying, isTubSelected);
-    if (isTubSelected) board.style.setProperty("--p", `"${getCandyPrice(map)}${CANDY_EMOJI}"`);
+    if (isTubSelected) board.style.setProperty("--p", `"${getUnicornPrice(map)}${CANDY_EMOJI}"`);
     // Guidance: an empty purse makes the income the only way on, so ending the turn
     // becomes the next step. Before that, on the opening turn, it is picking a character.
     // Once the run is over the same button is the only thing left to press.
@@ -803,7 +803,7 @@ export function GameMapComponent(
 
   /** Trades the jar of candy for a unicorn on one of the tub's fields, then hands the board back. */
   function buy(target: Position) {
-    const price = getCandyPrice(map); // read before the newcomer joins the herd and puts the price up
+    const price = getUnicornPrice(map); // read before the newcomer joins the herd and puts the price up
     buyUnicorn(map, target);
     select(selected); // the tub stays picked up, but the jar may no longer stretch to another
     render();

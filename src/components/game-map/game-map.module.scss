@@ -162,18 +162,6 @@ $sidebar-width: min(20rem, 30vw);
   font-weight: bold;
 }
 
-// The board-size choice. Its buttons are narrower than a normal secondary button — three
-// of them plus the new-game button have to share the turn bar on a phone.
-.sizes {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-
-  > button {
-    padding: 0.25rem 0.5rem;
-  }
-}
-
 // The run's live numbers as one chip. Absolutely centred on the header — not laid out
 // between the title and the mute button — so it sits in the same place at every screen
 // width, and its own width can never push anything around.

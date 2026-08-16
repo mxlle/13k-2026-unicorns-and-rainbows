@@ -2,9 +2,13 @@ import { setSeed } from "../utils/random-utils";
 import { getRandomItem } from "../utils/array-utils";
 import { ChestLoot, GameObjectType, ObjectCategory, OBJECT_CONFIG } from "./game-objects";
 
-// PLACEHOLDER: the boards on offer. Odd numbers so a board has a true middle, and spaced
-// far enough apart that picking one is a real choice rather than a nudge.
-export const MAP_SIZES = [7, 13, 21];
+// PLACEHOLDER: the boards on offer, easiest first — which is also bottom-first on the launch
+// screen, one stripe of the rainbow each. Odd numbers so a board has a true middle, and the
+// steps widen as they go: the difference between a 5 and a 7 is felt as keenly at that end as
+// the difference between a 21 and a 25 is at the other.
+// Everything about a board is derived from this one number (see setMapSize), so the list can
+// grow or shrink freely — the launch screen sizes itself to however many there are.
+export const MAP_SIZES = [5, 7, 9, 13, 17, 21, 25];
 
 // Everything below is derived from the chosen board and re-derived by setMapSize whenever a
 // run starts. They are exported as `let` on purpose: an ES module binding is live, so a
@@ -209,7 +213,8 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // is what the odd board sizes are for (see MAP_SIZES). It makes a second unicorn source out
   // in the board something every run has rather than something a seed might give you, and it
   // gives a player somewhere to head for from the opening turn. First, so nothing else can
-  // take the tile — and far enough from the corner that the starting vision never uncovers it.
+  // take the tile. On every board but the smallest it also starts under the fog; on the 5x5
+  // the middle is inside the opening vision, so that board simply opens with its site in view.
   const middle = MAP_SIZE >> 1;
   getTile(map, { x: middle, y: middle })!.object = GameObjectType.TUB_SITE;
 

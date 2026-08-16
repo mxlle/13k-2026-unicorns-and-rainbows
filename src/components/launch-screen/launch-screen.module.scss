@@ -1,0 +1,50 @@
+@use "../../theme";
+
+// PLACEHOLDER: how solid a stripe is before anything has been earned on it. The plan is for
+// this to climb with the level's score, at which point it becomes a custom property the
+// component sets per stripe and this value is its floor — the stripes read as a rainbow
+// being filled in rather than one that is simply there.
+// It is not as pale as it sounds: the page behind it is nearly black, so a third of the way
+// is already dim, and much below this the band stops reading as a rainbow at all.
+$solidity: 0.45;
+// What a stripe goes to under the pointer — far enough above $solidity to read as a
+// response, not so far that hovering looks like the level has been earned.
+$hover-solidity: 0.75;
+
+.host {
+  // The easiest board is the first in MAP_SIZES and belongs at the bottom, so the column is
+  // reversed rather than the list — the order the game thinks in stays the order it is written in.
+  display: flex;
+  flex-direction: column-reverse;
+  min-height: 0;
+  overflow: hidden;
+}
+
+// One band per board, sharing the height equally however many there are.
+.stripe {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 1.2rem;
+  // --h is the only per-stripe value; see the component. The alpha is what makes the rainbow
+  // pale to begin with, and it is on the background rather than the element so the label
+  // stays fully readable over it.
+  // Legacy comma syntax, and it has to stay that way: lightningcss mis-parses the modern
+  // `hsl(h s l / a)` form when the hue is a var() it cannot resolve — it reads the slash as a
+  // division and folds the alpha into the lightness, which comes out white.
+  background: hsla(var(--h), 95%, 60%, $solidity);
+  transition: background-color 0.2s;
+
+  @include theme.hover {
+    background: hsla(var(--h), 95%, 60%, $hover-solidity);
+  }
+}
+
+// The board the last run was played on. An inset ring rather than a colour, so it marks the
+// stripe without competing with the solidity that will soon mean "how well you did here".
+.last {
+  box-shadow: inset 0 0 0 2px theme.$text-primary;
+}

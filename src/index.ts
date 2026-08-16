@@ -11,6 +11,7 @@ import { playSound } from "./audio/sound-control/sound-control";
 import { HeaderComponent } from "./framework/components/header/header.component";
 import { MuteButton } from "./components/mute-button/mute-button";
 import { GameMapComponent } from "./components/game-map/game-map.component";
+import { LaunchScreenComponent } from "./components/launch-screen/launch-screen.component";
 
 if (HAS_VISUAL_NICE_TO_HAVES) {
   import("./globals.nice2have.scss");
@@ -24,12 +25,27 @@ function init() {
   if (isInitialized) return;
   isInitialized = true;
 
-  const [gameArea, startNewGame, statusChip] = GameMapComponent();
+  const [gameArea, startNewGame, statusChip] = GameMapComponent(() => showLaunchScreen(true));
+  const launchScreen = LaunchScreenComponent((size) => {
+    // Shown before the run starts, or applyZoom would be measuring a hidden map row and
+    // every board would open at the wrong step.
+    showLaunchScreen(false);
+    startNewGame(size);
+  });
+
+  // The launch screen and the board take turns in the same row under the header, so whichever
+  // is up has the whole window. The status chip belongs to the run rather than to the header,
+  // and goes with the board — its counters have nothing to say before one is being played.
+  function showLaunchScreen(show: boolean) {
+    gameArea.classList.toggle(CssClass.HIDDEN, show);
+    statusChip.classList.toggle(CssClass.HIDDEN, show);
+    launchScreen.classList.toggle(CssClass.HIDDEN, !show);
+  }
 
   // the chip takes itself out of the flow and centres on the header — see its styles
-  document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [statusChip, MuteButton()]), gameArea);
+  document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [statusChip, MuteButton()]), gameArea, launchScreen);
 
-  startNewGame();
+  showLaunchScreen(true);
 
   pubSubService.subscribe(PubSubEvent.GAME_START, () => {
     document.body.classList.remove(CssClass.WON);

@@ -2,7 +2,6 @@ import styles from "./game-map.module.scss";
 import { createButton, createElement, createElements } from "../../utils/html-utils";
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
-import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../../utils/local-storage";
 import { HAS_DEV_TOOLS } from "../../env-utils";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
@@ -32,7 +31,6 @@ import {
   isEarningTree,
   isRunOver,
   MAP_SIZE,
-  MAP_SIZES,
   moveCharacter,
   MOVE_COST,
   openChest,
@@ -82,7 +80,6 @@ const ZOOM_STEPS = [1, 1.5, 2.2, 3];
 // for a finger to hit. It picks the opening zoom step; see applyZoom.
 const COMFORT_TILE = 32;
 const MIN_TILE = 8; // a floor for the maths below, in case the map row is measured before it has a size
-const MAP_EMOJI = "🗺️"; // labels the board-size choice
 // PLACEHOLDER payout-flight timings. FLY_SPREAD is the window all departures share rather
 // than a gap apiece: a big board can be paying out thirty times at once, and one emoji every
 // FLY_STAGGER would take longer to watch than the turn took to play.
@@ -153,18 +150,13 @@ function flyGlyph(emoji: string, [x, y]: number[], keyframe: Keyframe, options: 
 
 // The usual [host, update] tuple plus the status chip that belongs in the header — it is
 // part of the game state, so the game owns it; only its place in the DOM is elsewhere.
-export function GameMapComponent(): [
-  hostElement: HTMLElement,
-  startNewGame: (seed?: number, size?: number) => void,
-  statusChip: HTMLElement,
-] {
+// `onExit` is the way back out to the launch screen, which is where a board is chosen: this
+// component is handed one to play and never picks its own.
+export function GameMapComponent(
+  onExit: () => void,
+): [hostElement: HTMLElement, startNewGame: (size: number, seed?: number) => void, statusChip: HTMLElement] {
   let map: GameMap;
   let isRunning = false;
-  // The board the next run will be played on, carried over from the last one. Checked
-  // against what is actually on offer: a value stored by an older build could name a board
-  // that no longer exists, and Number(null) is 0, so both cases fall back to the smallest.
-  const storedSize = Number(getLocalStorageItem(LocalStorageKey.SIZE));
-  let mapSize = MAP_SIZES.includes(storedSize) ? storedSize : MAP_SIZES[0];
   // Two-tap navigation: tap an object to select it, then — if it is a character that
   // can afford a step — tap one of its highlighted neighbours to move there.
   let selected: Position | undefined;
@@ -239,19 +231,10 @@ export function GameMapComponent(): [
       createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }),
       value,
     ]);
-  // One button for both ends of a run: end the turn while playing, start over once it is over.
-  const endTurnButton = createButton({ onClick: () => (isRunning ? finishTurn() : startNewGame()) });
-  // The board to play next, offered only once a run is over: changing it mid-run has no
-  // meaning, and the turn bar has no width to spare while the counters are in it — which is
-  // why the counters step aside for it. Tapping a size starts a run on that board straight
-  // away, so choosing and starting are one gesture rather than two.
-  const sizeButtons = MAP_SIZES.map((size) =>
-    createButton({ cssClass: CssClass.SECONDARY, onClick: () => startNewGame(undefined, size) }, [`${size}`]),
-  );
-  const sizeControl = createElement({ cssClass: styles.sizes }, [
-    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: MAP_EMOJI }),
-    ...sizeButtons,
-  ]);
+  // One button for both ends of a run: end the turn while playing, back to the launch screen
+  // once it is over. Which board to play next is that screen's question, not this bar's —
+  // there are seven of them now, and they are the stripes of the rainbow over there.
+  const endTurnButton = createButton({ onClick: () => (isRunning ? finishTurn() : onExit()) });
   // The run's progress: how far through the turns, and what the board is worth right now.
   // The score sits here rather than in the header chip because three "n (+n)" counters in a
   // row overflow the header on a phone — and the turn bar has the width going spare.
@@ -263,7 +246,7 @@ export function GameMapComponent(): [
   // it is still being played, so "where are my points coming from" is answerable in time to
   // act on the answer rather than only afterwards.
   const scoreDisplay = counter(SCORE_EMOJI, scoreCount, toggleScore);
-  const turnBar = createElement({ cssClass: styles.turnBar }, [turnDisplay, scoreDisplay, sizeControl, endTurnButton]);
+  const turnBar = createElement({ cssClass: styles.turnBar }, [turnDisplay, scoreDisplay, endTurnButton]);
   // The two currencies as one chip in the middle of the header, in view wherever the player
   // is looking. Each reads "what you have (+what the board pays you next turn)", so the
   // cost of a plan and the income funding it are side by side.
@@ -488,14 +471,6 @@ export function GameMapComponent(): [
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
     endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver);
-
-    // The counters and the board choice take turns: the run's numbers while it is on, the
-    // pick of the next board once it is finished. The score is not lost by hiding it — the
-    // info panel is carrying it, with its full breakdown, at exactly that moment.
-    turnDisplay.classList.toggle(CssClass.HIDDEN, isOver);
-    scoreDisplay.classList.toggle(CssClass.HIDDEN, isOver);
-    sizeControl.classList.toggle(CssClass.HIDDEN, !isOver);
-    sizeButtons.forEach((button, index) => button.classList.toggle(CssClass.PRIMARY, MAP_SIZES[index] === mapSize));
   }
 
   /**
@@ -885,11 +860,10 @@ export function GameMapComponent(): [
     pubSubService.publish(PubSubEvent.GAME_END, { isWon: true });
   }
 
-  // Passing a seed replays exactly that map; leaving it out deals a new one. Replaying the
-  // map just played needs no snapshot — only remembering the number it was built from.
-  function startNewGame(seed = createSeed(), size = mapSize) {
-    mapSize = size;
-    setLocalStorageItem(LocalStorageKey.SIZE, `${size}`);
+  // The board to play comes from the launch screen. Passing a seed as well replays exactly
+  // that map; leaving it out deals a new one — replaying the map just played needs no
+  // snapshot, only remembering the number it was built from.
+  function startNewGame(size: number, seed = createSeed()) {
     map = createGameMap(seed, size); // sets MAP_SIZE, so everything below reads the new board
     if (tileElements.length !== MAP_SIZE * MAP_SIZE) buildBoard();
     showsScore = false; // render() clears last run's working with it, before the new board shows

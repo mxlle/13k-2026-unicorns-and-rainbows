@@ -21,6 +21,7 @@ export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are no
 export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every fountain
 export let FLOWER_COUNT = 0; // free stepping stones scattered over the meadow
 export let CHEST_COUNT = 0; // what the fog is worth walking into
+export let DONUT_COUNT = 0; // the portal: a pair, or nothing at all
 export let SITE_COUNT = 0; // build sites, of each of the three kinds
 export let TURN_LIMIT = 0; // the whole run — as many turns as the board is wide
 export let MIN_PORTAL_DISTANCE = 0; // along both axes, so the pair sits diagonally across the board
@@ -28,25 +29,50 @@ export let MIN_PORTAL_DISTANCE = 0; // along both axes, so the pair sits diagona
 export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
 
 /**
+ * PLACEHOLDER feature ladder: the board width at which each thing first turns up. The boards
+ * are the levels, so the ladder is written in widths rather than in level numbers — MAP_SIZES
+ * can gain or lose entries without a single number here moving.
+ *
+ * What this leaves on the smallest board is the tutorial: a unicorn, a scatter of flowers, one
+ * fountain to line it up against, one present, and the bathtub that pays for the walking. Four
+ * rules, and every one of them is still true on the 25x25.
+ */
+const TREE_SIZE = 7; // and with the trees comes candy, which is what gives the tub its second job
+const DONUT_SIZE = 9;
+const SITE_SIZE = 13;
+
+// The tutorial board, which is simply the first rung of the ladder. Kept as a flag rather than
+// re-derived at each use so that "this is the tutorial" is one idea in one place.
+let isTutorial = false;
+
+/**
  * Sizes the world. The counts are given as "one per this many tiles", so a bigger board
  * gets proportionally busier instead of emptier — the divisors are what the hand-tuned 9x9
  * worked out to. Turns scale with the width rather than the area: income compounds over a
  * run, so the ground a player can cover grows roughly with the square of the turns, which
  * is what keeps the share of the map they get to see about the same on every board.
+ *
+ * On top of that, the feature ladder above zeroes whole kinds of thing out on the early
+ * boards. A count of 0 is all it takes: every placement loop is bounded by its count, and the
+ * three things that are not loops — the middle tub site, the portal pair and the tree beside
+ * each fountain — read the count as the condition they are placed under.
  */
 function setMapSize(size: number) {
   const tiles = size * size;
   MAP_SIZE = size;
-  FOUNTAIN_COUNT = TREE_COUNT = (tiles / 27 + 0.5) | 0;
+  isTutorial = size === MAP_SIZES[0];
+  FOUNTAIN_COUNT = (tiles / 27 + 0.5) | 0;
+  TREE_COUNT = size < TREE_SIZE ? 0 : FOUNTAIN_COUNT;
   FLOWER_COUNT = (tiles / 12 + 0.5) | 0;
   // Rarer than anything else on the board, and the divisor is picked to land inside the
-  // hand-set targets for the three boards: 1 on the 7x7, 3 on the 13x13, 7 on the 21x21.
-  CHEST_COUNT = (tiles / 60 + 0.5) | 0;
+  // hand-set targets: 1 on the 7x7, 3 on the 13x13, 7 on the 21x21. Floored at one, because
+  // the smallest board rounds down to none and its single present is the whole point of it.
+  CHEST_COUNT = (tiles / 60 + 0.5) | 0 || 1;
+  DONUT_COUNT = size < DONUT_SIZE ? 0 : 2;
   // Linear in the width rather than the area, the same as TURN_LIMIT and for the same reason:
   // what should stay steady across the boards is how many sites a run has the turns to reach,
-  // not how many are on the map. Works out at 1 of each kind on the 7x7, 2 on the 13x13, 3 on
-  // the 21x21.
-  SITE_COUNT = (size / 7 + 0.5) | 0;
+  // not how many are on the map. Works out at 2 of each kind on the 13x13, 3 on the 21x21.
+  SITE_COUNT = size < SITE_SIZE ? 0 : (size / 7 + 0.5) | 0;
   TURN_LIMIT = size;
   // Half the width, on both axes. Absolute distances stop meaning anything once the board
   // can be three times wider: four tiles apart is across the map at 7 and a stroll at 21.
@@ -213,18 +239,18 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // is what the odd board sizes are for (see MAP_SIZES). It makes a second unicorn source out
   // in the board something every run has rather than something a seed might give you, and it
   // gives a player somewhere to head for from the opening turn. First, so nothing else can
-  // take the tile. On every board but the smallest it also starts under the fog; on the 5x5
-  // the middle is inside the opening vision, so that board simply opens with its site in view.
+  // take the tile — and only from the board that build sites start on, so the early levels
+  // have nothing to raise anywhere.
   const middle = MAP_SIZE >> 1;
-  getTile(map, { x: middle, y: middle })!.object = GameObjectType.TUB_SITE;
+  if (SITE_COUNT) getTile(map, { x: middle, y: middle })!.object = GameObjectType.TUB_SITE;
 
   // Fountains keep one tile of distance to the border, so every side of a fountain has an
   // opposite tile to cast a rainbow onto, and their share of the board from each other.
   for (let i = 0; i < FOUNTAIN_COUNT; i++) {
     const position = placeObject(map, GameObjectType.FOUNTAIN, FOUNTAIN_COUNT, 1);
     // A lollipop tree grows next to every fountain, taking one of its eight rainbow
-    // slots away.
-    const spots = position ? getFreeNeighbours(map, position) : [];
+    // slots away — once the board is one that has trees at all.
+    const spots = TREE_COUNT && position ? getFreeNeighbours(map, position) : [];
     if (spots.length) getTile(map, getRandomItem(spots))!.object = GameObjectType.TREE;
   }
 
@@ -238,10 +264,13 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // rather than the donut, which is how a portal ends up leading to the tile next door.
   // Taking the first end off the board cannot invalidate the partner it was chosen for, so
   // the second placement always finds its spot and the rule never has to be relaxed.
-  const spots = getFreePositions(map, 0);
-  const pairable = spots.filter((a) => spots.some((b) => getAxisDistance(a, b) >= MIN_PORTAL_DISTANCE));
-  getTile(map, getRandomItem(pairable.length ? pairable : spots))!.object = GameObjectType.DONUT;
-  placeObject(map, GameObjectType.DONUT, 2, 0, MIN_PORTAL_DISTANCE);
+  // A portal is a pair or it is nothing, so the whole block is gated rather than a loop count.
+  if (DONUT_COUNT) {
+    const spots = getFreePositions(map, 0);
+    const pairable = spots.filter((a) => spots.some((b) => getAxisDistance(a, b) >= MIN_PORTAL_DISTANCE));
+    getTile(map, getRandomItem(pairable.length ? pairable : spots))!.object = GameObjectType.DONUT;
+    placeObject(map, GameObjectType.DONUT, DONUT_COUNT, 0, MIN_PORTAL_DISTANCE);
+  }
 
   // No unicorns are placed here: the one at the start position is the whole herd a run
   // begins with, and every other one is bought from a tub. Nothing waits in the fog.
@@ -255,7 +284,11 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // corner. It is also what a site is for: a run has two reasons to walk into the fog now.
   for (let i = 0; i < CHEST_COUNT; i++) {
     const position = placeObject(map, GameObjectType.CHEST, CHEST_COUNT);
-    if (position) getTile(map, position)!.loot = getRandomItem(LOOT_TABLE);
+    // The tutorial's one present always holds a unicorn. There are no trees on that board and
+    // so no sweets to spend, and its five turns are too few for a pile of drops to turn into
+    // anything — where a second unicorn is a second pair of eyes and a second light, straight
+    // away. It is also the one prize that teaches something rather than topping a counter up.
+    if (position) getTile(map, position)!.loot = isTutorial ? ChestLoot.UNICORN : getRandomItem(LOOT_TABLE);
   }
 
   // From 1: the middle tile already has the tub site every board is guaranteed, and these are

@@ -27,4 +27,7 @@ export const TranslationKey = defineEnum({
   INFO_FOUNTAIN_SITE: 18,
   INFO_TREE_SITE: 19,
   PLAY: 20, // confirms the board picked on the launch screen and starts the run
+  // The tub's second job, appended to INFO_BATHTUB only on boards that have candy to pay with.
+  // A sentence rather than a key of its own so the first half is written once.
+  INFO_BATHTUB_SELL: 21,
 });

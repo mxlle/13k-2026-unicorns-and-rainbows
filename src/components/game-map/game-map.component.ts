@@ -37,6 +37,7 @@ import {
   PORTAL_COST,
   Position,
   revealAround,
+  TREE_COUNT,
   TURN_LIMIT,
   updateRainbows,
 } from "../../game/game-map";
@@ -444,6 +445,10 @@ export function GameMapComponent(
     turnDisplay.classList.toggle(styles.lastTurn, isLastTurn);
     dropCount.textContent = `${map.drops} (+${map.dropIncome})`;
     candyCount.textContent = `${map.candy} (+${map.candyIncome})`;
+    // A board with no trees has no way to make a sweet and nothing to spend one on, so the
+    // jar stays out of the header rather than sitting at zero teaching a currency that is not
+    // in the game yet. Trees are what make candy, so their count is the honest condition.
+    currencyDisplays[1].classList.toggle(CssClass.HIDDEN, !TREE_COUNT);
     scoreCount.textContent = `${getScore(map)}`; // a snapshot, so it has no "+" to show
     // While the run is on, the working is the player's to open and close. Once it is over
     // the panel belongs to the result and endGame has already filled it — hence the guard.
@@ -518,8 +523,14 @@ export function GameMapComponent(
     // Standing on a donut, the portal is what there is to act on — it takes the line over
     // the character's own description, right beside the button that uses it.
     if (portalTarget) setInfo(TranslationKey.INFO_DONUT, OBJECT_CONFIG[GameObjectType.DONUT].emoji);
-    else if (objectType !== undefined) setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
-    else if (index === undefined)
+    else if (objectType !== undefined) {
+      setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
+      // The tub's second job is selling unicorns, and it is paid for in candy — which the
+      // tutorial board has no trees to make. There it is not on offer, so it is not described
+      // either: the tub is introduced as the thing that pays for the walking, and nothing else.
+      if (objectType === GameObjectType.BATHTUB && TREE_COUNT)
+        infoText.textContent += ` ${getTranslation(TranslationKey.INFO_BATHTUB_SELL)}`;
+    } else if (index === undefined)
       setInfo(
         isOpening ? TranslationKey.INFO_GOAL : TranslationKey.INFO_HINT,
         isOpening ? OBJECT_CONFIG[GameObjectType.RAINBOW].emoji : HINT_EMOJI,

@@ -218,7 +218,10 @@ export function GameMapComponent(
 
   function buildBoard() {
     groundGlyphs = createElements({ tag: "span" }, MAP_SIZE * MAP_SIZE);
-    livingGlyphs = createElements({ tag: "span" }, MAP_SIZE * MAP_SIZE);
+    // The whole layer is drawn up: everything that can ever stand on a tile is an actor, and
+    // an actor is what the player is looking for. Set once here rather than per render,
+    // because nothing about it depends on what is on the tile.
+    livingGlyphs = createElements({ tag: "span", cssClass: styles.big }, MAP_SIZE * MAP_SIZE);
     tileElements = groundGlyphs.map((ground, index) =>
       createElement({ cssClass: [styles.tile, CssClass.EMOJI] }, [ground, livingGlyphs[index]]),
     );
@@ -494,10 +497,15 @@ export function GameMapComponent(
     const needsIncome = outOfWater && !hasFreeMove(map);
     const isOver = !isRunning;
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
+    // Which tiles are actually turning light into a rainbow this turn. Read off the beams the
+    // model already worked out, so the halo can never promise a rainbow that is not there —
+    // the same guarantee getFeedingRainbows gives the trees. A beam is stamped with the tile
+    // it *leaves from*, and only the light kind is ever lit, so no isCandy check is needed.
+    // Gathered once per render rather than searched per tile: it is a handful of entries.
+    const shining = new Set(map.beams.filter((beam) => beam.isLit).map(getIndex));
 
     map.tiles.forEach((tile, index) => {
       const element = tileElements[index];
-      const objectType = getObject(index);
       const isSelectedTile = index === selectedIndex;
       // The invitation to buy: the tub itself pulses, and only while the purchase is really
       // on — the jar can pay and there is somewhere to put the unicorn. It is the one
@@ -512,7 +520,11 @@ export function GameMapComponent(
       // for everyone but a developer who has switched the clouds off.
       const isSeen = tile.isRevealed || (HAS_DEV_TOOLS && xray);
       element.classList.toggle(styles.revealed, isSeen);
-      element.classList.toggle(styles.glowing, objectType !== undefined && OBJECT_CONFIG[objectType].glows);
+      // The halo means "this one is producing", not "this one is a light source" — every
+      // unicorn is the latter, so it used to say nothing the glyph did not already say. A
+      // unicorn with no halo is one whose walk is still ahead of it, and it keeps its full
+      // colour and size on purpose: it is the one the player is being asked to move.
+      element.classList.toggle(styles.glowing, shining.has(index));
       element.classList.toggle(CssClass.HINT, canSpawn || canRaiseHere || (hintCharacters && tile.isRevealed && tile.living !== undefined));
       element.classList.toggle(styles.selected, isSelectedTile);
       // no steps lit means the selection is only being looked at — see select()
@@ -527,16 +539,18 @@ export function GameMapComponent(
       ground.classList.toggle(styles.tree, isSeen && tile.object === GameObjectType.TREE);
       // a site is drawn back from the things that are actually there — see .site
       ground.classList.toggle(styles.site, isSeen && !!getBuild(tile.object));
+      // Size as a way of sorting the meadow: the tub is where unicorns come from and is drawn
+      // up with them, the flowers are ground cover and are drawn down. Guarded on isSeen for
+      // the same reason .tree is — an unrevealed tile is a cloud, not the thing under it.
+      ground.classList.toggle(styles.big, isSeen && tile.object === GameObjectType.BATHTUB);
+      ground.classList.toggle(styles.small, isSeen && tile.object === GameObjectType.FLOWER);
       // which trees are paying into the jar this turn — read off the same list the income
       // itself is counted from, so the glow can never promise candy that never comes
       ground.classList.toggle(styles.earning, !!getFeedingRainbows(map, getPosition(index)).length);
-      ground.classList.toggle(styles.covered, hasLiving); // steps back behind the character
+      ground.classList.toggle(styles.covered, hasLiving); // out of the way, into the corner
       ground.textContent = isSeen ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
 
-      const living = livingGlyphs[index];
-      // only makes room when there is actually something underneath to show
-      living.classList.toggle(styles.stacked, hasLiving && tile.object !== undefined);
-      living.textContent = hasLiving ? OBJECT_CONFIG[tile.living!].emoji : "";
+      livingGlyphs[index].textContent = hasLiving ? OBJECT_CONFIG[tile.living!].emoji : "";
     });
 
     // Each currency reads "what you have (+what next turn pays)". The income half updates as

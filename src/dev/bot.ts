@@ -65,22 +65,71 @@ export const BOT_STRATEGY_EMOJIS = ["🎲", "🧭", "💰", "⚖️"];
 export const BOT_STRATEGY_NAMES = ["random", "explore", "economy", "mixed"];
 
 /**
+ * MIXED's economy weight, and the one number in this file that is a function of the board
+ * rather than a constant. It falls as the board grows: `(37 - width) / 16`, which is not a
+ * curve fitted to anything but the four measurements themselves — swept at 40 seeds, the best
+ * economy weight came out 1.5, 1.25, 1.0 and 0.75 for widths 13, 17, 21 and 25, which is that
+ * line exactly. Capped for the smaller boards, where the line would run off above 1.5 and
+ * where the measurements are flat enough not to care either way.
+ *
+ * Why the board should matter at all: exploring is the score's multiplier, and how hard it is
+ * to move depends entirely on how much board there is. A 9x9 gets to 90% seen almost whatever
+ * the bot does, so weighting the fog higher buys nothing and the economy is where the points
+ * are. A 25x25 is 625 tiles in 25 turns — the multiplier is genuinely hard to shift, so every
+ * step into the fog is worth more than the rainbow it walks away from.
+ *
+ * It is also why the whole-ladder mean wanted a single [2, 1]: the big boards score in the
+ * thousands and simply outvote the small ones in any average.
+ */
+const MIXED_ECONOMY_CAP = 1.5; // what the small boards get, and the value stored in the table
+const MIXED_ECONOMY_AT_ZERO = 37; // the width at which the line would reach nothing
+const MIXED_ECONOMY_SLOPE = 16; // how many tiles of width it takes to shed one point of weight
+
+/**
+ * Whether MIXED's economy weight comes off the board (normally) or is taken verbatim from
+ * STRATEGY_WEIGHTS (while the sweep harness is running). Without this the sweep would go on
+ * setting an entry nothing reads, and quietly stop measuring the thing it exists to measure —
+ * which is the exact failure the sweep was written to catch in the first place.
+ */
+let usesBoardWeights = true;
+
+export function setUsesBoardWeights(uses: boolean) {
+  usesBoardWeights = uses;
+}
+
+/** What a strategy weighs the two halves of the game by, on the board being played. */
+function getWeights(strategy: BotStrategy): [explore: number, economy: number] {
+  const [explore, economy] = STRATEGY_WEIGHTS[strategy];
+  const board = Math.min(MIXED_ECONOMY_CAP, (MIXED_ECONOMY_AT_ZERO - MAP_SIZE) / MIXED_ECONOMY_SLOPE);
+
+  return [explore, strategy === BotStrategy.MIXED && usesBoardWeights ? board : economy];
+}
+
+/**
  * How much each half of the game a strategy cares about, as a multiplier on that half's
  * gains: [exploring, economy]. They are not normalised and do not have to add up to
  * anything — what matters is their ratio to each other and their size against the tuning
  * constants below. Random ignores both: it does not score anything at all.
+ *
+ * Read through getWeights rather than directly, because MIXED's economy weight is not in here:
+ * it is a function of the board. See MIXED_ECONOMY_AT_ZERO.
  */
-const STRATEGY_WEIGHTS: [explore: number, economy: number][] = [
+export const STRATEGY_WEIGHTS: [explore: number, economy: number][] = [
   [0, 0], // RANDOM — unused
   [1, 0.25], // EXPLORE
   [0.25, 1], // ECONOMY
-  // Leaning towards the fog rather than balanced, and that is a finding rather than a taste:
-  // swept with `npm run bot -- --strategy=mixed --seeds=20`, every step up from 0.6 scored
-  // better than the last on nearly every board, peaking around 1.0 and falling off a cliff by
-  // 1.5. Which is the score formula showing through — what is built is multiplied by how much
-  // of the board has been seen, so seeing more is worth more than it costs, right up until
-  // there is nobody left doing any building.
-  [0.8, 0.6], // MIXED
+  // Swept with `npm run sweep` after lollipop trees began earning per rainbow, which is what
+  // made the old [0.8, 0.6] stale: with candy feeding itself, the plain `explore` bot started
+  // beating `mixed` outright on the biggest boards, and a yardstick that loses to one of the
+  // things it is measuring is no yardstick.
+  //
+  // What the sweep found, over three grids: the good region is a broad plateau defined by the
+  // *ratio*, at roughly 2 parts exploring to 1 part economy, and it is flat in overall scale
+  // once that is past about 3 — [2, 1], [3, 1.5], [4, 2] and [6, 3] all score within 2% of each
+  // other, while ratios of 4 and above fall off a cliff. So the fix was to lean harder into the
+  // fog, not to care less about money: the price constants below came out exonerated.
+  // The economy half is the entry that is ignored; it is written here as the small-board cap.
+  [2, MIXED_ECONOMY_CAP], // MIXED
 ];
 
 // PLACEHOLDER tuning. Everything is in "score points", the unit the game's own score is in,
@@ -273,7 +322,7 @@ export function getBotAction(map: GameMap, strategy: BotStrategy): BotAction | u
     income = { drops: map.drops, candy: map.candy, dropIncome: map.dropIncome, candyIncome: map.candyIncome };
   }
 
-  const action = strategy === BotStrategy.RANDOM ? pickRandom(getLegalActions(map)) : getBestAction(map, STRATEGY_WEIGHTS[strategy]);
+  const action = strategy === BotStrategy.RANDOM ? pickRandom(getLegalActions(map)) : getBestAction(map, getWeights(strategy));
   rememberGoal(action);
 
   return action;

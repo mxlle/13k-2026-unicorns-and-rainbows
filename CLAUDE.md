@@ -38,6 +38,8 @@ implementation support**. Creative decisions stay on Almut's side.
 - `npm run size` — re-report last `dist.zip` size without rebuilding
 - `npm run bot` — headless balancing runs: the dev bot plays every board with every strategy
   (see "Dev tools" below). Never shipped, never part of a build
+- `npm run sweep` — turns one bot strategy's weights over a grid and plays the whole board
+  ladder at every point of it, to find out which bot is worth measuring with (see "Dev tools")
 - `npm run typecheck` — strict `tsc` check (the vendored `small-player*.ts` are `@ts-nocheck`'d,
   typed via `src/audio/player-interface.ts`); CI runs this on every push
 - `npm run lint` — `scripts/lint-invariants.mjs` mechanically checks the size-machinery rules
@@ -87,6 +89,28 @@ re-tune are worth more in a file that never leaves the machine.
   replays one run action by action. Runs are seeded from the map seed, so they repeat exactly.
   It asserts nothing and cannot fail: read the numbers against each other and against the last
   time you ran it, never as a verdict.
+- **`npm run sweep`** (`scripts/sweep-harness.ts`) asks the question the other two cannot:
+  *which bot should we have been measuring with*. It turns one strategy's `STRATEGY_WEIGHTS`
+  entry over a grid of `[explore, economy]` pairs, plays the whole ladder at every point, and
+  prints the landscape — per board, the mean, and the winner on each board taken alone.
+  `npm run sweep -- --seeds=50`, `--size=25`, `--strategy=economy`, or a grid of your own with
+  `--explore=0.8,1,1.2 --economy=0.4,0.6`. The 5×5 is left out by default: no trees, so no
+  candy, so it cannot tell the weights apart.
+  **Re-sweep whenever the economy changes.** Those weights are the bot's belief about which
+  half of the game pays, and a change can make last week's belief false — the sign is `explore`
+  or `economy` starting to beat `mixed` outright, at which point every reading taken with
+  `mixed` is suspect. Read the grid as a landscape, not an answer: a peak one percent above a
+  broad plateau is noise, and where the cliff is matters more than where the peak is.
+  A full default grid is thousands of runs and takes a while, so it prints each combination as
+  it finishes rather than only at the end.
+  **`mixed` is the one bot whose weights are not both constants.** Its economy weight is a
+  function of the board — `(37 - width) / 16`, capped at 1.5 — because exploring is the score's
+  multiplier and how hard that is to shift depends entirely on how much board there is: a 9x9
+  reaches 90% seen whatever the bot does, a 25x25 does not. The sweep switches that off via
+  `setUsesBoardWeights(false)` and restores it afterwards, or every row would set a number
+  nothing reads and the grid would come out flat. Tune that line one board at a time
+  (`--size=17`): a grid over the whole ladder can only ever find the best *constant*, and the
+  big boards outvote the small ones in any average.
 
 **When the rules change, change the bot.** Nothing will break if you don't — it will quietly
 go on playing a game that no longer exists and hand you balancing numbers for it. After a

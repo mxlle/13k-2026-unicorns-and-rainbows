@@ -98,14 +98,18 @@ function getSpacing(count: number): number {
   return (Math.sqrt((MAP_SIZE * MAP_SIZE) / count) * SPREAD + 0.5) | 0;
 }
 
-// PLACEHOLDER score weights. The score is what the board is worth right now, not a total
+// PLACEHOLDER score weight. The score is what the board is worth right now, not a total
 // banked over the run — it is recomputed from scratch whenever anything moves, shown all
 // through the run, and whatever it reads when the last turn closes is the final score.
-// The weighting exists because the terms are on very different scales: a good board has
-// fifty-odd revealed tiles against a handful of rainbows, so counting both at one apiece
-// would make the run about walking rather than building.
-const SCORE_PER_ECONOMY = 5; // per rainbow, per unicorn found, per earning tree
-const SCORE_PER_REVEALED = 1; // per tile no longer under cloud
+//
+// It is a product rather than a sum: what the board has built is worth a hundred apiece, and
+// the share of the board no longer under cloud multiplies the lot. Exploring is therefore
+// worth nothing on its own — an empty board fully uncovered still scores nothing — and
+// building is worth only as much of itself as the player has bothered to look at. Neither
+// half of the run can be skipped for the other, which two added terms would have allowed.
+const SCORE_PER_ECONOMY = 100; // per rainbow shining, per unicorn found
+// Lollipop trees no longer score. They still earn the candy that buys unicorns, so a tree is
+// worth growing for what it leads to rather than for being there.
 export const MOVE_COST = 1; // water drops per step
 export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs one drop more than a step
 // PLACEHOLDER: what one bathtub pays into the purse every turn, come what may. It is the
@@ -717,19 +721,17 @@ export function openChest(map: GameMap, position: Position): ChestLoot | undefin
 }
 
 /**
- * What the board is worth as it stands: the economy — rainbows shining, unicorns found,
- * lollipop trees earning — plus every tile no longer under cloud. Nothing is banked, so
- * this is live all through the run and its reading when the last turn closes is the final
- * score. Because it is a snapshot rather than a total, the closing turn counts as much as
- * the opening one, and a rainbow that goes out takes its points with it.
+ * What the board has built, in parts: rainbows shining and unicorns found, a hundred apiece.
+ * Nothing is banked, so this is live all through the run and its reading when the last turn
+ * closes is the final score. Because it is a snapshot rather than a total, the closing turn
+ * counts as much as the opening one, and a rainbow that goes out takes its points with it.
  * The herd is counted the same way the fog rules count a glower: only what is out in the open.
  * Nothing hides in the fog any more, so today that is every unicorn there is.
  *
  * Returned in parts rather than as one number so the end-of-run panel can show its working,
- * and so the breakdown can never disagree with the total: getScore adds these up.
+ * and so the breakdown can never disagree with the total: getScore is built from these.
  */
 export function getScoreParts(map: GameMap): [count: number, weight: number][] {
-  const revealed = map.tiles.filter((tile) => tile.isRevealed).length;
   const herd = map.tiles.filter((tile) => tile.isRevealed && tile.living === GameObjectType.UNICORN).length;
 
   // The end-of-run panel lists these in this order and pairs them with emoji by index —
@@ -737,14 +739,24 @@ export function getScoreParts(map: GameMap): [count: number, weight: number][] {
   return [
     [map.rainbowCount, SCORE_PER_ECONOMY],
     [herd, SCORE_PER_ECONOMY],
-    [map.candyIncome, SCORE_PER_ECONOMY],
-    [revealed, SCORE_PER_REVEALED],
   ];
 }
 
-/** The parts added up — the number itself, which is all the header needs. */
+/**
+ * How much of the board is no longer under cloud, as a whole percentage — the multiplier on
+ * everything built. A percentage rather than a fraction so that the working the end-of-run
+ * panel prints is the arithmetic actually done: rounding once here and once again on the
+ * total would let the shown sum miss the shown answer by one.
+ */
+export function getExploration(map: GameMap): number {
+  return ((map.tiles.filter((tile) => tile.isRevealed).length * 100) / map.tiles.length + 0.5) | 0;
+}
+
+/** The parts added up and then scaled by how much of the board has been seen. */
 export function getScore(map: GameMap): number {
-  return getScoreParts(map).reduce((total, [count, weight]) => total + count * weight, 0);
+  const built = getScoreParts(map).reduce((total, [count, weight]) => total + count * weight, 0);
+
+  return ((built * getExploration(map)) / 100 + 0.5) | 0;
 }
 
 /**

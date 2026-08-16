@@ -25,8 +25,11 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_BATHTUB]: "Bathtub|It makes 2 💧 a turn.",
   [TranslationKey.INFO_BATHTUB_SELL]: "A new unicorn beside it costs one 🍬 per unicorn you have.",
   [TranslationKey.INFO_HINT]: "|Tap anything on the map to find out what it does.",
-  // no turn count in the text — the turn bar shows it, and it stays right when TURN_LIMIT moves
-  [TranslationKey.INFO_GOAL]: "|Build up before the turns run out. Rainbows, unicorns, 🍬 trees and cleared clouds score.",
+  // No turn count in the text — the turn bar shows it, and it stays right when TURN_LIMIT moves.
+  // The shape of the sentence is the shape of the score: two things add up, and the cloud you
+  // have cleared multiplies them. It is also the line held over the breakdown when the score is
+  // opened, so the words and the arithmetic under them say the same thing.
+  [TranslationKey.INFO_GOAL]: "|Build up before the turns run out. 🌈 and 🦄 score. Clear more ☁️ to multiply it.",
   [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
   [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
   [TranslationKey.INFO_TREE]: "Lollipop tree|Next to a rainbow it makes one 🍬 a turn. No rainbow can appear here.",

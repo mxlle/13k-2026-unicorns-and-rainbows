@@ -20,6 +20,7 @@ import {
   endTurn,
   getBuild,
   getCandyPrice,
+  getExploration,
   getMoveCost,
   getMoveTargets,
   getPortalTarget,
@@ -61,15 +62,10 @@ const EMPTY_EMOJI = "🌾";
 // board, which is what ties the row to the thing it counts.
 const EXPLORE_EMOJI = FOG_EMOJI;
 const CANDY_EMOJI = "🍬";
-// One per scoring category, in the order getScoreParts returns them: rainbows shining,
-// unicorns found, lollipop trees earning, and ground no longer under cloud. Declared after
-// EMPTY_EMOJI on purpose — reading it earlier would be a dead-zone crash at module load.
-const SCORE_EMOJIS = [
-  OBJECT_CONFIG[GameObjectType.RAINBOW].emoji,
-  OBJECT_CONFIG[GameObjectType.UNICORN].emoji,
-  OBJECT_CONFIG[GameObjectType.TREE].emoji,
-  EXPLORE_EMOJI,
-];
+// One per scoring category, in the order getScoreParts returns them: rainbows shining and
+// unicorns found. Exploration is not in here — it multiplies the two rather than joining
+// them, so the panel gives it a line of its own.
+const SCORE_EMOJIS = [OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, OBJECT_CONFIG[GameObjectType.UNICORN].emoji];
 const WIN_EMOJI = "🎉";
 const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
 // PLACEHOLDER zoom steps, as multiples of "the whole board fits in the view". Expressing
@@ -555,14 +551,19 @@ export function GameMapComponent(
    * beside it must not be rendered in the emoji font.
    */
   function renderScoreBoard(show: boolean) {
+    // One row per built thing, then the exploration row, which is where the total lands: it
+    // reads "× 49% = 245" precisely because it is a multiplier on the rows above rather than
+    // another of them. Written with the same line-building as the others so the three sit in
+    // the panel's grid as one list.
+    const line = (emoji: string, text: string) =>
+      createElement({}, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }), text]);
+
     scoreBoard.replaceChildren(
       ...(show
-        ? getScoreParts(map).map(([count, weight], index) =>
-            createElement({}, [
-              createElement({ tag: "span", cssClass: CssClass.EMOJI, text: SCORE_EMOJIS[index] }),
-              ` ${count} × ${weight} = ${count * weight}`,
-            ]),
-          )
+        ? [
+            ...getScoreParts(map).map(([count, weight], index) => line(SCORE_EMOJIS[index], ` ${count} × ${weight} = ${count * weight}`)),
+            line(EXPLORE_EMOJI, ` × ${getExploration(map)}% = ${getScore(map)}`),
+          ]
         : []),
     );
   }

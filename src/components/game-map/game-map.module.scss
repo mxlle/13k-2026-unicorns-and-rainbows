@@ -240,14 +240,15 @@ $win-hop-height: 2rem;
   font-size: 1.1rem;
 }
 
-// The score's working: one entry per category, in a 2x2 grid so four of them cost two lines
-// rather than four — the panel is opened over a live board mid-run, and every line it takes
-// is height the map row gives up. While it is empty it takes no room at all, so a run with
-// the working closed keeps the info row at exactly its old height.
+// The score's working: one entry per line, stacked. It used to be a 2x2 grid, back when there
+// were four addends and pairing them up halved the height. There are three entries now and the
+// last one is a multiplier on the two above it, so they have to be read in order — which a
+// grid that wraps them two-abreast actively works against. The single implicit column is what
+// a grid gives with no columns declared. While it is empty it takes no room at all, so a run
+// with the working closed keeps the info row at exactly its old height.
 .scoreBoard {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.1rem 0.8rem;
+  gap: 0.1rem;
   margin-top: 0.4rem;
   line-height: 1.4;
 

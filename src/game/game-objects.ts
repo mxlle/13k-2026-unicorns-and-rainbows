@@ -21,13 +21,43 @@ export const GameObjectType = defineEnum({
   DONUT: 5,
   FLOWER: 6,
   CHEST: 7,
-  // The three build sites. They must stay last and stay consecutive: the build table is
-  // indexed by "site type less the first site", which is what makes it a three-entry array
-  // instead of a lookup with holes in it where the real objects are.
+  // The three build sites. They must stay consecutive: the build table is indexed by "site
+  // type less the first site", which is what makes it a three-entry array instead of a lookup
+  // with holes in it where the real objects are. Anything numbered past them falls off the end
+  // of that table and comes back undefined, which is exactly what the dark things below want.
   TUB_SITE: 8,
   FOUNTAIN_SITE: 9,
   TREE_SITE: 10,
+  // The opponent's own things, and they must stay last. Which side owns a thing is read off
+  // the enum — "at or past the first dark one" (see getSide) — so a side is a comparison
+  // rather than a field carried by every tile on the board. It is also why there is no
+  // DARK_TREE or DARK_FOUNTAIN: those are scenery both sides use, and only the three things
+  // that can *belong* to somebody are doubled.
+  DARK_UNICORN: 11,
+  DARK_RAINBOW: 12,
+  DARK_BATHTUB: 13,
 });
+
+/**
+ * Who a thing belongs to. Two sides: the player, and the opponent that turns up on the big
+ * boards. It is a number rather than a defineEnum enum because it indexes the tables below
+ * and every per-side count on the map — arithmetic, not a set of names.
+ */
+export type Side = 0 | 1;
+export const PLAYER: Side = 0;
+export const RIVAL: Side = 1;
+
+/** Whose thing this is — the whole of ownership, and it costs no storage anywhere. */
+export function getSide(objectType: GameObjectType): Side {
+  return objectType >= GameObjectType.DARK_UNICORN ? RIVAL : PLAYER;
+}
+
+// The three doubled things, indexed by side: "a unicorn of this side", "a rainbow of this
+// side", "a bathtub of this side". Everything that used to name one of them by its type now
+// looks it up here instead, which is what keeps the two sides one piece of code.
+export const SIDE_UNICORN: GameObjectType[] = [GameObjectType.UNICORN, GameObjectType.DARK_UNICORN];
+export const SIDE_RAINBOW: GameObjectType[] = [GameObjectType.RAINBOW, GameObjectType.DARK_RAINBOW];
+export const SIDE_BATHTUB: GameObjectType[] = [GameObjectType.BATHTUB, GameObjectType.DARK_BATHTUB];
 
 // What a chest turns out to have been holding. DROPS and CANDY are deliberately numbered to
 // match the two currency indices the interface already sorts everything by — the emoji that
@@ -157,5 +187,34 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
     blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_FLOWER,
+  },
+  // The opponent's three. They are the player's three in every respect that the rules read —
+  // the dark unicorn glows and blocks exactly as a unicorn does, the dark rainbow lies on the
+  // ground exactly as a rainbow does — and differ only in who they score for and in being
+  // drawn inverted (see .dark in the stylesheet). PLACEHOLDER art: the same emoji through a
+  // CSS `invert`, which costs no bytes and reads as the negative of the thing it is racing.
+  [GameObjectType.DARK_UNICORN]: {
+    emoji: "🦄",
+    category: ObjectCategory.LIVING,
+    blocksMove: true,
+    blocksVision: false,
+    glows: true,
+    info: TranslationKey.INFO_RIVAL,
+  },
+  [GameObjectType.DARK_RAINBOW]: {
+    emoji: "🌈",
+    category: ObjectCategory.GOAL,
+    blocksMove: false,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_DARK_RAINBOW,
+  },
+  [GameObjectType.DARK_BATHTUB]: {
+    emoji: "🛁",
+    category: ObjectCategory.STATIC,
+    blocksMove: true,
+    blocksVision: false,
+    glows: false,
+    info: TranslationKey.INFO_BATHTUB,
   },
 };

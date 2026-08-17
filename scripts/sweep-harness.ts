@@ -1,15 +1,16 @@
-import { createGameMap, getExploration, getScore, isRunOver, MAP_SIZES } from "../src/game/game-map";
-import { GameObjectType } from "../src/game/game-objects";
+import { createGameMap, getExploration, getScore, isRunOver, MAP_SIZES, nextTurn, setRivalEnabled } from "../src/game/game-map";
+import { PLAYER, SIDE_UNICORN } from "../src/game/game-objects";
 import {
   applyBotAction,
   BOT_STRATEGIES,
   BOT_STRATEGY_NAMES,
+  BotActionKind,
   BotStrategy,
   getBotAction,
   resetBot,
   setUsesBoardWeights,
   STRATEGY_WEIGHTS,
-} from "../src/dev/bot";
+} from "../src/game/bot";
 
 /**
  * The third of the bot's three faces — `npm run sweep`. The ▶ button shows what a bot does
@@ -73,17 +74,26 @@ function play(size: number, seed: number) {
   resetBot(seed); // so the same board played by the same bot plays out the same way twice
   let actions = 0;
 
-  while (!isRunOver(map) && actions++ < MAX_ACTIONS) {
-    const action = getBotAction(map, STRATEGY);
-    if (!action) break;
-    applyBotAction(map, action);
+  // One side only — the opponent is switched off for the whole sweep (see setRivalEnabled
+  // below) — but the turn boundary is the game's own: the bot plays until it has nothing
+  // worth doing, and the clock moves on after that.
+  while (!isRunOver(map) && actions < MAX_ACTIONS) {
+    for (;;) {
+      const action = getBotAction(map, STRATEGY, PLAYER);
+      if (!action) break;
+      actions++;
+      applyBotAction(map, action, PLAYER);
+      if (action.kind === BotActionKind.END_TURN || actions >= MAX_ACTIONS) break;
+    }
+
+    nextTurn(map);
   }
 
   return {
-    score: getScore(map),
-    explored: getExploration(map),
-    herd: map.tiles.filter((tile) => tile.living === GameObjectType.UNICORN).length,
-    drops: map.drops,
+    score: getScore(map, PLAYER),
+    explored: getExploration(map, PLAYER),
+    herd: map.tiles.filter((tile) => tile.living === SIDE_UNICORN[PLAYER]).length,
+    drops: map.drops[PLAYER],
   };
 }
 
@@ -101,6 +111,11 @@ const rows: Row[] = [];
 // cannot report. Sweep one board at a time when tuning that line: the weight is a function of
 // the width, so a grid over the whole ladder can only ever find the best *constant*.
 setUsesBoardWeights(false);
+// And the opponent off, for a related reason: what this grid compares is one set of weights
+// against another *on the same board*, and an opponent that turns up on 21x21 and 25x25 and
+// nowhere else would put a different game under two of the seven rungs. Whether a set of
+// weights wins a race is a real question, but it is `npm run bot`'s question, not this one.
+setRivalEnabled(false);
 
 console.log(
   `\nsweeping ${BOT_STRATEGY_NAMES[STRATEGY]} · ${EXPLORE.length}x${ECONOMY.length} grid · ` +

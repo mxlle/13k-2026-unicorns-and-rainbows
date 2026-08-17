@@ -19,6 +19,7 @@ import {
   getSpawnTargets,
   getTile,
   isRunOver,
+  isSeen,
   MAP_SIZE,
   moveCharacter,
   openChest,
@@ -27,19 +28,26 @@ import {
   revealAround,
   TURN_LIMIT,
   updateRainbows,
-} from "../game/game-map";
-import { GameObjectType, OBJECT_CONFIG } from "../game/game-objects";
+} from "./game-map";
+import { GameObjectType, OBJECT_CONFIG, Side, SIDE_BATHTUB, SIDE_RAINBOW, SIDE_UNICORN } from "./game-objects";
 
 /**
- * A bot that plays the game, for balancing rather than for shipping. It lives under src/dev
- * and is only ever reached from behind HAS_DEV_TOOLS, so it is dropped from every build that
- * is not the dev server — which is also why nothing in here is byte-golfed: clarity and being
- * easy to re-tune are worth more than compression to a file that never leaves the machine.
+ * A bot that plays the game. It has two jobs, and they are the same code:
  *
- * It plays *fairly*: every judgement below is made from what the player can see. The one
- * exception is which tiles can be stepped onto, and that is not an exception at all — a
- * fogged tile hiding a fountain is not offered as a step by the interface either, so a
- * player reading the highlights knows exactly as much as the bot does here.
+ *  - the **opponent** on the big boards, behind HAS_OPPONENT — the dark unicorn playing its
+ *    own turn between the player's, on its own purse, its own fog and its own score;
+ *  - the **balancing tool** it started life as, behind HAS_DEV_TOOLS — the ▶ / ⏩ buttons in
+ *    the dev corner, `npm run bot` and `npm run sweep`.
+ *
+ * That is why it moved out of src/dev: it ships now, in any build with an opponent in it. It
+ * is still not byte-golfed, because the same clarity that makes it re-tunable is what makes
+ * an opponent's behaviour arguable — but it is no longer free, and `npm run build-js13k` is
+ * the check on what it costs.
+ *
+ * It plays *fairly*: every judgement below is made from what its own side can see, off its
+ * own fog. The one exception is which tiles can be stepped onto, and that is not an exception
+ * at all — a fogged tile hiding a fountain is not offered as a step by the interface either,
+ * so a player reading the highlights knows exactly as much as the bot does here.
  *
  * The shape of a decision is a one-ply greedy search over four kinds of thing the bot can
  * do — raise a building, buy a unicorn, take a step, end the turn — scored in one currency
@@ -50,14 +58,21 @@ import { GameObjectType, OBJECT_CONFIG } from "../game/game-objects";
  * set off across the board towards something rather than sniff around its own eight
  * neighbours — and the whole action is one step, so it is re-decided after every one.
  *
+ * Nothing in here knows about the *other* side as a rival. It plays its own board, and the
+ * competition is entirely in the board itself: a tile the other herd is standing on cannot be
+ * stepped onto or lit, a site the other side has raised is spent, and a fountain whose good
+ * side already holds somebody else's rainbow is worth less. That is enough — and it is the
+ * honest kind of enough, since it is exactly what a player can see too.
+ *
  * Every number in the tuning block is a placeholder in the CLAUDE.md sense — the point of
  * the tool is that they get turned. What they encode is what the bot *believes* the game is
  * worth, so a bot that plays badly is as interesting a result as one that plays well.
  */
 
-// The four bots on offer. A plain object rather than defineEnum: this file never reaches a
-// production build, and a defineEnum enum would have to be registered in vite.config.ts,
-// which would pull a dev-only module into the build config for nothing.
+// The four bots on offer. Still a plain object rather than defineEnum even though this file
+// ships now: only MIXED reaches a real build — it is the opponent's strategy and the only one
+// named outside HAS_DEV_TOOLS — so the object folds to the one number that is actually read,
+// and registering an enum in vite.config.ts would buy nothing.
 export const BotStrategy = { RANDOM: 0, EXPLORE: 1, ECONOMY: 2, MIXED: 3 } as const;
 export type BotStrategy = (typeof BotStrategy)[keyof typeof BotStrategy];
 
@@ -276,7 +291,11 @@ const goals = new Map<number, number>();
  * the game, and it is what finally stopped the pacing.
  */
 const trails = new Map<number, number[]>();
-let lastTurn = 0;
+// Both maps above are keyed by tile index and a tile holds one unicorn, so the two sides
+// cannot collide in them however many herds are walking about — no per-side keying needed.
+// These two are a different matter: they are per *side*, because each side's turn begins at a
+// different moment and its board earns a different amount.
+const lastTurn = [0, 0];
 /**
  * What the board could pay with when the turn began: the purse, the jar, and what the two
  * incomes were paying. Whether a building is worth caring about is judged against this rather
@@ -291,13 +310,13 @@ let lastTurn = 0;
  * What the board earns is a fact about the turn, not about the step, and reading it once a
  * turn is both truer and unshakeable.
  */
-let income = { drops: 0, candy: 0, dropIncome: 0, candyIncome: 0 };
+const income = [0, 1].map(() => ({ drops: 0, candy: 0, dropIncome: 0, candyIncome: 0 }));
 
 export function resetBot(seed: number) {
   botState = ((Math.imul(seed, 2654435761) >>> 0) % (MODULUS - 1)) + 1;
   goals.clear(); // a new board, and nobody on it is on their way anywhere
   trails.clear();
-  lastTurn = 0; // so the first decision of the run reads the board's income afresh
+  lastTurn[0] = lastTurn[1] = 0; // so each side's first decision reads the board's income afresh
 }
 
 function botRandom(): number {
@@ -315,18 +334,20 @@ function pickRandom<T>(items: T[]): T {
  * the caller carries the action out through the same paths a tap goes through, so the bot
  * can only ever do things a player could have done, and it sees the same animations.
  */
-export function getBotAction(map: GameMap, strategy: BotStrategy): BotAction | undefined {
+export function getBotAction(map: GameMap, strategy: BotStrategy, side: Side): BotAction | undefined {
   if (isRunOver(map)) return undefined;
 
-  // A new turn: the board has paid out, everybody may think again about where they have been,
-  // and what the board earns is read afresh.
-  if (map.turn !== lastTurn) {
-    lastTurn = map.turn;
-    trails.clear();
-    income = { drops: map.drops, candy: map.candy, dropIncome: map.dropIncome, candyIncome: map.candyIncome };
+  // A new turn for this side: the board has paid it out, everybody may think again about where
+  // they have been, and what the board earns is read afresh. Per side, because the two sides'
+  // turns begin at different moments and the trail a unicorn is forbidden to head back to is
+  // forgotten at *its own* turn boundary.
+  if (map.turn !== lastTurn[side]) {
+    lastTurn[side] = map.turn;
+    getUnicorns(map, side).forEach((position) => trails.delete(getIndex(position)));
+    income[side] = { drops: map.drops[side], candy: map.candy[side], dropIncome: map.dropIncome[side], candyIncome: map.candyIncome[side] };
   }
 
-  const action = strategy === BotStrategy.RANDOM ? pickRandom(getLegalActions(map)) : getBestAction(map, getWeights(strategy));
+  const action = strategy === BotStrategy.RANDOM ? pickRandom(getLegalActions(map, side)) : getBestAction(map, getWeights(strategy), side);
   rememberGoal(action);
 
   return action;
@@ -368,24 +389,24 @@ function rememberGoal({ kind, from, to, goal }: BotAction) {
  * taken out — if those change, change this, and if a new kind of action is added it has to
  * be added in both.
  */
-export function applyBotAction(map: GameMap, action: BotAction) {
-  if (action.kind === BotActionKind.END_TURN) return endTurn(map);
-  if (action.kind === BotActionKind.BUILD) return build(map, action.from!);
-  if (action.kind === BotActionKind.BUY) return buyUnicorn(map, action.to!);
+export function applyBotAction(map: GameMap, action: BotAction, side: Side) {
+  if (action.kind === BotActionKind.END_TURN) return endTurn(map, side);
+  if (action.kind === BotActionKind.BUILD) return build(map, action.from!, side);
+  if (action.kind === BotActionKind.BUY) return buyUnicorn(map, action.to!, side);
 
-  map.drops -= action.kind === BotActionKind.PORTAL ? PORTAL_COST : getMoveCost(map, action.to!);
+  map.drops[side] -= action.kind === BotActionKind.PORTAL ? PORTAL_COST : getMoveCost(map, action.to!, side);
   moveCharacter(map, action.from!, action.to!);
-  openChest(map, action.to!); // before the fog and the light: a present can hold a unicorn
-  revealAround(map, action.to!);
+  openChest(map, action.to!, side); // before the fog and the light: a present can hold a unicorn
+  revealAround(map, action.to!, side);
   updateRainbows(map);
 }
 
-/** Where the herd is — only the ones out in the open, which today is all of them. */
-function getUnicorns(map: GameMap): Position[] {
+/** Where this side's herd is — only the ones out in its own open, which today is all of them. */
+function getUnicorns(map: GameMap, side: Side): Position[] {
   const positions: Position[] = [];
 
   map.tiles.forEach((tile, index) => {
-    if (tile.isRevealed && tile.living === GameObjectType.UNICORN) positions.push(getPosition(index));
+    if (tile.living === SIDE_UNICORN[side] && isSeen(tile, side)) positions.push(getPosition(index));
   });
 
   return positions;
@@ -398,13 +419,16 @@ function getUnicorns(map: GameMap): Position[] {
  * it once that unicorn has walked off, which is a different question from whether it has one
  * now, and it is the difference between the bot staying put and pacing back and forth.
  */
-function hasUnicornNeighbour(map: GameMap, { x, y }: Position, ignore?: Position): boolean {
+function hasUnicornNeighbour(map: GameMap, { x, y }: Position, side: Side, ignore?: Position): boolean {
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       const position = { x: x + dx, y: y + dy };
       const isIgnored = ignore && ignore.x === position.x && ignore.y === position.y;
 
-      if ((dx || dy) && !isIgnored && getTile(map, position)?.living !== undefined) return true;
+      // One of *ours*, matching the game's own build condition: the other side's unicorn
+      // standing beside a site does not raise it for us, so a bot that counted it would sit
+      // waiting for a build that nobody was ever going to make.
+      if ((dx || dy) && !isIgnored && getTile(map, position)?.living === SIDE_UNICORN[side]) return true;
     }
   }
 
@@ -416,30 +440,32 @@ function hasUnicornNeighbour(map: GameMap, { x, y }: Position, ignore?: Position
  * bot's whole decision — and the definition of "legal" the scoring bot is held to, since
  * every candidate it invents has to be one of these.
  */
-function getLegalActions(map: GameMap): BotAction[] {
+function getLegalActions(map: GameMap, side: Side): BotAction[] {
   const actions: BotAction[] = [{ kind: BotActionKind.END_TURN, value: 0, label: "end turn" }];
 
-  getUnicorns(map).forEach((from) => {
+  getUnicorns(map, side).forEach((from) => {
     getMoveTargets(map, from)
-      .filter((to) => getMoveCost(map, to) <= map.drops)
+      .filter((to) => getMoveCost(map, to, side) <= map.drops[side])
       .forEach((to) => actions.push({ kind: BotActionKind.MOVE, from, to, value: 0, label: `step to ${say(to)}` }));
 
     // One action per far donut: a board with four of them offers three jumps from any one.
-    getPortalTargets(map, from)
-      .filter((to) => canUsePortal(map, to))
+    getPortalTargets(map, from, side)
+      .filter((to) => canUsePortal(map, to, side))
       .forEach((to) => actions.push({ kind: BotActionKind.PORTAL, from, to, value: 0, label: `jump to ${say(to)}` }));
   });
 
   map.tiles.forEach((tile, index) => {
-    if (!tile.isRevealed) return;
+    if (!isSeen(tile, side)) return;
     const position = getPosition(index);
 
-    if (tile.object === GameObjectType.BATHTUB)
+    // Our own tub only — the other side's sells to the other side, and its fields are priced
+    // against a jar we do not hold.
+    if (tile.object === SIDE_BATHTUB[side])
       getSpawnTargets(map, position).forEach((to) =>
         actions.push({ kind: BotActionKind.BUY, from: position, to, value: 0, label: "buy a unicorn" }),
       );
 
-    if (getBuild(tile.object) && canBuild(map, position))
+    if (getBuild(tile.object) && canBuild(map, position, side))
       actions.push({ kind: BotActionKind.BUILD, from: position, value: 0, label: `build on ${say(position)}` });
   });
 
@@ -461,20 +487,23 @@ function say({ x, y }: Position): string {
  * for one it cannot see. The lit count is an over-estimate where two unicorns are lighting
  * the same rainbow between them, which is rare enough to leave alone.
  */
-function getRainbows(map: GameMap, { x, y }: Position, lit: boolean): Position[] {
+function getRainbows(map: GameMap, { x, y }: Position, lit: boolean, side: Side): Position[] {
   const rainbows: Position[] = [];
 
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       const fountain = getTile(map, { x: x + dx, y: y + dy });
-      if ((!dx && !dy) || !fountain?.isRevealed || fountain.object !== GameObjectType.FOUNTAIN) continue;
+      if ((!dx && !dy) || !isSeen(fountain, side) || fountain!.object !== GameObjectType.FOUNTAIN) continue;
 
       const position = { x: x + 2 * dx, y: y + 2 * dy };
       const target = getTile(map, position);
       if (!target) continue;
 
-      if (lit ? target.object === GameObjectType.RAINBOW : target.object === undefined && target.living === undefined)
-        rainbows.push(position);
+      // Only ours count as lit, and only a genuinely *empty* tile counts as lightable — which
+      // is where the whole contest over a fountain lands in the value model without a word
+      // about the opponent. A side of a fountain already holding somebody else's rainbow is
+      // occupied ground: walking there buys nothing, so the bot goes elsewhere.
+      if (lit ? target.object === SIDE_RAINBOW[side] : target.object === undefined && target.living === undefined) rainbows.push(position);
     }
   }
 
@@ -487,24 +516,25 @@ function getRainbows(map: GameMap, { x, y }: Position, lit: boolean): Position[]
  * Since a tree now earns per rainbow, that is a real difference between one rainbow and the
  * next, and the whole reason the rainbows are carried around as positions rather than counted.
  */
-function hasTreeBeside(map: GameMap, { x, y }: Position): boolean {
+function hasTreeBeside(map: GameMap, { x, y }: Position, side: Side): boolean {
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       const tile = getTile(map, { x: x + dx, y: y + dy });
-      if ((dx || dy) && tile?.isRevealed && tile.object === GameObjectType.TREE) return true;
+      if ((dx || dy) && isSeen(tile, side) && tile!.object === GameObjectType.TREE) return true;
     }
   }
 
   return false;
 }
 
-/** How much of the fog a character standing here would lift — its own tile included. */
-function countFog(map: GameMap, { x, y }: Position): number {
+/** How much of this side's own fog a character standing here would lift — its own tile included. */
+function countFog(map: GameMap, { x, y }: Position, side: Side): number {
   let count = 0;
 
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
-      if (getTile(map, { x: x + dx, y: y + dy })?.isRevealed === false) count++;
+      const tile = getTile(map, { x: x + dx, y: y + dy });
+      if (tile && !isSeen(tile, side)) count++;
     }
   }
 
@@ -551,7 +581,7 @@ function canStand(map: GameMap, position: Position): boolean {
  * rainbows is worth two, not two plus its fountains — because the fountain term is a promise
  * and the rainbow term is a fact.
  */
-function countFeeding(map: GameMap, { x, y }: Position): number {
+function countFeeding(map: GameMap, { x, y }: Position, side: Side): number {
   let rainbows = 0;
   let fountains = 0;
 
@@ -559,7 +589,10 @@ function countFeeding(map: GameMap, { x, y }: Position): number {
     for (let dx = -1; dx <= 1; dx++) {
       const object = getTile(map, { x: x + dx, y: y + dy })?.object;
       if (!dx && !dy) continue;
-      if (object === GameObjectType.RAINBOW) rainbows++;
+      // Ours only: the tree is neutral and would happily earn off the other side's light, but
+      // it would be earning for *them*. A seedling whose only neighbour is a dark rainbow is
+      // a tree that pays somebody else, which is worth nothing to grow.
+      if (object === SIDE_RAINBOW[side]) rainbows++;
       else if (object === GameObjectType.FOUNTAIN || object === GameObjectType.FOUNTAIN_SITE) fountains++;
     }
   }
@@ -581,7 +614,7 @@ function countFeeding(map: GameMap, { x, y }: Position): number {
  * A plain scan for the cheapest open tile rather than a heap: the board tops out at 625
  * tiles and this is a dev tool.
  */
-function getReach(map: GameMap, start: Position) {
+function getReach(map: GameMap, start: Position, side: Side) {
   const size = MAP_SIZE * MAP_SIZE;
   const cost = Array<number>(size).fill(Infinity);
   const first = Array<number>(size).fill(-1);
@@ -613,13 +646,13 @@ function getReach(map: GameMap, start: Position) {
       viaPortal[index] = current === startIndex ? isPortal : viaPortal[current];
     };
 
-    getMoveTargets(map, position).forEach((target) => step(target, getMoveCost(map, target), false));
+    getMoveTargets(map, position).forEach((target) => step(target, getMoveCost(map, target, side), false));
 
     // Every donut is an edge like any other, so a goal on the far side of the board comes out
     // cheap the moment the bot is standing on one — which is exactly what they are for. With
     // three or four of them the edges chain, and the search walks a route through the network
     // for nothing: this runs at every tile it settles, not only at the start.
-    getPortalTargets(map, position).forEach((target) => {
+    getPortalTargets(map, position, side).forEach((target) => {
       if (getTile(map, target)!.living === undefined) step(target, PORTAL_COST, true);
     });
   }
@@ -635,7 +668,7 @@ function getReach(map: GameMap, start: Position) {
  * put are compared as the two things they are, and a unicorn holding a rainbow up needs a
  * good reason to stop.
  */
-function getBestAction(map: GameMap, [explore, economy]: [explore: number, economy: number]): BotAction {
+function getBestAction(map: GameMap, [explore, economy]: [explore: number, economy: number], side: Side): BotAction {
   // Every payout still to come. endTurn pays on every turn but the last, so this is exactly
   // how many times a stream of income will actually be paid.
   const turnsLeft = TURN_LIMIT - map.turn;
@@ -643,7 +676,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // the game now states directly: each is worth one point per percent of the board uncovered.
   // The same number as before the score was rewritten — the two forms agree exactly — so
   // every tuning constant below is still in the units it was tuned in.
-  const thingValue = getExploration(map);
+  const thingValue = getExploration(map, side);
   const rainbowValue = thingValue + turnsLeft * DROP_VALUE; // it scores, and it pays a drop a turn
   const unicornValue = thingValue + UNICORN_POTENTIAL;
   // What a price actually costs the run, which is not what it costs the purse: money left
@@ -666,7 +699,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    * That is the whole reason the rainbows are carried around as positions.
    */
   const getRainbowsValue = (rainbows: Position[]) =>
-    rainbows.reduce((total, rainbow) => total + rainbowValue + (hasTreeBeside(map, rainbow) ? turnsLeft * CANDY_VALUE : 0), 0);
+    rainbows.reduce((total, rainbow) => total + rainbowValue + (hasTreeBeside(map, rainbow, side) ? turnsLeft * CANDY_VALUE : 0), 0);
 
   /**
    * What raising a site is worth, already carrying its own strategy weight — the tub is the
@@ -676,13 +709,13 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    */
   const getBuildValue = (objectType: GameObjectType, position: Position) => {
     if (objectType === GameObjectType.TUB_SITE)
-      return economy * (turnsLeft * BASE_INCOME * DROP_VALUE + TUB_UNICORN_VALUE) + explore * countFog(map, position) * TILE_VALUE;
+      return economy * (turnsLeft * BASE_INCOME * DROP_VALUE + TUB_UNICORN_VALUE) + explore * countFog(map, position, side) * TILE_VALUE;
     if (objectType === GameObjectType.FOUNTAIN_SITE) return economy * (hasRainbowSpot(map, position) ? rainbowValue : 0);
 
     // A lollipop tree: one sweet a turn per rainbow it catches, so a spot that would catch two
     // is worth twice a spot that would catch one, and a spot with no light at all is worth
     // nothing at any price.
-    return economy * turnsLeft * CANDY_VALUE * countFeeding(map, position);
+    return economy * turnsLeft * CANDY_VALUE * countFeeding(map, position, side);
   };
 
   /**
@@ -694,7 +727,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    * See `income`.
    */
   const isAffordable = (dropCost: number, candyCost: number, turns: number) =>
-    income.drops + income.dropIncome * turns >= dropCost && income.candy + income.candyIncome * turns >= candyCost;
+    income[side].drops + income[side].dropIncome * turns >= dropCost && income[side].candy + income[side].candyIncome * turns >= candyCost;
 
   const candidates: BotAction[] = [];
 
@@ -703,7 +736,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   let reserve = 0;
 
   map.tiles.forEach((tile, index) => {
-    if (!tile.isRevealed) return;
+    if (!isSeen(tile, side)) return;
     const position = getPosition(index);
     const build = getBuild(tile.object);
 
@@ -712,7 +745,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
       const gain = getBuildValue(tile.object!, position); // already weighted — see getBuildValue
       const value = gain - dropCost * dropPrice - candyCost * candyPrice;
 
-      if (canBuild(map, position)) {
+      if (canBuild(map, position, side)) {
         if (value > 0)
           candidates.push({
             kind: BotActionKind.BUILD,
@@ -726,21 +759,23 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
         // them away. Only the drops: a building waiting on sweets is not delayed by steps.
         value > 0 &&
         dropCost > reserve &&
-        hasUnicornNeighbour(map, position) &&
+        hasUnicornNeighbour(map, position, side) &&
         isAffordable(dropCost, candyCost, RESERVE_PATIENCE)
       ) {
         reserve = dropCost;
       }
     }
 
-    if (tile.object === GameObjectType.BATHTUB) {
-      const price = getUnicornPrice(map);
+    if (tile.object === SIDE_BATHTUB[side]) {
+      const price = getUnicornPrice(map, side);
 
       getSpawnTargets(map, position).forEach((to) => {
         // Where the newcomer is put matters as much as buying it: a field with fog around it
         // or a fountain beside it is worth more than the next one along.
         const gain =
-          unicornWeight * unicornValue + explore * countFog(map, to) * TILE_VALUE + economy * getRainbowsValue(getRainbows(map, to, false));
+          unicornWeight * unicornValue +
+          explore * countFog(map, to, side) * TILE_VALUE +
+          economy * getRainbowsValue(getRainbows(map, to, false, side));
         const value = gain - price * candyPrice;
 
         if (value > 0)
@@ -763,14 +798,14 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    * for the rest of the run.
    */
   const getStandingValue = (position: Position, lit: boolean, ignore: Position) => {
-    let value = economy * getRainbowsValue(getRainbows(map, position, lit));
+    let value = economy * getRainbowsValue(getRainbows(map, position, lit, side));
 
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
         const site = { x: position.x + dx, y: position.y + dy };
         const build = getBuild(getTile(map, site)?.object);
 
-        if ((!dx && !dy) || !build || !getTile(map, site)!.isRevealed || hasUnicornNeighbour(map, site, ignore)) continue;
+        if ((!dx && !dy) || !build || !isSeen(getTile(map, site), side) || hasUnicornNeighbour(map, site, side, ignore)) continue;
         // Only sites the run can still pay for. One it cannot is not worth walking to, and
         // is certainly not worth standing next to for the rest of the game.
         if (isAffordable(build[1], build[2], turnsLeft)) value += getBuildValue(getTile(map, site)!.object!, site);
@@ -783,17 +818,17 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   /** What walking to a tile is worth: the fog it lifts, what is lying on it, what it posts a unicorn to. */
   const getGoalGain = (position: Position, from: Position) => {
     const tile = getTile(map, position)!;
-    let gain = explore * countFog(map, position) * TILE_VALUE + getStandingValue(position, false, from);
+    let gain = explore * countFog(map, position, side) * TILE_VALUE + getStandingValue(position, false, from);
 
     // A present is worth walking to whichever bot is playing: it is drops, sweets or a whole
     // unicorn, and every one of those is worth having.
-    if (tile.isRevealed && tile.object === GameObjectType.CHEST) gain += unicornWeight * chestValue;
+    if (isSeen(tile, side) && tile.object === GameObjectType.CHEST) gain += unicornWeight * chestValue;
 
     return gain;
   };
 
-  getUnicorns(map).forEach((from) => {
-    const { cost, first, viaPortal } = getReach(map, from);
+  getUnicorns(map, side).forEach((from) => {
+    const { cost, first, viaPortal } = getReach(map, from, side);
     const fromIndex = getIndex(from);
     const committed = goals.get(fromIndex); // where this one was already headed, if anywhere
     const walked = trails.get(fromIndex); // and everywhere it has been since the turn began
@@ -812,18 +847,18 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
 
       const to = getPosition(first[index]);
       const isPortal = viaPortal[index];
-      const stepCost = isPortal ? PORTAL_COST : getMoveCost(map, to);
+      const stepCost = isPortal ? PORTAL_COST : getMoveCost(map, to, side);
 
       // The step has to be one the interface would actually offer: paid for, and — for a
       // jump — with nobody standing on the far donut.
-      if (stepCost > map.drops || (isPortal && !canUsePortal(map, to))) return;
+      if (stepCost > map.drops[side] || (isPortal && !canUsePortal(map, to, side))) return;
       // And the walk has to be one the purse can actually finish. A goal further off than
       // there are drops to reach it is not a plan, it is a wish — and it was the source of
       // the bot's silliest habit: with an empty purse the only affordable step is a free one
       // over a flower, so it would shuffle on and off the flower "on its way" to something it
       // could not have reached in a hundred turns. Anything out of reach is simply not
       // considered; next turn the board pays out and it may well be in reach then.
-      if (cost[index] > map.drops) return;
+      if (cost[index] > map.drops[side]) return;
       // Drops that are spoken for by a building are not available for walking — but only the
       // ones that are actually needed. What this used to say was "while anything is being
       // saved for, no step may cost anything", which froze a unicorn standing beside a site
@@ -831,7 +866,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
       // forty drops, could not spend one of them, and shuffled on and off the flower next to
       // it until the turn ended. A step is fine as long as it leaves the building's water in
       // the purse; a free one over a flower is fine regardless.
-      if (stepCost && map.drops - stepCost < reserve) return;
+      if (stepCost && map.drops[side] - stepCost < reserve) return;
 
       const value = getGoalGain(getPosition(index), from) * DISTANCE_DISCOUNT ** cost[index] - leaving;
 

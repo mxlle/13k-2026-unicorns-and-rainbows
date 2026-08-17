@@ -1,6 +1,27 @@
 import { setSeed } from "../utils/random-utils";
 import { getRandomItem } from "../utils/array-utils";
-import { ChestLoot, GameObjectType, ObjectCategory, OBJECT_CONFIG } from "./game-objects";
+import {
+  ChestLoot,
+  GameObjectType,
+  getSide,
+  ObjectCategory,
+  OBJECT_CONFIG,
+  PLAYER,
+  RIVAL,
+  Side,
+  SIDE_BATHTUB,
+  SIDE_RAINBOW,
+  SIDE_UNICORN,
+} from "./game-objects";
+import { HAS_OPPONENT } from "../env-utils";
+
+/**
+ * The sides there are to iterate over in *this build*. Written against the compile-time flag
+ * rather than as a constant pair, so a build without the opponent folds it to a one-element
+ * list: every per-side loop below then runs once and costs what the single-sided version used
+ * to, instead of doing everything twice for a player who does not exist.
+ */
+const SIDES: Side[] = HAS_OPPONENT ? [PLAYER, RIVAL] : [PLAYER];
 
 // PLACEHOLDER: the boards on offer, easiest first — which is also bottom-first on the launch
 // screen, one stripe of the rainbow each. Odd numbers so a board has a true middle, and the
@@ -44,6 +65,33 @@ const TREE_SIZE = 7; // and with the trees comes candy, which is what gives the 
 const DONUT_SIZE = 9;
 const DONUT_DENSITY = 6; // tiles of width per donut — see setMapSize
 const SITE_SIZE = 13;
+/**
+ * PLACEHOLDER: the board width at which the opponent turns up. The two biggest boards, which
+ * is the right end of the ladder for it: a rival is only a race if there is ground to race
+ * over, and on a 13x13 two herds would be treading on each other from the opening turn.
+ * It is also where the run is long enough for the opponent's economy to become something the
+ * player can watch getting away from them.
+ */
+const RIVAL_SIZE = 21;
+// Whether the board being played has an opponent on it. Derived from the width like everything
+// else, so it follows the ladder rather than being a second list of levels — and gated on the
+// build flag, so the whole feature folds away with it.
+export let HAS_RIVAL = false;
+/**
+ * The opponent switched off for a measurement — `npm run sweep` and `npm run bot --solo`. It
+ * exists for the same reason setUsesBoardWeights does: a tool that quietly measures a
+ * different game than the one it says it is measuring is worse than no tool. The sweep turns
+ * a bot's weights against the *board*, and a second player on two rungs of the ladder and not
+ * the other five is noise in exactly the comparison it is making.
+ *
+ * Free in a build without the feature: HAS_OPPONENT folds to false, the `&&` short-circuits
+ * and the setter goes out with the tree-shaking.
+ */
+let rivalEnabled = true;
+
+export function setRivalEnabled(enabled: boolean) {
+  rivalEnabled = enabled;
+}
 
 // The tutorial board, which is simply the first rung of the ladder. Kept as a flag rather than
 // re-derived at each use so that "this is the tutorial" is one idea in one place.
@@ -89,6 +137,7 @@ function setMapSize(size: number) {
   // not how many are on the map. Works out at 2 of each kind on the 13x13, 3 on the 21x21.
   SITE_COUNT = size < SITE_SIZE ? 0 : (size / 7 + 0.5) | 0;
   TURN_LIMIT = size;
+  HAS_RIVAL = HAS_OPPONENT && rivalEnabled && size >= RIVAL_SIZE;
 }
 
 /**
@@ -177,7 +226,14 @@ export interface Position {
 }
 
 export interface Tile {
-  isRevealed: boolean;
+  /**
+   * Which sides have seen this tile, one bit each — see isSeen. A bitmask rather than a
+   * boolean because the two sides explore separately: the opponent walking through the fog
+   * lifts it for the opponent alone, and exploration is the score's own multiplier, so a
+   * shared cloud layer would have each side handing the other its multiplier for free.
+   * Zero means nobody has been here, which is also what "free to place something on" reads.
+   */
+  seen: number;
   // Two layers: living things walk over whatever lies on the ground and are drawn
   // on top of it, so a rainbow stays put when the unicorn steps onto its tile.
   object?: GameObjectType; // ground layer — GOAL / STATIC
@@ -186,6 +242,16 @@ export interface Tile {
   // when the board is built rather than when the chest is opened, so a seed determines its
   // prizes as completely as it determines where they are.
   loot?: ChestLoot;
+}
+
+/**
+ * Whether `side` has this tile out from under its own clouds. Every fog rule in the game goes
+ * through here, and every one of them now has to say whose eyes are asking — which is the
+ * whole cost of the two sides exploring separately, spread thinly over the whole file.
+ * Undefined-tolerant like getTile, so a look off the edge of the board answers "no".
+ */
+export function isSeen(tile: Tile | undefined, side: Side): boolean {
+  return !!tile && !!(tile.seen & (1 << side));
 }
 
 /** A ray of light leaving a glowing tile towards the fountain one step away in (dx, dy). */
@@ -197,16 +263,22 @@ export interface Beam extends Position {
   // Never lit — it spans the one tile between the two, the same reach as a beam that stopped
   // inside a fountain, so the two share the width the renderer works out from isLit.
   isCandy: boolean;
+  side: Side; // whose light it is — the renderer draws the opponent's inverted, like its rainbows
 }
 
+/**
+ * Everything the two sides keep separately, as arrays indexed by side. On a board with no
+ * opponent the second entry is simply never read — nothing places a dark unicorn, so nothing
+ * ever earns or scores into it.
+ */
 export interface GameMap {
   tiles: Tile[]; // flat, row-major: index = y * MAP_SIZE + x
-  rainbowCount: number; // rainbows shining right now — recomputed after every move
+  rainbowCounts: number[]; // rainbows shining right now, per side — recomputed after every move
   beams: Beam[]; // what the light is doing, recomputed alongside the rainbows
-  drops: number; // water drops in the purse; they buy steps and are banked across turns
-  candy: number; // sweets in the jar; they buy unicorns and are banked the same way
-  dropIncome: number; // the bathtubs' flat pay plus every rainbow shining — recomputed with them
-  candyIncome: number; // lollipop trees earning right now — recomputed alongside the rainbows
+  drops: number[]; // water drops in the purse; they buy steps and are banked across turns
+  candy: number[]; // sweets in the jar; they buy unicorns and are banked the same way
+  dropIncome: number[]; // the bathtubs' flat pay plus every rainbow shining — recomputed with them
+  candyIncome: number[]; // lollipop trees earning right now — recomputed alongside the rainbows
   turn: number; // the turn being played, 1 to TURN_LIMIT
 }
 
@@ -233,6 +305,15 @@ export function createSeed(): number {
 }
 
 /**
+ * A corner position as that side sees it: the player's own, or the opponent's turned through
+ * half a circle about the middle of the board. It is what makes "the opposite side" one line
+ * rather than a second set of coordinates to keep in step with the first.
+ */
+function mirror({ x, y }: Position, side: Side): Position {
+  return side ? { x: MAP_SIZE - 1 - x, y: MAP_SIZE - 1 - y } : { x, y };
+}
+
+/**
  * Builds the board for `seed`. Every roll below comes from the seeded generator, so the
  * same seed always produces the same map: replaying one costs nothing but calling this
  * again, and a handpicked level is just a number. Note that this ties the maps to the
@@ -244,23 +325,34 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   setSeed(seed);
 
   const map: GameMap = {
-    tiles: Array.from({ length: MAP_SIZE * MAP_SIZE }, () => ({ isRevealed: false })),
-    rainbowCount: 0,
+    tiles: Array.from({ length: MAP_SIZE * MAP_SIZE }, () => ({ seen: 0 })),
+    rainbowCounts: [0, 0],
     beams: [],
-    drops: 0,
-    candy: 0,
-    dropIncome: 0,
-    candyIncome: 0,
+    drops: [0, 0],
+    candy: [0, 0],
+    dropIncome: [0, 0],
+    candyIncome: [0, 0],
     turn: 1,
   };
 
-  // The base: it pays BASE_INCOME every turn without needing anything set up around it,
-  // and it is where new unicorns come from. That is the whole opening — no worked example
-  // of the light rule in the corner any more; the player meets that out in the fog.
-  getTile(map, TUB_POSITION)!.object = GameObjectType.BATHTUB;
+  // The bases, one per side: a tub in a corner that pays BASE_INCOME every turn without
+  // needing anything set up around it and is where that side's new unicorns come from, and
+  // one unicorn on its diagonal neighbour. That is the whole opening — no worked example of
+  // the light rule in the corner any more; both of them meet that out in the fog.
+  //
+  // The opponent's corner is the player's mirrored through the middle of the board, which is
+  // the longest walk there is between them: they open as far apart as the board allows and
+  // meet in the middle, where the tub site every board is guaranteed happens to be.
+  // Both are placed — and both open their own vision — before anything else goes down, so
+  // that nothing can spawn on a tile either side has already looked at.
+  (HAS_RIVAL ? SIDES : [PLAYER]).forEach((side) => {
+    const tub = mirror(TUB_POSITION, side);
+    const start = mirror(UNICORN_START, side);
 
-  getTile(map, UNICORN_START)!.living = GameObjectType.UNICORN;
-  revealAround(map, UNICORN_START);
+    getTile(map, tub)!.object = SIDE_BATHTUB[side];
+    getTile(map, start)!.living = SIDE_UNICORN[side];
+    revealAround(map, start, side);
+  });
 
   // Everything is placed after the starting vision is applied, so nothing can spawn
   // on an already-revealed tile — it all starts hidden under the clouds. The order runs
@@ -345,14 +437,20 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   }
 
   updateRainbows(map);
-  map.drops = map.dropIncome; // the opening purse is one turn's income — the tub's, since nothing shines yet
+  // The opening purse is one turn's income — the tub's, since nothing shines yet. Both sides
+  // open with their own, which on a mirrored board is the same number twice.
+  map.drops = [...map.dropIncome];
 
   return map;
 }
 
-/** Nothing on it and still under the fog — where something new may be placed. */
+/**
+ * Nothing on it and nobody has seen it — where something new may be placed. "Nobody" rather
+ * than "the player": a chest under the opponent's opening vision would be one it could open
+ * on its first step, which is the same handout the rule exists to prevent.
+ */
 function isFree(tile: Tile | undefined): boolean {
-  return !!tile && !tile.isRevealed && tile.object === undefined && tile.living === undefined;
+  return !!tile && !tile.seen && tile.object === undefined && tile.living === undefined;
 }
 
 /** Chebyshev distance: one step in this game — diagonals included — is a distance of 1. */
@@ -474,18 +572,28 @@ function getFreeNeighbours(map: GameMap, { x, y }: Position): Position[] {
   return free;
 }
 
-/** Uncovers the vision square around a position. Revealed tiles stay revealed. */
-export function revealAround(map: GameMap, { x, y }: Position) {
+/**
+ * Uncovers the vision square around a position, for one side. Revealed tiles stay revealed,
+ * and each side's clouds are lifted only by its own walking.
+ *
+ * The recursion is the one place the two sides touch: a character found under the fog opens
+ * its own vision *for the side that found it*. So walking into the opponent's herd shows the
+ * player the ground around it — which is right, since that ground is exactly what a unicorn
+ * standing there can be seen to be doing something with — and gives the opponent nothing.
+ */
+export function revealAround(map: GameMap, { x, y }: Position, side: Side) {
+  const bit = 1 << side;
+
   for (let dy = -VISION_RADIUS; dy <= VISION_RADIUS; dy++) {
     for (let dx = -VISION_RADIUS; dx <= VISION_RADIUS; dx++) {
       const position = { x: x + dx, y: y + dy };
       const tile = getTile(map, position);
 
-      if (tile && !tile.isRevealed) {
-        tile.isRevealed = true;
+      if (tile && !(tile.seen & bit)) {
+        tile.seen |= bit;
         // a character coming out of the fog opens its own vision right away — and may
         // in turn uncover the next one (the recursion ends, tiles only ever un-fog once)
-        if (tile.living !== undefined) revealAround(map, position);
+        if (tile.living !== undefined) revealAround(map, position, side);
       }
     }
   }
@@ -505,14 +613,21 @@ function glows(objectType: GameObjectType | undefined): boolean {
  */
 export function updateRainbows(map: GameMap) {
   map.tiles.forEach((tile) => {
-    if (tile.object === GameObjectType.RAINBOW) tile.object = undefined;
+    if (tile.object === GameObjectType.RAINBOW || tile.object === GameObjectType.DARK_RAINBOW) tile.object = undefined;
   });
 
-  map.rainbowCount = 0;
+  map.rainbowCounts = [0, 0];
   map.beams = [];
 
   map.tiles.forEach((tile, index) => {
-    if (!tile.isRevealed || (!glows(tile.living) && !glows(tile.object))) return;
+    // Whose light this is follows from what is standing here, so the rainbow it casts is
+    // stamped with a side without anything being passed in. A glower still under its *own*
+    // clouds stays dark, which is the same rule as before now that "the fog" has two of them:
+    // what the opponent has not found yet does not shine for the opponent either.
+    const glower = glows(tile.living) ? tile.living : glows(tile.object) ? tile.object : undefined;
+    if (glower === undefined) return;
+    const side = getSide(glower);
+    if (!isSeen(tile, side)) return;
     const { x, y } = getPosition(index);
 
     for (let dy = -1; dy <= 1; dy++) {
@@ -520,23 +635,33 @@ export function updateRainbows(map: GameMap) {
         // the fountain sits one step away, the rainbow one further along the same line
         if ((!dx && !dy) || getTile(map, { x: x + dx, y: y + dy })?.object !== GameObjectType.FOUNTAIN) continue;
         const target = getTile(map, { x: x + 2 * dx, y: y + 2 * dy });
+        // An occupied tile swallows the light, and that is the whole of the contest over a
+        // fountain: the first rainbow onto a tile holds it, and the other side's light dies in
+        // the fountain until whoever is holding it walks away. Nothing new had to be written
+        // for that — a rainbow has always needed empty ground, and the other side's rainbow is
+        // ground like any other. Two glowers can never want the *same* tile off the same
+        // fountain (the target is fixed by where the glower stands), so the only collisions
+        // are two different fountains casting onto one tile, which row-major order settles.
         const isLit = !!target && target.object === undefined && target.living === undefined;
 
         if (isLit) {
-          target.object = GameObjectType.RAINBOW;
-          target.isRevealed = true; // its own light lifts the fog over it
-          map.rainbowCount++;
+          target.object = SIDE_RAINBOW[side];
+          target.seen |= 1 << side; // its own light lifts its own side's fog over it
+          map.rainbowCounts[side]++;
         }
 
-        map.beams.push({ x, y, dx, dy, isLit, isCandy: false });
+        map.beams.push({ x, y, dx, dy, isLit, isCandy: false, side });
       }
     }
   });
 
-  // What the purse takes next turn: every rainbow shining, plus the flat pay of every
-  // bathtub on the board. Counted from the tiles rather than kept as a number of its own,
-  // so a tub built mid-run starts paying without anything having to be told about it.
-  map.dropIncome = map.rainbowCount + BASE_INCOME * map.tiles.filter((tile) => tile.object === GameObjectType.BATHTUB).length;
+  // What each purse takes next turn: that side's rainbows shining, plus the flat pay of every
+  // bathtub it owns. Counted from the tiles rather than kept as a number of its own, so a tub
+  // built mid-run starts paying without anything having to be told about it — and a tub site
+  // raised by the opponent starts paying the opponent for exactly the same reason.
+  map.dropIncome = SIDES.map(
+    (side) => map.rainbowCounts[side] + BASE_INCOME * map.tiles.filter((tile) => tile.object === SIDE_BATHTUB[side]).length,
+  );
 
   // The second income, counted once the rainbows are in place: a lollipop tree standing next
   // to one turns the light into sweets. One candy per rainbow beside it, so a tree with two
@@ -546,15 +671,20 @@ export function updateRainbows(map: GameMap) {
   // board is rather than to how many trees happen to be standing on it.
   // Every pairing gets a pink beam of its own, drawn in the same pass, so the lines the player
   // sees and the candy the jar is paid are counted off exactly the same rainbows.
-  map.candyIncome = 0;
+  // A lollipop tree is neutral scenery, like the fountain it stands beside: it pays whoever's
+  // light reaches it. So one tree between the two herds can be earning for both at once, off
+  // different sides of itself, and there is nothing to own or to take.
+  map.candyIncome = [0, 0];
 
   map.tiles.forEach((_, index) => {
     const position = getPosition(index);
 
-    getFeedingRainbows(map, position).forEach((rainbow) => {
-      map.candyIncome++;
-      map.beams.push({ ...rainbow, dx: position.x - rainbow.x, dy: position.y - rainbow.y, isLit: false, isCandy: true });
-    });
+    SIDES.forEach((side) =>
+      getFeedingRainbows(map, position, side).forEach((rainbow) => {
+        map.candyIncome[side]++;
+        map.beams.push({ ...rainbow, dx: position.x - rainbow.x, dy: position.y - rainbow.y, isLit: false, isCandy: true, side });
+      }),
+    );
   });
 }
 
@@ -569,15 +699,15 @@ export function updateRainbows(map: GameMap) {
  * what the player sees lit, what flies at the end of the turn and what the jar is actually
  * paid are all counted off the one list and cannot drift apart.
  */
-export function getFeedingRainbows(map: GameMap, { x, y }: Position): Position[] {
+export function getFeedingRainbows(map: GameMap, { x, y }: Position, side: Side): Position[] {
   const rainbows: Position[] = [];
   const tile = getTile(map, { x, y })!;
 
-  if (tile.isRevealed && tile.object === GameObjectType.TREE) {
+  if (isSeen(tile, side) && tile.object === GameObjectType.TREE) {
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
         const position = { x: x + dx, y: y + dy };
-        if ((dx || dy) && getTile(map, position)?.object === GameObjectType.RAINBOW) rainbows.push(position);
+        if ((dx || dy) && getTile(map, position)?.object === SIDE_RAINBOW[side]) rainbows.push(position);
       }
     }
   }
@@ -615,22 +745,26 @@ export function getMoveTargets(map: GameMap, { x, y }: Position): Position[] {
  * (see moveCharacter) — the one case it rules out is a unicorn bought straight onto a donut on
  * a board where nobody has walked one yet.
  */
-export function getPortalTargets(map: GameMap, from: Position): Position[] {
+export function getPortalTargets(map: GameMap, from: Position, side: Side): Position[] {
   const fromIndex = getIndex(from);
   const targets: Position[] = [];
 
   if (map.tiles[fromIndex].object === GameObjectType.DONUT) {
     map.tiles.forEach((tile, index) => {
-      if (index !== fromIndex && tile.isRevealed && tile.object === GameObjectType.DONUT) targets.push(getPosition(index));
+      if (index !== fromIndex && isSeen(tile, side) && tile.object === GameObjectType.DONUT) targets.push(getPosition(index));
     });
   }
 
   return targets;
 }
 
-/** A jump is on only if it is paid for and nobody else is standing on the far donut. */
-export function canUsePortal(map: GameMap, target: Position): boolean {
-  return map.drops >= PORTAL_COST && getTile(map, target)!.living === undefined;
+/**
+ * A jump is on only if it is paid for and nobody else is standing on the far donut — "nobody"
+ * of either side, since a tile holds one character whoever it belongs to. So a donut the
+ * opponent is sitting on is a portal exit shut off, which is a thing worth doing on purpose.
+ */
+export function canUsePortal(map: GameMap, target: Position, side: Side): boolean {
+  return map.drops[side] >= PORTAL_COST && getTile(map, target)!.living === undefined;
 }
 
 /**
@@ -644,10 +778,10 @@ export function canUsePortal(map: GameMap, target: Position): boolean {
  * purse, so a discount on a tile still under a cloud would announce what is hiding there.
  * Stepping blindly costs the usual drop; from then on the flower is known, and free.
  */
-export function getMoveCost(map: GameMap, to: Position): number {
+export function getMoveCost(map: GameMap, to: Position, side: Side): number {
   const tile = getTile(map, to)!;
 
-  return tile.isRevealed && tile.object === GameObjectType.FLOWER ? 0 : MOVE_COST;
+  return isSeen(tile, side) && tile.object === GameObjectType.FLOWER ? 0 : MOVE_COST;
 }
 
 /**
@@ -657,10 +791,12 @@ export function getMoveCost(map: GameMap, to: Position): number {
  * Characters under the fog are left out on purpose: counting one would silently disarm the
  * nudge on account of a unicorn the player has not even found yet.
  */
-export function hasFreeMove(map: GameMap): boolean {
+export function hasFreeMove(map: GameMap, side: Side): boolean {
   return map.tiles.some(
     (tile, index) =>
-      tile.isRevealed && tile.living !== undefined && getMoveTargets(map, getPosition(index)).some((target) => !getMoveCost(map, target)),
+      tile.living === SIDE_UNICORN[side] &&
+      isSeen(tile, side) &&
+      getMoveTargets(map, getPosition(index)).some((target) => !getMoveCost(map, target, side)),
   );
 }
 
@@ -681,8 +817,13 @@ export function moveCharacter(map: GameMap, from: Position, to: Position) {
   fromTile.living = undefined;
 
   if (toTile.object === GameObjectType.DONUT) {
+    // Only for the side that walked in. Whose walk it was is written on the character itself,
+    // so nothing has to be passed in — and the network stays a thing each side has to find for
+    // itself rather than a map the first arrival hands to both.
+    const bit = 1 << getSide(toTile.living!);
+
     map.tiles.forEach((tile) => {
-      if (tile.object === GameObjectType.DONUT) tile.isRevealed = true;
+      if (tile.object === GameObjectType.DONUT) tile.seen |= bit;
     });
   }
 }
@@ -697,11 +838,16 @@ export function getBuild(objectType: GameObjectType | undefined): (typeof BUILD_
   return objectType === undefined ? undefined : BUILD_TABLE[objectType - GameObjectType.TUB_SITE];
 }
 
-/** Whether a character is standing anywhere in the surrounding 3x3 — someone has to do the work. */
-function hasNeighbour(map: GameMap, { x, y }: Position): boolean {
+/**
+ * Whether one of `side`'s own unicorns is standing anywhere in the surrounding 3x3 — someone
+ * has to do the work, and it has to be someone of yours. The opponent standing beside a site
+ * does not raise it for you: a site is a race to whoever gets a unicorn next to it and can
+ * pay, and it is spent by whoever wins that.
+ */
+function hasNeighbour(map: GameMap, { x, y }: Position, side: Side): boolean {
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
-      if ((dx || dy) && getTile(map, { x: x + dx, y: y + dy })?.living !== undefined) return true;
+      if ((dx || dy) && getTile(map, { x: x + dx, y: y + dy })?.living === SIDE_UNICORN[side]) return true;
     }
   }
 
@@ -714,14 +860,14 @@ function hasNeighbour(map: GameMap, { x, y }: Position): boolean {
  * here rather than in the interface, so what the button offers and what the build actually
  * takes can never come apart — the same reason getSpawnTargets owns the tub's price.
  */
-export function canBuild(map: GameMap, position: Position): boolean {
+export function canBuild(map: GameMap, position: Position, side: Side): boolean {
   const build = getBuild(getTile(map, position)?.object);
 
   // There is no "and nothing is standing on it" here because a site blocks movement, so
   // nothing can be: no step, no purchase and no chest prize will put a character on one.
   // Should sites ever go walk-through again, that check has to come back with them — a
   // building cannot appear underneath a character.
-  return !!build && map.drops >= build[1] && map.candy >= build[2] && hasNeighbour(map, position);
+  return !!build && map.drops[side] >= build[1] && map.candy[side] >= build[2] && hasNeighbour(map, position, side);
 }
 
 /**
@@ -739,13 +885,19 @@ export function canBuild(map: GameMap, position: Position): boolean {
  * A newcomer would then be put down blind, onto a tile the player cannot see. The tub is where
  * unicorns come from, so it gets to look at where it is putting them.
  */
-export function build(map: GameMap, position: Position) {
+export function build(map: GameMap, position: Position, side: Side) {
   const [built, drops, candy] = getBuild(getTile(map, position)!.object)!;
 
-  map.drops -= drops;
-  map.candy -= candy;
-  getTile(map, position)!.object = built;
-  if (built === GameObjectType.BATHTUB) revealAround(map, position);
+  map.drops[side] -= drops;
+  map.candy[side] -= candy;
+  // A fountain and a lollipop tree come out neutral — they are scenery either side can use,
+  // and the light rule does not care who paid for it. A tub is the one build that belongs to
+  // whoever raised it, because it is an income and a place to buy unicorns, and both of those
+  // have to be somebody's. Which makes the middle tub site the sharpest thing on the board:
+  // one of you gets a second base in the middle of the map, and the other does not.
+  const isTub = built === GameObjectType.BATHTUB;
+  getTile(map, position)!.object = isTub ? SIDE_BATHTUB[side] : built;
+  if (isTub) revealAround(map, position, side);
   updateRainbows(map);
 }
 
@@ -763,7 +915,7 @@ export function build(map: GameMap, position: Position) {
  * Called before the rainbows are recomputed — a unicorn out of a chest may be standing next to
  * a fountain, and a chest lifted off a tile may have been in a rainbow's way.
  */
-export function openChest(map: GameMap, position: Position): ChestLoot | undefined {
+export function openChest(map: GameMap, position: Position, side: Side): ChestLoot | undefined {
   const tile = getTile(map, position)!;
   const loot = tile.loot;
 
@@ -771,12 +923,12 @@ export function openChest(map: GameMap, position: Position): ChestLoot | undefin
 
   tile.object = tile.loot = undefined;
 
-  if (loot === ChestLoot.DROPS) map.drops += CHEST_DROPS;
-  else if (loot === ChestLoot.CANDY) map.candy += CHEST_CANDY;
+  if (loot === ChestLoot.DROPS) map.drops[side] += CHEST_DROPS;
+  else if (loot === ChestLoot.CANDY) map.candy[side] += CHEST_CANDY;
   else {
     const spot = getRandomItem(getMoveTargets(map, position));
-    getTile(map, spot)!.living = GameObjectType.UNICORN;
-    revealAround(map, spot);
+    getTile(map, spot)!.living = SIDE_UNICORN[side];
+    revealAround(map, spot, side);
   }
 
   return loot;
@@ -796,8 +948,8 @@ export function openChest(map: GameMap, position: Position): ChestLoot | undefin
  * The panel lists these in this order and pairs them with emoji by index — see SCORE_EMOJIS
  * in the component. Keep the two lists in step.
  */
-export function getScoreParts(map: GameMap): number[] {
-  return [map.rainbowCount, map.tiles.filter((tile) => tile.isRevealed && tile.living === GameObjectType.UNICORN).length];
+export function getScoreParts(map: GameMap, side: Side): number[] {
+  return [map.rainbowCounts[side], map.tiles.filter((tile) => tile.living === SIDE_UNICORN[side] && isSeen(tile, side)).length];
 }
 
 /**
@@ -806,13 +958,17 @@ export function getScoreParts(map: GameMap): number[] {
  * so that the working the panel prints is the arithmetic actually done: nothing rounds
  * anywhere, so the rows it shows always add up to the total it shows.
  */
-export function getExploration(map: GameMap): number {
-  return ((map.tiles.filter((tile) => tile.isRevealed).length * 100) / map.tiles.length + 0.5) | 0;
+export function getExploration(map: GameMap, side: Side): number {
+  return ((map.tiles.filter((tile) => isSeen(tile, side)).length * 100) / map.tiles.length + 0.5) | 0;
 }
 
-/** Everything built, each worth as many points as the board is percent uncovered. */
-export function getScore(map: GameMap): number {
-  return getScoreParts(map).reduce((total, count) => total + count, 0) * getExploration(map);
+/**
+ * Everything built, each worth as many points as the board is percent uncovered — per side,
+ * off that side's own clouds. So the two scores are the same arithmetic over two different
+ * boards-as-known, and neither of you can lift the other's multiplier by exploring.
+ */
+export function getScore(map: GameMap, side: Side): number {
+  return getScoreParts(map, side).reduce((total, count) => total + count, 0) * getExploration(map, side);
 }
 
 /**
@@ -829,12 +985,20 @@ export function getScore(map: GameMap): number {
  * is a live snapshot, so a rainbow lit on the closing turn counts as much as one lit on the
  * first.
  */
-export function endTurn(map: GameMap) {
+export function endTurn(map: GameMap, side: Side) {
   if (map.turn < TURN_LIMIT) {
-    map.drops += map.dropIncome;
-    map.candy += map.candyIncome;
+    map.drops[side] += map.dropIncome[side];
+    map.candy[side] += map.candyIncome[side];
   }
+}
 
+/**
+ * Moves the clock on, once both sides have had their go. Split out of endTurn because with an
+ * opponent on the board a turn is now two goes — the player's, then the rival's — and each of
+ * them is paid out as it closes while the turn number belongs to the pair of them. Without an
+ * opponent the two calls sit side by side and mean exactly what the one used to.
+ */
+export function nextTurn(map: GameMap) {
   map.turn++;
 }
 
@@ -857,8 +1021,8 @@ export function isRunOver(map: GameMap): boolean {
  * 9.6 to 24.4 on the 25x25. The end-of-run purse is a last-few-turns artefact of nothing being
  * left in reach, not a currency sitting idle. Leave it alone.
  */
-export function getUnicornPrice(map: GameMap): number {
-  return map.tiles.filter((tile) => tile.living === GameObjectType.UNICORN).length;
+export function getUnicornPrice(map: GameMap, side: Side): number {
+  return map.tiles.filter((tile) => tile.living === SIDE_UNICORN[side]).length;
 }
 
 /**
@@ -873,16 +1037,21 @@ export function getUnicornPrice(map: GameMap): number {
  * and a field between two of them is just offered twice.
  */
 export function getSpawnTargets(map: GameMap, position: Position): Position[] {
-  return map.candy >= getUnicornPrice(map) ? getMoveTargets(map, position) : [];
+  // Whose tub it is decides who is buying, so nothing has to be passed in — and a player
+  // tapping the opponent's tub is offered nothing, because it is priced against a jar that
+  // is not theirs and a herd that is not theirs either.
+  const side = getSide(getTile(map, position)!.object!);
+
+  return map.candy[side] >= getUnicornPrice(map, side) ? getMoveTargets(map, position) : [];
 }
 
 /** Trades the jar of candy for a unicorn on `position` — which must come from getSpawnTargets. */
-export function buyUnicorn(map: GameMap, position: Position) {
-  map.candy -= getUnicornPrice(map); // before the newcomer is on the board, so it does not price itself
-  getTile(map, position)!.living = GameObjectType.UNICORN;
+export function buyUnicorn(map: GameMap, position: Position, side: Side) {
+  map.candy[side] -= getUnicornPrice(map, side); // before the newcomer is on the board, so it does not price itself
+  getTile(map, position)!.living = SIDE_UNICORN[side];
   // A newcomer opens its own square, exactly like one stepping out of a present or out of the
   // fog: the tub it came from has looked at its own fields, but the ring beyond them is still
   // cloud, and a unicorn standing in it can see.
-  revealAround(map, position);
+  revealAround(map, position, side);
   updateRainbows(map); // and it may light a fountain straight away
 }

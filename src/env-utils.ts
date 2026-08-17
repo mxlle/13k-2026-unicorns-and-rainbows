@@ -12,6 +12,12 @@ export const HAS_ADVANCED_DEBUGGING = !IS_JS13K;
 // people, and being able to switch the fog off would give the whole board away.
 export const HAS_DEV_TOOLS = IS_DEV;
 export const HAS_SHORT_TEXTS = IS_JS13K;
+// The opponent: a second unicorn racing the player on the two biggest boards, played by the
+// game's own bot. It is the one feature that is a whole second player — a second economy, a
+// second fog and a second score — so it is flagged rather than assumed, and it is off in the
+// competition build until the byte count says it can be afforded. See RIVAL_SIZE in
+// game-map.ts for which boards it turns up on when this is on.
+export const HAS_OPPONENT = !IS_JS13K;
 export const HAS_SIMPLE_SOUND_EFFECTS = true;
 
 // Runtime {0}/{1} placeholder substitution in translations. Its own flag (not

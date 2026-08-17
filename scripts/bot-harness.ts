@@ -1,6 +1,16 @@
-import { createGameMap, getExploration, getScore, isRunOver, MAP_SIZES, TURN_LIMIT } from "../src/game/game-map";
-import { GameObjectType } from "../src/game/game-objects";
-import { applyBotAction, BOT_STRATEGIES, BOT_STRATEGY_NAMES, BotActionKind, BotStrategy, getBotAction, resetBot } from "../src/dev/bot";
+import {
+  createGameMap,
+  getExploration,
+  getScore,
+  HAS_RIVAL,
+  isRunOver,
+  MAP_SIZES,
+  nextTurn,
+  setRivalEnabled,
+  TURN_LIMIT,
+} from "../src/game/game-map";
+import { PLAYER, RIVAL, Side, SIDE_UNICORN } from "../src/game/game-objects";
+import { applyBotAction, BOT_STRATEGIES, BOT_STRATEGY_NAMES, BotActionKind, BotStrategy, getBotAction, resetBot } from "../src/game/bot";
 
 /**
  * The bot playing whole runs with nobody watching — `npm run bot`. It is the balancing half
@@ -22,6 +32,15 @@ import { applyBotAction, BOT_STRATEGIES, BOT_STRATEGY_NAMES, BotActionKind, BotS
  *   npm run bot -- --size=13 --seed=7 --strategy=mixed --verbose
  *                                        one run, every action it takes and what it thought
  *                                        the action was worth
+ *   npm run bot -- --solo                the opponent switched off on every board
+ *
+ * The opponent changes what this measures on the boards it turns up on (21x21 and 25x25): the
+ * bot under test is no longer alone on the map, so its score there is a score against
+ * somebody. Those rows print an extra 🌑 column with what the rival came out at, and the
+ * strategy under test is what plays *both* sides — which is the honest comparison, since a
+ * strategy that beats mixed by being greedier has to beat it while mixed is being greedy back.
+ * `--solo` is the old reading, and the one to use when a price or an income has moved and the
+ * question is what the board is worth rather than who wins on it.
  */
 
 // Declared rather than pulled in from @types/node: two fields off `process` is not worth a
@@ -43,8 +62,13 @@ const strategies = option("strategy")
 // found a way to spend nothing could still churn. This is the belt and braces.
 const MAX_ACTIONS = 20000;
 
+// The opponent off on every board, for reading what the board itself is worth rather than who
+// wins on it. Set once, before any map is built — HAS_RIVAL is worked out in setMapSize.
+if (flag("solo")) setRivalEnabled(false);
+
 interface Result {
   score: number;
+  rivalScore: number; // 0 on a board with nobody on it to race
   explored: number;
   rainbows: number;
   herd: number;
@@ -53,33 +77,59 @@ interface Result {
   candy: number;
 }
 
+/**
+ * One side playing until it runs out of things worth doing. It is where a turn actually ends:
+ * the bot decides that for itself, exactly as it does with a person watching, and END_TURN is
+ * the last action of the go rather than something the harness imposes.
+ *
+ * Returns how many actions it took, so the outer loop's runaway guard still counts every
+ * action in the run rather than every turn.
+ */
+function playGo(map: ReturnType<typeof createGameMap>, strategy: BotStrategy, side: Side, kinds: number[], budget: number): number {
+  let actions = 0;
+
+  while (actions < budget) {
+    const action = getBotAction(map, strategy, side);
+    if (!action) break;
+    actions++;
+
+    if (verbose && side === PLAYER)
+      console.log(
+        `  t${map.turn}/${TURN_LIMIT} ${map.drops[side]}💧 ${map.candy[side]}🍬 ${getScore(map, side)}⭐ → ` +
+          `${action.label} [${Math.round(action.value)}]`,
+      );
+
+    if (side === PLAYER) kinds[action.kind]++; // the counts describe the bot under test, not its rival
+    applyBotAction(map, action, side);
+    if (action.kind === BotActionKind.END_TURN) break;
+  }
+
+  return actions;
+}
+
 function play(size: number, seed: number, strategy: BotStrategy): Result {
   const map = createGameMap(seed, size);
   resetBot(seed); // so the same board played by the same bot plays out the same way twice
   const kinds = [0, 0, 0, 0, 0];
   let actions = 0;
 
-  while (!isRunOver(map) && actions++ < MAX_ACTIONS) {
-    const action = getBotAction(map, strategy);
-    if (!action) break;
-
-    if (verbose)
-      console.log(
-        `  t${map.turn}/${TURN_LIMIT} ${map.drops}💧 ${map.candy}🍬 ${getScore(map)}⭐ → ${action.label} [${Math.round(action.value)}]`,
-      );
-
-    kinds[action.kind]++;
-    applyBotAction(map, action);
+  // A turn is now every side's go, then the clock. Without an opponent that is one go and a
+  // tick, which is exactly what the flat loop here used to be.
+  while (!isRunOver(map) && actions < MAX_ACTIONS) {
+    const sides: Side[] = HAS_RIVAL ? [PLAYER, RIVAL] : [PLAYER];
+    for (const side of sides) actions += playGo(map, strategy, side, kinds, MAX_ACTIONS - actions);
+    nextTurn(map);
   }
 
   return {
-    score: getScore(map),
-    explored: getExploration(map),
-    rainbows: map.rainbowCount,
-    herd: map.tiles.filter((tile) => tile.living === GameObjectType.UNICORN).length,
+    score: getScore(map, PLAYER),
+    rivalScore: HAS_RIVAL ? getScore(map, RIVAL) : 0,
+    explored: getExploration(map, PLAYER),
+    rainbows: map.rainbowCounts[PLAYER],
+    herd: map.tiles.filter((tile) => tile.living === SIDE_UNICORN[PLAYER]).length,
     kinds,
-    drops: map.drops,
-    candy: map.candy,
+    drops: map.drops[PLAYER],
+    candy: map.candy[PLAYER],
   };
 }
 
@@ -97,6 +147,7 @@ for (const size of sizes) {
     // Averaged one at a time rather than inline in the line below, which prettier turns into
     // a column of fragments the moment a call is nested inside a template.
     const score = mean((result) => result.score);
+    const rivalScore = mean((result) => result.rivalScore);
     const explored = mean((result) => result.explored);
     const rainbows = mean((result) => result.rainbows);
     const herd = mean((result) => result.herd);
@@ -106,8 +157,13 @@ for (const size of sizes) {
       mean((result) => result.kinds[kind]),
     );
 
+    // The rival column only on the boards that have one, so the ladder's other rows keep the
+    // exact shape they have always had and are still readable against last week's run.
+    const rival = HAS_RIVAL ? ` ${pad(rivalScore, 6, 0)}🌑` : "";
+
     console.log(
-      `${BOT_STRATEGY_NAMES[strategy].padEnd(8)} ${pad(score, 7, 0)}⭐  ${pad(explored, 5)}% seen  ${pad(rainbows, 5)}🌈 ${pad(herd, 5)}🦄  ` +
+      `${BOT_STRATEGY_NAMES[strategy].padEnd(8)} ${pad(score, 7, 0)}⭐${rival}  ${pad(explored, 5)}% seen  ` +
+        `${pad(rainbows, 5)}🌈 ${pad(herd, 5)}🦄  ` +
         `steps ${pad(steps, 5)} jumps ${pad(jumps, 5)} buys ${pad(buys, 5)} builds ${pad(builds, 5)}  ` +
         `unspent ${pad(drops, 5)}💧 ${pad(candy, 5)}🍬`,
     );

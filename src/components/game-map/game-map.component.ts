@@ -2,7 +2,7 @@ import styles from "./game-map.module.scss";
 import { createButton, createElement, createElements } from "../../utils/html-utils";
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
-import { HAS_DEV_TOOLS } from "../../env-utils";
+import { HAS_DEV_TOOLS, HAS_OPPONENT } from "../../env-utils";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
@@ -30,10 +30,13 @@ import {
   getScoreParts,
   getSpawnTargets,
   hasFreeMove,
+  HAS_RIVAL,
   isRunOver,
+  isSeen,
   MAP_SIZE,
   moveCharacter,
   MOVE_COST,
+  nextTurn,
   openChest,
   PORTAL_COST,
   Position,
@@ -42,8 +45,17 @@ import {
   TURN_LIMIT,
   updateRainbows,
 } from "../../game/game-map";
-import { ChestLoot, GameObjectType, OBJECT_CONFIG } from "../../game/game-objects";
-import { BOT_STRATEGIES, BOT_STRATEGY_EMOJIS, BOT_STRATEGY_NAMES, BotActionKind, BotStrategy, getBotAction, resetBot } from "../../dev/bot";
+import { ChestLoot, GameObjectType, OBJECT_CONFIG, PLAYER, RIVAL, SIDE_BATHTUB, SIDE_UNICORN } from "../../game/game-objects";
+import {
+  applyBotAction,
+  BOT_STRATEGIES,
+  BOT_STRATEGY_EMOJIS,
+  BOT_STRATEGY_NAMES,
+  BotActionKind,
+  BotStrategy,
+  getBotAction,
+  resetBot,
+} from "../../game/bot";
 
 const FOG_EMOJI = "☁️";
 const DROP_EMOJI = "💧";
@@ -68,6 +80,15 @@ const CANDY_EMOJI = "🍬";
 // than a third of them, so the panel gives it a line of its own at the top.
 const SCORE_EMOJIS = [OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, OBJECT_CONFIG[GameObjectType.UNICORN].emoji];
 const WIN_EMOJI = "🎉";
+// The ending that is no longer a celebration. Only reachable on a board with an opponent on
+// it — without one there is nobody to come second to, and WIN_EMOJI is the only ending there is.
+const LOSE_EMOJI = "🌑";
+// PLACEHOLDER: the beat between two of the opponent's actions. Its whole turn is played out
+// in front of the player rather than resolved in a flash, because a rival that simply
+// teleports between turns is a number going up rather than somebody racing you — but a 25x25
+// turn can be thirty actions long, so this is deliberately quicker than the dev bot's own
+// step: fast enough that a turn passes in a couple of seconds, slow enough to see what moved.
+const RIVAL_STEP_DELAY = 60;
 const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
 // PLACEHOLDER zoom steps, as multiples of "the whole board fits in the view". Expressing
 // them as multiples rather than tile sizes is what makes step 0 a true overview on any map
@@ -182,6 +203,16 @@ export function GameMapComponent(
   // yet. The board is locked for as long as it lasts — a step taken mid-flight would change
   // the very income the player is watching arrive.
   let isPaying = false;
+  // The opponent is taking its turn. Like isPaying it locks the board, and for a related
+  // reason: what the player would be acting on is being changed under them, a step at a time.
+  // Kept apart from isPaying rather than folded into it because they end differently — the
+  // payout ends in the turn counter moving on, the rival's turn ends in the player's starting.
+  let isRivalTurn = false;
+  // The timer driving it, so that leaving the board can stop the rival mid-stride. Nothing in
+  // the interface can reach the launch screen while the board is locked, so this cannot happen
+  // today — but a rival still walking about on a map that has been replaced underneath it is a
+  // bad enough failure to be worth one variable.
+  let rivalTimer: number | undefined;
   // The score's working is open: the breakdown that ends a run, shown mid-run on demand.
   // It holds the info panel until it is closed or a tile takes the panel over.
   let showsScore = false;
@@ -197,6 +228,13 @@ export function GameMapComponent(
   // it does the end-turn button. Declared without a value so that nothing in the bot is so
   // much as named outside HAS_DEV_TOOLS.
   let updateBotControls: (() => void) | undefined;
+
+  /**
+   * Whether the board is out of the player's hands for the moment — the income is in the air,
+   * or the opponent is taking its turn. Every guard that used to read isPaying reads this, so
+   * a new reason to lock the board is added in one place rather than at each of them.
+   */
+  const isLocked = () => isPaying || isRivalTurn;
 
   // Two stacked glyph layers per tile, mirroring the two layers of the model: the ground
   // first, the character standing on it painted over it (later sibling, same grid cell).
@@ -259,7 +297,31 @@ export function GameMapComponent(
   // it is still being played, so "where are my points coming from" is answerable in time to
   // act on the answer rather than only afterwards.
   const scoreDisplay = counter(SCORE_EMOJI, scoreCount, toggleScore);
-  const turnBar = createElement({ cssClass: styles.turnBar }, [turnDisplay, scoreDisplay, endTurnButton]);
+  // The opponent's score, live beside the player's own. It is the whole reason to have a rival
+  // rather than a par to beat: being able to see the gap while there are still turns left to
+  // close it. Its face is the dark unicorn rather than a second star, so which number belongs
+  // to whom needs no explaining — and the inverted glyph is the same one on the board.
+  // Built unconditionally and hidden by render() on boards without an opponent: it costs a
+  // handful of bytes and the whole bar is laid out once.
+  // Built by a function rather than inline, the same trick createFogButton uses: once
+  // HAS_OPPONENT folds to false the whole thing is an uncalled declaration and goes out with
+  // the tree-shaking, where a `const` would still run its createElement in every build.
+  const rivalScoreCount = createElement({ tag: "span" });
+
+  function createRivalScore(): HTMLElement {
+    const display = counter(OBJECT_CONFIG[GameObjectType.DARK_UNICORN].emoji, rivalScoreCount);
+    (display.firstChild as HTMLElement).classList.add(styles.dark);
+
+    return display;
+  }
+
+  const rivalScoreDisplay = HAS_OPPONENT ? createRivalScore() : rivalScoreCount;
+  const turnBar = createElement({ cssClass: styles.turnBar }, [
+    turnDisplay,
+    scoreDisplay,
+    ...(HAS_OPPONENT ? [rivalScoreDisplay] : []),
+    endTurnButton,
+  ]);
   // The two currencies as one chip in the middle of the header, in view wherever the player
   // is looking. Each reads "what you have (+what the board pays you next turn)", so the
   // cost of a plan and the income funding it are side by side.
@@ -360,13 +422,16 @@ export function GameMapComponent(
      * and there is no second implementation of the rules to drift out of step with these.
      */
     function stepBot() {
-      const action = isRunning && !isPaying ? getBotAction(map, botStrategy) : undefined;
+      // Always the player's side: this is the bot standing in for the person at the keyboard,
+      // and the opponent — which is the same code on the other side — plays its own turn
+      // through playRivalTurn without any of these buttons.
+      const action = isRunning && !isLocked() ? getBotAction(map, botStrategy, PLAYER) : undefined;
 
       if (!action) return;
 
       console.log(
-        `🤖 ${BOT_STRATEGY_NAMES[botStrategy]} · turn ${map.turn}/${TURN_LIMIT} · ${map.drops}💧 ${map.candy}🍬 · ` +
-          `${getScore(map)}⭐ (${getExploration(map)}% seen) → ${action.label} [${Math.round(action.value)}]`,
+        `🤖 ${BOT_STRATEGY_NAMES[botStrategy]} · turn ${map.turn}/${TURN_LIMIT} · ${map.drops[PLAYER]}💧 ${map.candy[PLAYER]}🍬 · ` +
+          `${getScore(map, PLAYER)}⭐ (${getExploration(map, PLAYER)}% seen) → ${action.label} [${Math.round(action.value)}]`,
       );
 
       if (action.kind === BotActionKind.END_TURN) return finishTurn();
@@ -395,7 +460,7 @@ export function GameMapComponent(
         autoTimer = undefined;
       } else {
         autoTimer = setInterval(() => {
-          if (isPaying) return; // the board is paying out; there is nothing to decide yet
+          if (isLocked()) return; // the board is paying out or the rival is moving; nothing to decide yet
           if (isRunning) stepBot();
           else toggleAutoPlay(); // the run is over — and this is the one call that stops it
         }, AUTO_STEP_DELAY);
@@ -413,7 +478,7 @@ export function GameMapComponent(
     // The bot's own bit of render(): the two buttons are out of reach for the same reasons
     // the end-turn button is, and the play button is lit while it is the one driving.
     updateBotControls = () => {
-      stepButton.disabled = isPaying || !isRunning;
+      stepButton.disabled = isLocked() || !isRunning;
       playButton.disabled = !isRunning;
       playButton.classList.toggle(CssClass.PRIMARY, !!autoTimer);
     };
@@ -490,14 +555,14 @@ export function GameMapComponent(
     // otherwise say so — after the fact. These get a highlight of their own instead.
     // A tub's fields are never free — they cost candy — so they keep the plain target ring
     // even when the flower under one of them would have made the step itself free.
-    const freeIndices = isTubSelected ? [] : targets.filter((target) => !getMoveCost(map, target)).map(getIndex);
+    const freeIndices = isTubSelected ? [] : targets.filter((target) => !getMoveCost(map, target, PLAYER)).map(getIndex);
     // A tub's fields are the one thing on the board whose price moves — it is the size of the
     // herd, so it goes up with every unicorn bought. That makes it worth writing onto the
     // fields themselves rather than leaving it to the info text, which would be read once and
     // remembered wrong. Every field costs the same, so it is one property on the board that
     // all of them read, rather than a label built per tile.
     board.classList.toggle(styles.buying, isTubSelected);
-    if (isTubSelected) board.style.setProperty("--p", `"${getUnicornPrice(map)}${CANDY_EMOJI}"`);
+    if (isTubSelected) board.style.setProperty("--p", `"${getUnicornPrice(map, PLAYER)}${CANDY_EMOJI}"`);
     // Guidance: an empty purse makes the income the only way on, so ending the turn
     // becomes the next step. Before that, on the opening turn, it is picking a character.
     // Once the run is over the same button is the only thing left to press.
@@ -505,8 +570,8 @@ export function GameMapComponent(
     // purse is empty — ending the turn is the way on from there, whether or not a free step
     // over a flower is still available. The pulse waits for the stricter case, when there
     // is genuinely nothing else left to do, so it never nags a player who can still act.
-    const outOfWater = map.drops < MOVE_COST;
-    const needsIncome = outOfWater && !hasFreeMove(map);
+    const outOfWater = map.drops[PLAYER] < MOVE_COST;
+    const needsIncome = outOfWater && !hasFreeMove(map, PLAYER);
     const isOver = !isRunning;
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
     // Which tiles are actually turning light into a rainbow this turn. Read off the beams the
@@ -514,7 +579,9 @@ export function GameMapComponent(
     // the same guarantee getFeedingRainbows gives the trees. A beam is stamped with the tile
     // it *leaves from*, and only the light kind is ever lit, so no isCandy check is needed.
     // Gathered once per render rather than searched per tile: it is a handful of entries.
-    const shining = new Set(map.beams.filter((beam) => beam.isLit).map(getIndex));
+    // Filtered by what the player can see for the same reason the beams themselves are — see
+    // showsBeam. Without it a cloud hiding an opponent's unicorn wears that unicorn's halo.
+    const shining = new Set(map.beams.filter((beam) => beam.isLit && showsBeam(beam)).map(getIndex));
 
     map.tiles.forEach((tile, index) => {
       const element = tileElements[index];
@@ -523,21 +590,28 @@ export function GameMapComponent(
       // on — the jar can pay and there is somewhere to put the unicorn. It is the one
       // affordance nothing else on the board hints at, so it says so where it happens.
       // Short-circuited on the object check: getSpawnTargets must not run for every tile.
+      // The player's own tub only: the opponent's sells to the opponent, and pulsing it would
+      // be inviting the player to press something that offers them nothing.
       const canSpawn = tile.object === GameObjectType.BATHTUB && !!getSpawnTargets(map, getPosition(index)).length;
       // A site that can be raised right now pulses for the same reason a tub that can spawn
       // does: it is an affordance nothing else on the board hints at, so it says so where it
       // happens. Short-circuited on getBuild, so canBuild runs only on the handful of sites.
-      const canRaiseHere = !!getBuild(tile.object) && canBuild(map, getPosition(index));
-      // What the tile *shows*, as opposed to what the game has revealed — the two are the same
-      // for everyone but a developer who has switched the clouds off.
-      const isSeen = tile.isRevealed || (HAS_DEV_TOOLS && xray);
-      element.classList.toggle(styles.revealed, isSeen);
+      const canRaiseHere = !!getBuild(tile.object) && canBuild(map, getPosition(index), PLAYER);
+      // What the tile *shows*, as opposed to what the game has revealed to the player — the
+      // two are the same for everyone but a developer who has switched the clouds off. It is
+      // the player's own fog throughout: the opponent's is never drawn, and the only thing
+      // that gives away where the rival has been is the rival itself, once seen.
+      const isVisible = isSeen(tile, PLAYER) || (HAS_DEV_TOOLS && xray);
+      element.classList.toggle(styles.revealed, isVisible);
       // The halo means "this one is producing", not "this one is a light source" — every
       // unicorn is the latter, so it used to say nothing the glyph did not already say. A
       // unicorn with no halo is one whose walk is still ahead of it, and it keeps its full
       // colour and size on purpose: it is the one the player is being asked to move.
       element.classList.toggle(styles.glowing, shining.has(index));
-      element.classList.toggle(CssClass.HINT, canSpawn || canRaiseHere || (hintCharacters && tile.isRevealed && tile.living !== undefined));
+      element.classList.toggle(
+        CssClass.HINT,
+        canSpawn || canRaiseHere || (hintCharacters && isSeen(tile, PLAYER) && tile.living === GameObjectType.UNICORN),
+      );
       element.classList.toggle(styles.selected, isSelectedTile);
       // no steps lit means the selection is only being looked at — see select()
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
@@ -545,23 +619,34 @@ export function GameMapComponent(
       element.classList.toggle(styles.free, freeIndices.includes(index));
 
       // The fog belongs to the ground layer: under it there is nothing else to show.
-      const hasLiving = isSeen && tile.living !== undefined;
+      const hasLiving = isVisible && tile.living !== undefined;
       const ground = groundGlyphs[index];
-      // guarded on isSeen, or the fog cloud hiding a tree would be turned instead
-      ground.classList.toggle(styles.tree, isSeen && tile.object === GameObjectType.TREE);
+      // guarded on isVisible, or the fog cloud hiding a tree would be turned instead
+      ground.classList.toggle(styles.tree, isVisible && tile.object === GameObjectType.TREE);
       // a site is drawn back from the things that are actually there — see .site
-      ground.classList.toggle(styles.site, isSeen && !!getBuild(tile.object));
-      // Size as a way of sorting the meadow: the tub is where unicorns come from and is drawn
-      // up with them, the flowers are ground cover and are drawn down. Guarded on isSeen for
+      ground.classList.toggle(styles.site, isVisible && !!getBuild(tile.object));
+      // Size as a way of sorting the meadow: a tub is where unicorns come from and is drawn
+      // up with them, the flowers are ground cover and are drawn down. Guarded on isVisible for
       // the same reason .tree is — an unrevealed tile is a cloud, not the thing under it.
-      ground.classList.toggle(styles.big, isSeen && tile.object === GameObjectType.BATHTUB);
-      ground.classList.toggle(styles.small, isSeen && tile.object === GameObjectType.FLOWER);
-      // which trees are paying into the jar this turn — read off the same list the income
-      // itself is counted from, so the glow can never promise candy that never comes
-      ground.classList.toggle(styles.earning, !!getFeedingRainbows(map, getPosition(index)).length);
+      // Either side's tub, since both are the same piece of furniture at the same size.
+      ground.classList.toggle(styles.big, isVisible && SIDE_BATHTUB.includes(tile.object!));
+      ground.classList.toggle(styles.small, isVisible && tile.object === GameObjectType.FLOWER);
+      // which trees are paying into the player's jar this turn — read off the same list the
+      // income itself is counted from, so the glow can never promise candy that never comes.
+      // The player's own light only: a tree earning off the rival's rainbow is earning for the
+      // rival, and lighting it up here would be crediting the player with somebody else's sweets.
+      ground.classList.toggle(styles.earning, !!getFeedingRainbows(map, getPosition(index), PLAYER).length);
       ground.classList.toggle(styles.covered, hasLiving); // out of the way, into the corner
-      ground.textContent = isSeen ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
+      // The opponent's things are drawn as the negative of the player's — see .dark. Both
+      // layers can carry one: a dark rainbow on the ground, a dark unicorn standing on it.
+      // Behind the flag rather than behind isDark alone: with no opponent every tile would
+      // still be paying for two classList.toggle calls that can never do anything.
+      if (HAS_OPPONENT) {
+        ground.classList.toggle(styles.dark, isVisible && isDark(tile.object));
+        livingGlyphs[index].classList.toggle(styles.dark, hasLiving && isDark(tile.living));
+      }
 
+      ground.textContent = isVisible ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
       livingGlyphs[index].textContent = hasLiving ? OBJECT_CONFIG[tile.living!].emoji : "";
     });
 
@@ -575,13 +660,19 @@ export function GameMapComponent(
     const isLastTurn = map.turn >= TURN_LIMIT;
     turnEmoji.textContent = isLastTurn ? LAST_TURN_EMOJI : TURN_EMOJI;
     turnDisplay.classList.toggle(styles.lastTurn, isLastTurn);
-    dropCount.textContent = `${map.drops} (+${map.dropIncome})`;
-    candyCount.textContent = `${map.candy} (+${map.candyIncome})`;
+    dropCount.textContent = `${map.drops[PLAYER]} (+${map.dropIncome[PLAYER]})`;
+    candyCount.textContent = `${map.candy[PLAYER]} (+${map.candyIncome[PLAYER]})`;
     // A board with no trees has no way to make a sweet and nothing to spend one on, so the
     // jar stays out of the header rather than sitting at zero teaching a currency that is not
     // in the game yet. Trees are what make candy, so their count is the honest condition.
     currencyDisplays[1].classList.toggle(CssClass.HIDDEN, !TREE_COUNT);
-    scoreCount.textContent = `${getScore(map)}`; // a snapshot, so it has no "+" to show
+    scoreCount.textContent = `${getScore(map, PLAYER)}`; // a snapshot, so it has no "+" to show
+    // The rival's, live beside it — and out of the bar entirely on a board without one, the
+    // same way the candy counter stays out of a board with no trees on it.
+    if (HAS_OPPONENT) {
+      rivalScoreDisplay.classList.toggle(CssClass.HIDDEN, !HAS_RIVAL);
+      if (HAS_RIVAL) rivalScoreCount.textContent = `${getScore(map, RIVAL)}`;
+    }
     // While the run is on, the working is the player's to open and close. Once it is over
     // the panel belongs to the result and endGame has already filled it — hence the guard.
     if (isRunning) renderScoreBoard(showsScore);
@@ -590,14 +681,14 @@ export function GameMapComponent(
     // Three states for the build action: shown on a site, lit while the build is
     // really on, greyed out while it is only being looked at. Greyed rather than hidden is the
     // point — a site the player cannot afford yet still has to say what it would cost.
-    const canRaise = !!buildSite && canBuild(map, buildSite);
+    const canRaise = !!buildSite && canBuild(map, buildSite, PLAYER);
     buildButton.classList.toggle(CssClass.HIDDEN, !buildSite);
     buildButton.classList.toggle(CssClass.HINT, canRaise);
     buildButton.disabled = !canRaise;
     if (buildSite) renderBuildButton(map.tiles[getIndex(buildSite)].object!);
 
     endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
-    endTurnButton.disabled = isPaying; // no second turn until the first one has been paid out
+    endTurnButton.disabled = isLocked(); // no second turn until this one is paid out and the rival has moved
     // Ending a turn is one step among many; starting the next run is the whole screen.
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
@@ -607,15 +698,30 @@ export function GameMapComponent(
   }
 
   /**
+   * Whether the player may be shown a beam at all: only if they can see the tile it leaves
+   * from. It used to be free — a beam was only ever cast by a glower the player had found —
+   * and became a rule of its own once the opponent's light started being cast off the
+   * opponent's fog. Two things read it, and both are ways of drawing the same fact: the line
+   * itself, and the halo on the tile casting it. Miss either and a cloud with an opponent's
+   * unicorn under it lights up, which is precisely what the fog is for.
+   *
+   * A `Beam` is a `Position` of its own origin, so a beam can be handed to this directly.
+   */
+  function showsBeam({ x, y }: Position): boolean {
+    return isSeen(map.tiles[getIndex({ x, y })], PLAYER) || (HAS_DEV_TOOLS && xray);
+  }
+
+  /**
    * One element per beam, laid out in percentages of the board so it follows MAP_SIZE and
    * the responsive board width on its own. A lit beam runs the full two tiles to its
    * rainbow; an unlit one stops halfway, inside the fountain that swallowed the light.
-   * Every beam is safe to draw — only a revealed glower casts one in the first place.
    */
   function renderBeams() {
     beamLayer.replaceChildren(
-      ...map.beams.map(({ x, y, dx, dy, isLit, isCandy }) => {
-        const element = createElement({ cssClass: [styles.beam, isCandy ? styles.candy : isLit ? "" : styles.unlit] });
+      ...map.beams.filter(showsBeam).map(({ x, y, dx, dy, isLit, isCandy, side }) => {
+        const element = createElement({
+          cssClass: [styles.beam, isCandy ? styles.candy : isLit ? "" : styles.unlit, HAS_OPPONENT && side === RIVAL ? styles.dark : ""],
+        });
         const tileSize = 100 / MAP_SIZE; // one tile as a percentage of the board
 
         element.style.left = `${(x + 0.5) * tileSize}%`;
@@ -632,6 +738,7 @@ export function GameMapComponent(
   /** The info panel is one line: an emoji plus a "Name|Description" text. */
   function setInfo(key: TranslationKey, emoji: string) {
     const [name, description] = getTranslation(key).split("|");
+    if (HAS_OPPONENT) infoEmoji.classList.remove(styles.dark); // the caller puts it back if what it names is the rival's
     infoEmoji.textContent = emoji;
     infoName.textContent = name; // empty for the hint, which has no name
     infoText.textContent = description;
@@ -652,13 +759,17 @@ export function GameMapComponent(
     // donut is a unicorn that can jump, and where it can jump to is the thing worth reading.
     // It is also where the price of a jump is stated, which is why it is not conditional on
     // the jump being affordable — a purse too empty for it is exactly when that has to be legible.
-    if (index !== undefined && map.tiles[index].isRevealed && map.tiles[index].object === GameObjectType.DONUT)
+    if (index !== undefined && isSeen(map.tiles[index], PLAYER) && map.tiles[index].object === GameObjectType.DONUT)
       setInfo(TranslationKey.INFO_DONUT, OBJECT_CONFIG[GameObjectType.DONUT].emoji);
     else if (objectType !== undefined) {
       setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
+      // The panel names the opponent's things with the opponent's own glyph, so what is being
+      // explained is the thing that was tapped rather than the player's version of it.
+      if (HAS_OPPONENT) infoEmoji.classList.toggle(styles.dark, isDark(objectType));
       // The tub's second job is selling unicorns, and it is paid for in candy — which the
       // tutorial board has no trees to make. There it is not on offer, so it is not described
       // either: the tub is introduced as the thing that pays for the walking, and nothing else.
+      // The rival's tub sells to the rival, so the offer is not described on it at all.
       if (objectType === GameObjectType.BATHTUB && TREE_COUNT)
         infoText.textContent += ` ${getTranslation(TranslationKey.INFO_BATHTUB_SELL)}`;
     } else if (index === undefined)
@@ -666,13 +777,18 @@ export function GameMapComponent(
         isOpening ? TranslationKey.INFO_GOAL : TranslationKey.INFO_HINT,
         isOpening ? OBJECT_CONFIG[GameObjectType.RAINBOW].emoji : HINT_EMOJI,
       );
-    else if (map.tiles[index].isRevealed) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
+    else if (isSeen(map.tiles[index], PLAYER)) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
     else setInfo(TranslationKey.INFO_FOG, FOG_EMOJI);
+  }
+
+  /** Whether a thing on the board belongs to the opponent — the one question the drawing asks. */
+  function isDark(objectType: GameObjectType | undefined): boolean {
+    return HAS_OPPONENT && objectType !== undefined && objectType >= GameObjectType.DARK_UNICORN;
   }
 
   /** Opens the score's working, or closes it again and hands the panel back to the selection. */
   function toggleScore() {
-    if (!isRunning || isPaying) return; // the end-of-run panel is already showing the working
+    if (!isRunning || isLocked()) return; // the end-of-run panel is already showing the working
     showsScore = !showsScore;
     showInfo(selected && getIndex(selected));
     render();
@@ -686,21 +802,27 @@ export function GameMapComponent(
    * the digits beside it must not be rendered in the emoji font.
    */
   function renderScoreBoard(show: boolean) {
-    const line = (emoji: string, text: string) =>
-      createElement({}, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }), text]);
+    const line = (emoji: string, text: string, dark = false) =>
+      createElement({}, [createElement({ tag: "span", cssClass: [CssClass.EMOJI, dark ? styles.dark : ""], text: emoji }), text]);
     // The share of the board that is out from under the clouds, which is also — exactly, not
     // as an approximation — what one rainbow and one unicorn are each worth. It heads the
     // list rather than closing it, because the rows below multiply by it: the panel now reads
     // "here is the rate, here is what each of yours earns at it, here is the sum". Nothing is
     // taken off anything, so every point in the total plainly belongs to something built.
-    const rate = getExploration(map);
+    const rate = getExploration(map, PLAYER);
+    // The rival's total gets a row of its own under the player's, and only its total: it is
+    // playing off its own clouds, so its working is arithmetic over a board the player has
+    // never seen and would explain nothing. What the row is for is the gap.
+    const rivalLine =
+      HAS_OPPONENT && HAS_RIVAL ? [line(OBJECT_CONFIG[GameObjectType.DARK_UNICORN].emoji, ` ${getScore(map, RIVAL)}`, true)] : [];
 
     scoreBoard.replaceChildren(
       ...(show
         ? [
             line(EXPLORE_EMOJI, ` ${rate}%`),
-            ...getScoreParts(map).map((count, index) => line(SCORE_EMOJIS[index], ` ${count} × ${rate} = ${count * rate}`)),
-            line(SCORE_EMOJI, ` ${getScore(map)}`),
+            ...getScoreParts(map, PLAYER).map((count, index) => line(SCORE_EMOJIS[index], ` ${count} × ${rate} = ${count * rate}`)),
+            line(SCORE_EMOJI, ` ${getScore(map, PLAYER)}`),
+            ...rivalLine,
           ]
         : []),
     );
@@ -709,7 +831,7 @@ export function GameMapComponent(
   /** What is visible on a tile — the living layer wins, the ground object stays underneath. */
   function getObject(index: number): GameObjectType | undefined {
     const tile = map.tiles[index];
-    return tile.isRevealed ? (tile.living ?? tile.object) : undefined;
+    return isSeen(tile, PLAYER) ? (tile.living ?? tile.object) : undefined;
   }
 
   /** Selection is "what the player is looking at" — the info panel follows it exactly. */
@@ -720,11 +842,15 @@ export function GameMapComponent(
     // the player, so tapping it can never pick it up, light up its steps, or offer it the
     // portal — any of which would give away that something is hiding there.
     const tile = index === undefined ? undefined : map.tiles[index];
-    const isCharacter = !!tile?.isRevealed && tile.living !== undefined;
+    // The player's *own* unicorn. The rival's can be picked up and read about — every tile can —
+    // but it lights no steps and takes no orders: it is a thing on the board, not a piece.
+    const isCharacter = isSeen(tile, PLAYER) && tile!.living === SIDE_UNICORN[PLAYER];
     // A bathtub is the one piece of scenery that leads somewhere: it offers the fields it
     // can put a new unicorn on. Nothing can stand on a tub — it blocks movement — so this
     // and isCharacter are never both true, and the two kinds of target never mix.
-    isTubSelected = !!tile?.isRevealed && tile.object === GameObjectType.BATHTUB;
+    // The player's own again: the rival's tub is scenery to them, priced against a jar that
+    // is not theirs, and getSpawnTargets would answer for the rival if it were asked.
+    isTubSelected = isSeen(tile, PLAYER) && tile!.object === GameObjectType.BATHTUB;
     // Steps only light up for a character that can afford them, and affordability is now
     // per target rather than per character: with an empty purse a step onto a flower is
     // still on, and it is exactly then that it matters most. Scenery, a blocked-in
@@ -734,20 +860,20 @@ export function GameMapComponent(
     // Only a character can take the portal, and only from the donut it is standing on. The
     // far ends are filtered exactly as the steps are — an unaffordable jump, or one onto a
     // donut somebody is already standing on, is not lit, because it cannot be taken.
-    portalTargets = isCharacter ? getPortalTargets(map, position!).filter((target) => canUsePortal(map, target)) : [];
+    portalTargets = isCharacter ? getPortalTargets(map, position!, PLAYER).filter((target) => canUsePortal(map, target, PLAYER)) : [];
     targets = isCharacter
-      ? [...getMoveTargets(map, position!).filter((target) => getMoveCost(map, target) <= map.drops), ...portalTargets]
+      ? [...getMoveTargets(map, position!).filter((target) => getMoveCost(map, target, PLAYER) <= map.drops[PLAYER]), ...portalTargets]
       : isTubSelected
         ? getSpawnTargets(map, position!)
         : [];
     // A site under the fog is not a site yet, for the same reason a character under it is not
     // a character: offering to build on it would give away that something is there.
-    buildSite = tile?.isRevealed && getBuild(tile.object) ? position : undefined;
+    buildSite = isSeen(tile, PLAYER) && getBuild(tile!.object) ? position : undefined;
     showInfo(index);
   }
 
   function onTileClick(index: number) {
-    if (!isRunning || isPaying || index < 0) return;
+    if (!isRunning || isLocked() || index < 0) return;
     showsScore = false; // the board takes the panel back, whether the tap moves or just looks
 
     if (targets.some((target) => getIndex(target) === index)) {
@@ -764,16 +890,16 @@ export function GameMapComponent(
   }
 
   /** One step at whatever that step costs, or — at the portal's price — a jump straight to the far donut. */
-  function move(target: Position, cost = getMoveCost(map, target)) {
-    map.drops -= cost;
+  function move(target: Position, cost = getMoveCost(map, target, PLAYER)) {
+    map.drops[PLAYER] -= cost;
     moveCharacter(map, selected!, target);
     // Stepping on is the whole of opening one, so this runs on every step and comes back
     // empty-handed on all but a few of them. Before the fog and the rainbows: a chest can
     // hold a unicorn, and that unicorn has its own vision and its own light to bring.
-    const loot = openChest(map, target);
+    const loot = openChest(map, target, PLAYER);
 
-    const previousRainbowCount = map.rainbowCount;
-    revealAround(map, target);
+    const previousRainbowCount = map.rainbowCounts[PLAYER];
+    revealAround(map, target, PLAYER);
     updateRainbows(map);
     // after the fog lifts, so a step into the unknown still reads its own tile
     select(target); // stays selected, so walking on is a single tap per step
@@ -781,7 +907,7 @@ export function GameMapComponent(
     showSpending(target, cost); // after render(), which is what puts the tile where it is measured
     if (loot !== undefined) showLoot(target, loot);
 
-    if (map.rainbowCount > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
+    if (map.rainbowCounts[PLAYER] > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
   }
 
   /**
@@ -808,7 +934,7 @@ export function GameMapComponent(
     const site = buildSite!;
     const [, drops, candy] = getBuild(map.tiles[getIndex(site)].object)!; // before the site is spent
 
-    build(map, site);
+    build(map, site, PLAYER);
     // The tile is a building now, so the selection follows it into what it became — and a tub
     // that has just been filled goes straight on to offering the fields it can put a unicorn on.
     select(site);
@@ -823,8 +949,8 @@ export function GameMapComponent(
 
   /** Trades the jar of candy for a unicorn on one of the tub's fields, then hands the board back. */
   function buy(target: Position) {
-    const price = getUnicornPrice(map); // read before the newcomer joins the herd and puts the price up
-    buyUnicorn(map, target);
+    const price = getUnicornPrice(map, PLAYER); // read before the newcomer joins the herd and puts the price up
+    buyUnicorn(map, target, PLAYER);
     select(selected); // the tub stays picked up, but the jar may no longer stretch to another
     render();
     // The jar empties the same way the purse does, from the field the unicorn appeared on —
@@ -942,6 +1068,10 @@ export function GameMapComponent(
     // ever be standing on it.
     const groups: number[][] = [[], []];
 
+    // The player's own income only, throughout: what flies is what lands in the counters the
+    // player is watching. The rival's payout happens on the model and is never animated — its
+    // score is the thing to watch it by, and thirty more glyphs a turn crossing the screen
+    // would say nothing the number does not.
     map.tiles.forEach((tile, index) => {
       if (tile.object === GameObjectType.RAINBOW) groups[0].push(index);
       // A tub pays its flat drops out of itself, one glyph each, so the income that needs no
@@ -950,7 +1080,7 @@ export function GameMapComponent(
       // And a lollipop tree one sweet per rainbow feeding it — same rule, so a tree catching
       // two of them throws two, and the flight counts out the price of a unicorn in the same
       // glyphs the purchase will spend.
-      else groups[1].push(...Array<number>(getFeedingRainbows(map, getPosition(index)).length).fill(index));
+      else groups[1].push(...Array<number>(getFeedingRainbows(map, getPosition(index), PLAYER).length).fill(index));
     });
 
     let start = 0; // when this currency's first glyph sets off
@@ -991,12 +1121,65 @@ export function GameMapComponent(
 
     setTimeout(() => {
       isPaying = false;
-      endTurn(map);
+      endTurn(map, PLAYER);
       select(selected); // steps that were unaffordable a moment ago may be back
       render();
 
-      if (isRunOver(map)) endGame();
+      // The rival goes next, and the clock only moves on once it has had its turn — so a
+      // "turn" is the pair of them. Without an opponent the two halves collapse into what
+      // this always did: pay the player, tick over, see whether the run is out of turns.
+      if (HAS_OPPONENT && HAS_RIVAL) playRivalTurn(closeTurn);
+      else closeTurn();
     }, wait);
+  }
+
+  /** The clock moving on, once everybody who plays this turn has played it. */
+  function closeTurn() {
+    nextTurn(map);
+    select(selected); // the rival may have walked off a tile this selection was aiming at
+    render();
+
+    if (isRunOver(map)) endGame();
+  }
+
+  /**
+   * The opponent's turn, played out in front of the player one action at a time. It is the
+   * same bot the dev corner drives, on the other side, and it goes through applyBotAction
+   * rather than through the interface's own move/buy/raise: those are the *player's* hands —
+   * they read `selected`, fly the player's glyphs and pop the player's counters.
+   *
+   * A timer rather than a loop, so the board is repainted between actions and the rival can
+   * be watched crossing it. It is also the only thing on this screen that runs while the
+   * player cannot act, which is what isRivalTurn locks.
+   *
+   * Nothing here checks how long the turn is: the bot ends its own turn exactly as the player
+   * does — when it can find nothing worth doing — and END_TURN is what stops the timer. That
+   * is the same guarantee the run has always leaned on, that a turn always ends.
+   */
+  function playRivalTurn(onDone: () => void) {
+    isRivalTurn = true;
+    render(); // takes the board out of reach for as long as the rival is on it
+
+    rivalTimer = setInterval(() => {
+      const action = getBotAction(map, BotStrategy.MIXED, RIVAL);
+
+      if (!action || action.kind === BotActionKind.END_TURN) {
+        clearInterval(rivalTimer);
+        rivalTimer = undefined;
+        endTurn(map, RIVAL); // its own payout, on the model — nothing flies for it
+        isRivalTurn = false;
+        onDone();
+        return;
+      }
+
+      applyBotAction(map, action, RIVAL);
+      // Re-selected rather than only redrawn: the rival may have walked onto the very tile
+      // this selection was offering as a step, and a highlight that outlives what it was
+      // offering is worse than none. The board is locked either way, so nothing can be acted
+      // on in the meantime — this is about what it says, not about what it allows.
+      select(selected);
+      render();
+    }, RIVAL_STEP_DELAY) as unknown as number;
   }
 
   /**
@@ -1006,24 +1189,38 @@ export function GameMapComponent(
    */
   function endGame() {
     isRunning = false;
+    // On a board with an opponent there is now something to lose. A draw goes to the player:
+    // the rival is the thing to beat, and matching it is beating it — and it keeps "there is
+    // no losing in this game" true of every board that has nobody on it to lose to.
+    const isWon = !HAS_OPPONENT || !HAS_RIVAL || getScore(map, PLAYER) >= getScore(map, RIVAL);
     select(undefined); // drops the board highlights; the panel now carries the result
-    setInfo(TranslationKey.WON, WIN_EMOJI);
-    infoText.textContent += ` ${getScore(map)}`; // the text ends ready for the number
+    setInfo(
+      HAS_OPPONENT && HAS_RIVAL ? (isWon ? TranslationKey.WON_RACE : TranslationKey.LOST_RACE) : TranslationKey.WON,
+      isWon ? WIN_EMOJI : LOSE_EMOJI,
+    );
+    infoText.textContent += ` ${getScore(map, PLAYER)}`; // the text ends ready for the number
     showsScore = false; // the result owns the panel now; there is nothing left to toggle
-    renderScoreBoard(true); // the total above, its working below
+    renderScoreBoard(true); // the total above, its working below — and the rival's total under that
     render();
 
-    pubSubService.publish(PubSubEvent.GAME_END, { isWon: true });
+    pubSubService.publish(PubSubEvent.GAME_END, { isWon });
   }
 
   // The board to play comes from the launch screen. Passing a seed as well replays exactly
   // that map; leaving it out deals a new one — replaying the map just played needs no
   // snapshot, only remembering the number it was built from.
   function startNewGame(size: number, seed = createSeed()) {
-    map = createGameMap(seed, size); // sets MAP_SIZE, so everything below reads the new board
+    map = createGameMap(seed, size); // sets MAP_SIZE and HAS_RIVAL, so everything below reads the new board
     // The bot rolls on a generator of its own — see bot.ts — and it is seeded from the map
-    // so that the same board played by the same bot plays out the same way twice.
-    if (HAS_DEV_TOOLS) resetBot(seed);
+    // so that the same board played by the same bot plays out the same way twice. It has to
+    // be reset for the opponent as well as for the dev tools now: the memory it keeps between
+    // decisions (where each unicorn is headed, where it has been) belongs to the last board.
+    if (HAS_DEV_TOOLS || HAS_OPPONENT) resetBot(seed);
+    // A run left mid-rival-turn must neither lock the next one nor leave a rival walking about
+    // on a board that has been replaced underneath it.
+    clearInterval(rivalTimer);
+    rivalTimer = undefined;
+    isRivalTurn = false;
     if (tileElements.length !== MAP_SIZE * MAP_SIZE) buildBoard();
     showsScore = false; // render() clears last run's working with it, before the new board shows
     isRunning = true; // before render(), which reads it for the turn button

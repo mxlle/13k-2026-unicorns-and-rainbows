@@ -61,26 +61,31 @@ instead. Because the flags are compile-time constants, everything behind `if (HA
 tree-shaken out of builds where the flag is false. That is the mechanism that lets the
 friends-&-family build carry extra content without costing the js13k build a single byte.
 
-- js13k mode: short texts, no console logs, no manifest/meta tags, no nice-to-have styles
+- js13k mode: short texts, no console logs, no manifest/meta tags, no nice-to-have styles, and
+  — for now — no opponent (`HAS_OPPONENT`; see "The opponent" below for what it costs)
 - poki mode: loads the Poki SDK (`src/poki-integration.ts`), gameplayStart/Stop wired in `index.ts`;
   terser property mangling is DISABLED for poki (their SDK breaks otherwise)
 
 ## Dev tools — and keeping the bot in step with the game
 
-Everything under `src/dev/` is for looking at the game rather than playing it, and none of it
-ships: it is reached only from behind `HAS_DEV_TOOLS` (which is `IS_DEV`, so it is absent from
-the friends-&-family build too) and tree-shaken out of every real build. Keep it that way —
-`npm run build-js13k` is the check, and the whole bot currently costs the competition build
-0 bytes. Nothing in there is byte-golfed, and it should not be: clarity and being easy to
-re-tune are worth more in a file that never leaves the machine.
+The dev-only tools are reached only from behind `HAS_DEV_TOOLS` (which is `IS_DEV`, so they are
+absent from the friends-&-family build too) and tree-shaken out of every real build. Keep it
+that way — `npm run build-js13k` is the check.
+
+**The bot is no longer one of them.** It lives at `src/game/bot.ts` and it ships wherever
+`HAS_OPPONENT` is on, because the opponent on the big boards *is* the bot playing the other
+side (see "The opponent" below). It is still not byte-golfed and should not be — clarity is
+what makes it re-tunable, and an opponent's behaviour has to be arguable — but it is no longer
+free, so a change to it now shows up in the size report.
 
 - **☁️ fog toggle** — the clouds off, for looking at how a board actually came out. Drawing
-  only; the model's `isRevealed` is untouched, so the run behaves exactly as it would with the
-  clouds on.
-- **The bot** (`src/dev/bot.ts`), in the same corner: ⚖️ cycles the four strategies
+  only; the model's `seen` bits are untouched, so the run behaves exactly as it would with the
+  clouds on. It shows the player's view of the board, not the opponent's.
+- **The bot** (`src/game/bot.ts`), in the same corner: ⚖️ cycles the four strategies
   (random / explore / economy / mixed), ▶ takes one action, ⏩ plays the rest of the run out on
   a timer. Every action prints to the console with what the bot thought it was worth. The
-  buttons are for seeing *why* a bot does something; the numbers come from the harness.
+  buttons are for seeing *why* a bot does something; the numbers come from the harness. They
+  always drive the **player's** side — the opponent plays its own turn without them.
 - **`npm run bot`** (`scripts/bot-harness.ts`) plays whole runs with nobody watching — every
   board × every strategy × N seeds — and prints score, exploration, rainbows, herd, what the
   actions were spent on, and what was left unspent at the whistle. It is a vite `--ssr` build
@@ -114,7 +119,7 @@ re-tune are worth more in a file that never leaves the machine.
 
 **When the rules change, change the bot.** Nothing will break if you don't — it will quietly
 go on playing a game that no longer exists and hand you balancing numbers for it. After a
-change to the economy, the objects or the board, walk `src/dev/bot.ts`:
+change to the economy, the objects or the board, walk `src/game/bot.ts`:
 
 - `getLegalActions` — anything a player can now do that is not in there is invisible to the bot.
 - the value model (`getBestAction`, `getStandingValue`, `getBuildValue`) — a new object, price
@@ -138,8 +143,48 @@ stood on this turn, and the board's income read once a turn rather than after ev
 it is what stopped the bot pacing on the spot. If a change makes a value depend on where the
 deciding unicorn happens to be standing, expect pacing, and fix it there rather than by tuning.
 
-The bot plays fair: it decides only from revealed tiles, never from what the fog is hiding.
-Hold any new heuristic to that, or its runs stop saying anything about what a player could do.
+The bot plays fair: it decides only from tiles **its own side** has revealed, never from what
+the fog is hiding. Hold any new heuristic to that, or its runs stop saying anything about what
+a player could do — and, now that the same code is the opponent, it stops being an opponent
+that can be beaten fairly.
+
+## The opponent — two sides on one board
+
+Behind `HAS_OPPONENT` (currently `!IS_JS13K`), the boards from `RIVAL_SIZE` up — the 21x21 and
+the 25x25 — carry a second player: a dark unicorn starting from the mirrored corner, driven by
+the `mixed` bot, taking a whole turn of its own between the player's turns.
+
+Everything about it follows from three decisions, and knowing them is most of reading the code:
+
+1. **Ownership is a position in the enum, not a field.** `DARK_UNICORN`, `DARK_RAINBOW` and
+   `DARK_BATHTUB` are the last three `GameObjectType` members, so `getSide()` is one `>=` and
+   no tile carries an owner. Anything doubled goes in one of the `SIDE_*` tables in
+   `game-objects.ts` and is looked up by side; only the three things that can *belong* to
+   somebody are doubled. Fountains, trees, donuts, flowers, chests and build sites are neutral.
+2. **Each side has its own fog.** `Tile.isRevealed` became `Tile.seen`, a bitmask, read through
+   `isSeen(tile, side)`. Exploration is the score's own multiplier, so a shared cloud layer
+   would have each side handing the other its multiplier for free. This is why nearly every
+   function in `game-map.ts` takes a `side` — it is the cost of that decision, spread thin.
+3. **Currencies are per-side arrays.** `map.drops[side]`, `map.candy[side]`, and likewise the
+   two incomes and `rainbowCounts`. A turn is now every side's go and *then* the clock, which
+   is why `endTurn(map, side)` and `nextTurn(map)` are two calls.
+
+The contest itself is almost entirely emergent rather than written: a rainbow has always needed
+empty ground, so the first one onto a tile holds it and the other side's light dies in the
+fountain; a tile with somebody standing on it cannot be lit or stepped onto; a build site is
+spent by whoever gets a unicorn beside it and can pay first. The one contested *building* is
+the bathtub, which belongs to whoever raises it — which makes the tub site in the middle of the
+board, equidistant from both corners, the sharpest thing on the map.
+
+Nothing in `bot.ts` knows it has a rival. It plays its own board off its own fog, and the
+competition reaches it entirely through what the board looks like. Keep it that way: a
+heuristic that reasons about the other side would also be one the player has no way to see.
+
+When the rules change, the opponent changes with them for free — it is the same code — but
+**check the two harnesses**: `npm run bot` now plays both sides on the big boards and prints a
+🌑 column, `npm run bot -- --solo` is the old single-player reading, and `npm run sweep` turns
+the opponent off entirely (a grid comparing weights must not have a different game under two of
+its seven rungs).
 
 ## Size machinery — read before touching vite.config.ts or adding enums
 

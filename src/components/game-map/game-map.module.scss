@@ -103,6 +103,12 @@ $sidebar-width: min(20rem, 30vw);
   // fades in and out instead of starting and stopping flat, so it reads as light, not a bar
   background: linear-gradient(90deg, transparent, theme.$light-color 25%, theme.$light-color 75%, transparent);
 
+  // The opponent's light. Not a colour of its own: the same gradient inverted, so a dark beam
+  // is the photographic negative of the one beside it and the pairing needs no legend.
+  &.dark {
+    filter: invert(1);
+  }
+
   // the light died in the fountain — nothing at the far end, so it just peters out
   &.unlit {
     opacity: 0.4;
@@ -254,6 +260,18 @@ $win-hop-height: 2rem;
 
 .infoEmoji {
   font-size: 1.1rem;
+}
+
+// PLACEHOLDER art for everything the opponent owns — its unicorns, its rainbows, its bathtub,
+// its light. One declaration, and it is the whole of the rival's look: the same emoji as the
+// player's own, photographically inverted. That is cheaper than any second glyph could be (no
+// bytes, no new art) and it says the right thing — a dark unicorn is not a different creature,
+// it is *your* unicorn on the other side, and an inverted rainbow is a rainbow's complement
+// rather than a grey smudge. It applies wherever a rival thing is drawn, which is the board,
+// the info panel and the two score counters, so it is a rule of its own rather than nested
+// under the tile.
+.dark {
+  filter: invert(1);
 }
 
 // The score's working: one entry per line, stacked. It used to be a 2x2 grid, back when there

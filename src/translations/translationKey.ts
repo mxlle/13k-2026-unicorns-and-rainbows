@@ -32,4 +32,13 @@ export const TranslationKey = defineEnum({
   // The tub's second job, appended to INFO_BATHTUB only on boards that have candy to pay with.
   // A sentence rather than a key of its own so the first half is written once.
   INFO_BATHTUB_SELL: 20,
+  // The opponent. Every one of these is written as a HAS_OPPONENT ternary in the translation
+  // maps, so the key survives into a build without the feature but the text does not — an
+  // unused key costs a comma, an unused sentence costs its whole length.
+  INFO_RIVAL: 21,
+  INFO_DARK_RAINBOW: 22,
+  // How the run ends once there is somebody to lose to. WON above is still the ending of a
+  // board with no opponent on it: the turns ran out, and that is all there is to say.
+  WON_RACE: 23,
+  LOST_RACE: 24,
 });

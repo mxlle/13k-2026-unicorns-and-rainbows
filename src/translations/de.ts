@@ -26,5 +26,10 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_TUB_SITE]: "Leere Wanne|Ein Einhorn daneben kann sie füllen.",
     [TranslationKey.INFO_FOUNTAIN_SITE]: "Geröll|Ein Einhorn daneben kann den Brunnen wieder aufbauen.",
     [TranslationKey.INFO_TREE_SITE]: "Setzling|Ein Einhorn daneben kann ihn zum 🍭-Baum ziehen.",
+    // Der Gegner. Kein HAS_OPPONENT-Ternary nötig: die ganze Datei hängt schon an HAS_GERMAN.
+    [TranslationKey.INFO_RIVAL]: "Dunkles Einhorn|Dein Rivale. Es spielt dasselbe Spiel — sei vor ihm an den Brunnen.",
+    [TranslationKey.INFO_DARK_RAINBOW]: "Dunkler Regenbogen|Er zählt für deinen Rivalen. Sein Feld ist besetzt.",
+    [TranslationKey.WON_RACE]: "Du gewinnst!|Dein Endstand:",
+    [TranslationKey.LOST_RACE]: "Dein Rivale gewinnt!|Dein Endstand:",
   };
 }

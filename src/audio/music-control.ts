@@ -66,6 +66,13 @@ export function togglePlayer(): boolean {
   return isActive;
 }
 
+// The mute button owns *all* audio, not just the music: `isActive` is what it toggles, and
+// `audioElem.muted` is what the tab going away (or Poki) does behind its back. Sound effects
+// ask both, so they follow the button and the tab without a second flag to keep in step.
+export function isSoundOn(): boolean {
+  return isActive && !audioElem.muted;
+}
+
 export function playOrPauseMusicIfApplicable(shouldPlay: boolean = isActive) {
   const isCurrentlyPlaying = !audioElem.paused && !audioElem.ended;
 

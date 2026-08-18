@@ -1,3 +1,5 @@
+import { isSoundOn } from "../music-control";
+
 const synth = window.speechSynthesis;
 
 export function speak(text: string, rate: number = 1, pitch: number = 1): Promise<void> {
@@ -17,6 +19,8 @@ export function speak(text: string, rate: number = 1, pitch: number = 1): Promis
 }
 
 export function playSound(audioSrc: string, playbackRate: number = 1) {
+  if (!isSoundOn()) return Promise.resolve();
+
   const audio = new Audio(audioSrc);
   audio.preload = "auto";
   audio.preservesPitch = false;
@@ -32,6 +36,8 @@ export function playSound(audioSrc: string, playbackRate: number = 1) {
 }
 
 export function playSoundSimple(audioSrc: string) {
+  if (!isSoundOn()) return;
+
   const audio = new Audio(audioSrc);
   void audio.play();
 }

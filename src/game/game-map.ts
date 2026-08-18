@@ -62,6 +62,14 @@ export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
  * rules, and every one of them is still true on the 25x25.
  */
 const TREE_SIZE = 7; // and with the trees comes candy, which is what gives the tub its second job
+/**
+ * PLACEHOLDER: how many lollipop trees may stand on one fountain's ring — the eight tiles around
+ * it, which are exactly the tiles its light can land on. A tree there is the point of a tree, so
+ * the first one is placed deliberately (see createGameMap) and one more may wander in; anything
+ * past that and a fountain starts running out of pairings. Everything else keeps off the ring
+ * entirely — see crowdsFountain.
+ */
+const TREES_PER_FOUNTAIN = 2;
 const DONUT_SIZE = 9;
 const DONUT_DENSITY = 6; // tiles of width per donut — see setMapSize
 const SITE_SIZE = 13;
@@ -448,7 +456,7 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // drop the donut, which is how a portal ends up leading to the tile next door.
   if (DONUT_COUNT) {
     const spacing = getSpacing(DONUT_COUNT);
-    const spots = getFreePositions(map, 0);
+    const spots = getPlaceableSpots(map, GameObjectType.DONUT, 0);
     const pairable = spots.filter((a) => spots.some((b) => getAxisDistance(a, b) >= spacing));
     getTile(map, getRandomItem(pairable.length ? pairable : spots))!.object = GameObjectType.DONUT;
     // From 1: the one above is on the board already, and the rest space themselves off it.
@@ -570,7 +578,7 @@ function getPositionsOf(map: GameMap, objectType: GameObjectType): Position[] {
  * it is the step-down rather than a second constant that finds what such a board does allow.
  */
 function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin = 0, diagonal = false): Position | undefined {
-  const free = getFreePositions(map, margin);
+  const free = getPlaceableSpots(map, objectType, margin);
   const taken = getPositionsOf(map, objectType);
   let candidates = free;
 
@@ -603,16 +611,100 @@ function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin
  * reason to grow the tree next to it, and the two together are a plan rather than two offers.
  */
 function getSeedlingSpots(map: GameMap): Position[] {
-  return getFreePositions(map, 0).filter(({ x, y }) => {
+  // A seedling is a tree-to-be, so it is offered where a tree may stand and counted like one:
+  // a ring that already has its trees does not get a third in seedling form either.
+  return getPlaceableSpots(map, GameObjectType.TREE, 0).filter(({ x, y }) => {
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
-        const object = getTile(map, { x: x + dx, y: y + dy })?.object;
-        if ((dx || dy) && (object === GameObjectType.FOUNTAIN || object === GameObjectType.FOUNTAIN_SITE)) return true;
+        if ((dx || dy) && isFountainish(getTile(map, { x: x + dx, y: y + dy })?.object)) return true;
       }
     }
 
     return false;
   });
+}
+
+/**
+ * A fountain, or the rubble that becomes one. The two are the same thing for every purpose that
+ * is about where light will come out: a rebuilt fountain is no different from a found one, so
+ * anything that gives a fountain room has to give rubble the same room, or the room is gone by
+ * the time it is rebuilt.
+ */
+function isFountainish(objectType: GameObjectType | undefined): boolean {
+  return objectType === GameObjectType.FOUNTAIN || objectType === GameObjectType.FOUNTAIN_SITE;
+}
+
+/**
+ * How many trees — grown or still a seedling — stand on the eight tiles around this one. The
+ * seedling counts because it is a tree-to-be that is already taking the tile up: a ring of
+ * seedlings is a fountain with nowhere to put a rainbow now and nowhere later either.
+ */
+function countTrees(map: GameMap, { x, y }: Position): number {
+  let count = 0;
+
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const object = getTile(map, { x: x + dx, y: y + dy })?.object;
+      if ((dx || dy) && (object === GameObjectType.TREE || object === GameObjectType.TREE_SITE)) count++;
+    }
+  }
+
+  return count;
+}
+
+/**
+ * Whether putting `objectType` here would crowd a fountain out of its own light.
+ *
+ * A fountain's eight neighbours are not ordinary tiles: they pair up into the four lines its
+ * light can travel along, and each line needs a tile to stand a unicorn on at one end and empty
+ * ground to land a rainbow on at the other. So anything that owns the ground layer and lands on
+ * that ring does not merely sit near the fountain — it costs it a whole pairing, and a fountain
+ * ringed by scenery is a fountain that cannot be used at all. That was being decided by the roll
+ * of the dice, and this is what decides it on purpose instead.
+ *
+ * Read from both sides, because a ring can be crowded either way round:
+ *  - a fountain arriving wants a ring that is empty ground to begin with;
+ *  - anything else arriving must keep off every ring — except a lollipop tree, which is welcome
+ *    up to TREES_PER_FOUNTAIN, a tree beside a fountain being the whole point of a tree.
+ *
+ * It is only ever advice: getPlaceableSpots falls back to the unfiltered board when nothing
+ * satisfies this, the same way the spacing rule steps down rather than dropping a placement.
+ */
+function crowdsFountain(map: GameMap, { x, y }: Position, objectType: GameObjectType): boolean {
+  const isLight = isFountainish(objectType);
+
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const neighbour = { x: x + dx, y: y + dy };
+      const object = getTile(map, neighbour)?.object;
+
+      if (!dx && !dy) continue;
+
+      // A fountain arriving: whatever is already on the ring is what it would have to work
+      // around, so it goes somewhere emptier instead.
+      if (isLight) {
+        if (object !== undefined) return true;
+        continue;
+      }
+
+      if (isFountainish(object) && (objectType !== GameObjectType.TREE || countTrees(map, neighbour) >= TREES_PER_FOUNTAIN)) return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * The free tiles this kind of thing may actually be put on: `margin` clear of the border, and
+ * clear of the fountains' light — see crowdsFountain, whose rule this is the one place that
+ * applies. The whole board comes back rather than nothing at all when the rule cannot be met,
+ * so a filling board still places what it is asked to, as close to the rule as it can.
+ */
+function getPlaceableSpots(map: GameMap, objectType: GameObjectType, margin: number): Position[] {
+  const free = getFreePositions(map, margin);
+  const clear = free.filter((position) => !crowdsFountain(map, position, objectType));
+
+  return clear.length ? clear : free;
 }
 
 /** The free tiles of the surrounding 3x3 — the spots where a fountain's tree may grow. */

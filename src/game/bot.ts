@@ -18,6 +18,7 @@ import {
   getPosition,
   getSpawnTargets,
   getTile,
+  getUnicornLevel,
   isRunOver,
   isSeen,
   MAP_SIZE,
@@ -511,20 +512,25 @@ function getRainbows(map: GameMap, { x, y }: Position, lit: boolean, side: Side)
 }
 
 /**
- * Whether a lollipop tree the player has found stands beside this tile — which is to say,
- * whether a rainbow landing here would be paying a tree a sweet a turn as well as scoring.
- * Since a tree now earns per rainbow, that is a real difference between one rainbow and the
- * next, and the whole reason the rainbows are carried around as positions rather than counted.
+ * How many lollipop trees this side has found stand beside this tile — which is to say, how many
+ * jars a rainbow landing here would be filling as well as scoring. Since a tree earns per
+ * rainbow, that is a real difference between one rainbow and the next, and the whole reason the
+ * rainbows are carried around as positions rather than counted.
+ *
+ * Counted rather than answered as a yes: a rainbow between two trees pays both of them, and the
+ * bot has to be able to prefer that tile to the one next to it.
  */
-function hasTreeBeside(map: GameMap, { x, y }: Position, side: Side): boolean {
+function countTreesBeside(map: GameMap, { x, y }: Position, side: Side): number {
+  let trees = 0;
+
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       const tile = getTile(map, { x: x + dx, y: y + dy });
-      if ((dx || dy) && isSeen(tile, side) && tile!.object === GameObjectType.TREE) return true;
+      if ((dx || dy) && isSeen(tile, side) && tile!.object === GameObjectType.TREE) trees++;
     }
   }
 
-  return false;
+  return trees;
 }
 
 /** How much of this side's own fog a character standing here would lift — its own tile included. */
@@ -677,7 +683,11 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // The same number as before the score was rewritten — the two forms agree exactly — so
   // every tuning constant below is still in the units it was tuned in.
   const thingValue = getExploration(map, side);
-  const rainbowValue = thingValue + turnsLeft * DROP_VALUE; // it scores, and it pays a drop a turn
+  // What a rainbow is worth to a *newcomer*: it scores, and it pays a drop a turn. A grown
+  // unicorn's is worth more, which is what getRainbowsValue takes a level for — this is the
+  // level-1 reading, and the one thing that reads it directly is a fountain site, whose light
+  // is whoever's happens to reach it later rather than anybody's in particular.
+  const rainbowValue = thingValue + turnsLeft * DROP_VALUE;
   const unicornValue = thingValue + UNICORN_POTENTIAL;
   // What a price actually costs the run, which is not what it costs the purse: money left
   // over at the end is money that scored nothing. See CURRENCY_HORIZON.
@@ -693,13 +703,20 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   const chestValue = CHEST_ODDS * (CHEST_DROPS * DROP_VALUE + CHEST_CANDY * CANDY_VALUE + unicornValue);
 
   /**
-   * What a set of rainbows is worth. Every one of them scores and pays a drop a turn, and one
-   * that lands beside a lollipop tree pays that tree a sweet a turn on top — so which side of
-   * a fountain gets lit is a real choice, and a bot pricing them all alike could not see it.
-   * That is the whole reason the rainbows are carried around as positions.
+   * What a set of rainbows cast by a `level` unicorn is worth. Every one of them scores, and
+   * pays its level in drops a turn, and pays a lollipop tree beside it the same again in sweets —
+   * so which side of a fountain gets lit is a real choice, and a grown unicorn holding a post is
+   * worth several times a newcomer holding the same one. A bot pricing them all alike could see
+   * neither. That is the whole reason the rainbows are carried around as positions.
+   *
+   * The score half does not scale: a rainbow is one thing built however big it is, which is what
+   * the game's own score says.
    */
-  const getRainbowsValue = (rainbows: Position[]) =>
-    rainbows.reduce((total, rainbow) => total + rainbowValue + (hasTreeBeside(map, rainbow, side) ? turnsLeft * CANDY_VALUE : 0), 0);
+  const getRainbowsValue = (rainbows: Position[], level: number) =>
+    rainbows.reduce(
+      (total, rainbow) => total + thingValue + level * turnsLeft * (DROP_VALUE + countTreesBeside(map, rainbow, side) * CANDY_VALUE),
+      0,
+    );
 
   /**
    * What raising a site is worth, already carrying its own strategy weight — the tub is the
@@ -775,7 +792,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
         const gain =
           unicornWeight * unicornValue +
           explore * countFog(map, to, side) * TILE_VALUE +
-          economy * getRainbowsValue(getRainbows(map, to, false, side));
+          economy * getRainbowsValue(getRainbows(map, to, false, side), 1); // a newcomer starts at level 1
         const value = gain - price * candyPrice;
 
         if (value > 0)
@@ -796,9 +813,14 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    * "does this site already have somebody beside it" — without it a site goes worthless the
    * moment its unicorn arrives, and the bot turns straight round and paces back and forth
    * for the rest of the run.
+   *
+   * `level` is how grown the unicorn in question is — the one standing here, or the one that
+   * would walk here — because what a post is worth now depends on who is holding it. It is the
+   * mover's own level in both halves of a move, which is what keeps the comparison honest: the
+   * same unicorn is being priced in the tile it leaves and the tile it goes to.
    */
-  const getStandingValue = (position: Position, lit: boolean, ignore: Position) => {
-    let value = economy * getRainbowsValue(getRainbows(map, position, lit, side));
+  const getStandingValue = (position: Position, lit: boolean, ignore: Position, level: number) => {
+    let value = economy * getRainbowsValue(getRainbows(map, position, lit, side), level);
 
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
@@ -818,7 +840,8 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   /** What walking to a tile is worth: the fog it lifts, what is lying on it, what it posts a unicorn to. */
   const getGoalGain = (position: Position, from: Position) => {
     const tile = getTile(map, position)!;
-    let gain = explore * countFog(map, position, side) * TILE_VALUE + getStandingValue(position, false, from);
+    let gain =
+      explore * countFog(map, position, side) * TILE_VALUE + getStandingValue(position, false, from, getUnicornLevel(getTile(map, from)!));
 
     // A present is worth walking to whichever bot is playing: it is drops, sweets or a whole
     // unicorn, and every one of those is worth having.
@@ -835,7 +858,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
     // What walking away costs: the rainbows this unicorn is holding up go out behind it and
     // the site it is standing beside loses the hands that were going to raise it. Charged
     // against every goal alike, which is what keeps a posted unicorn at its post.
-    const leaving = LEAVING_WEIGHT * getStandingValue(from, true, from);
+    const leaving = LEAVING_WEIGHT * getStandingValue(from, true, from, getUnicornLevel(getTile(map, from)!));
     // The best this unicorn could do, and the step that carries on with what it was already
     // doing. Only one of the two is ever offered — see the choice below.
     let best: BotAction | undefined;

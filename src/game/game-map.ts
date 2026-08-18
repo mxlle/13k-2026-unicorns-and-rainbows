@@ -183,6 +183,23 @@ export const PORTAL_COST = MOVE_COST + 1; // a jump between the two donuts costs
 // floor under the economy — with it, a run can never seize up, which is why there is no
 // losing any more. Every tub on the board pays it, so a second one doubles the base.
 export const BASE_INCOME = 2;
+// PLACEHOLDER: how a unicorn grows up. One that spends GROWTH_PER_LEVEL turns shining gains a
+// level, up to MAX_UNICORN_LEVEL, and its rainbows come out that much bigger: a level-3
+// unicorn's rainbow pays three drops a turn instead of one, and feeds a lollipop tree beside it
+// three sweets instead of one.
+//
+// It is aimed at the end of a long run, which had gone quiet: a unicorn costs the herd's size,
+// so a flat income stops buying anything and there is nothing left to spend a turn on. Growth
+// on the unicorn rather than on the tree is what keeps the two currencies together while it
+// fixes that — the rainbow is where water and sweets both come from, so a bigger one lifts the
+// purse and the jar at once, and the walking a run wants to pay for stays payable.
+//
+// Shining, not merely living: it grows on the turns it is actually lined up 🦄⛲🌈, which is
+// the act the whole game is about. See growUnicorns.
+const GROWTH_PER_LEVEL = 3; // turns spent shining per level-up
+const MAX_UNICORN_LEVEL = 3; // its rainbow is worth 1 at the start and 3 once it is fully grown
+// The counter's ceiling, since it counts shining turns rather than levels — two level-ups' worth.
+const MAX_GROWTH = (MAX_UNICORN_LEVEL - 1) * GROWTH_PER_LEVEL;
 // PLACEHOLDER: how much board there is per present. Lowered from 60, which is a couple more on
 // every board from the 9x9 up — but the count was never the weak part. Tripling the presents on
 // the 25x25 was measured at 8%, because a present's *contents* were flat: five drops against a
@@ -242,6 +259,40 @@ export interface Tile {
   // when the board is built rather than when the chest is opened, so a seed determines its
   // prizes as completely as it determines where they are.
   loot?: ChestLoot;
+  /**
+   * How many shining turns the unicorn standing here has behind it. It belongs to the unicorn
+   * and not to the tile, so it travels with it — see moveCharacter, which is the only place a
+   * unicorn ever changes tiles. Absent means none, which is what a newcomer and every tile
+   * with nobody on it read as.
+   *
+   * One counter rather than a level and a progress pair: the level is this divided by
+   * GROWTH_PER_LEVEL (see getUnicornLevel), and a turn spent dark takes the remainder off — so
+   * a level once reached is kept, and only the progress towards the next one is lost.
+   */
+  growth?: number;
+  /**
+   * How big the rainbow lying here is — the level of the unicorn whose light made it, which is
+   * what it pays in drops a turn and what it feeds a lollipop tree beside it in sweets. Written
+   * as the rainbow is cast (see updateRainbows) and only ever read of a tile that holds one, so
+   * it cannot go stale: every rainbow there is was lit in the same pass that stamped this.
+   *
+   * A field of its own rather than the caster's `growth`, because the two can be on one tile: a
+   * unicorn may walk onto a tile a rainbow was lying on, and its own growth goes with it.
+   */
+  light?: number;
+}
+
+/**
+ * The unicorn standing here, in levels: 1 while it is young, up to MAX_UNICORN_LEVEL once it
+ * has shone long enough. Read off the tile so that everything the level touches — what the
+ * rainbow pays, the sweets it feeds a tree, how the light is drawn, what the info panel says —
+ * is counted off the one number and cannot drift.
+ *
+ * Undefined growth divides to NaN and `| 0` turns that into 0, so a newcomer — and any tile
+ * with nobody standing on it — reads as level 1 without a default being spelled out.
+ */
+export function getUnicornLevel(tile: Tile): number {
+  return 1 + ((tile.growth! / GROWTH_PER_LEVEL) | 0);
 }
 
 /**
@@ -264,6 +315,12 @@ export interface Beam extends Position {
   // inside a fountain, so the two share the width the renderer works out from isLit.
   isCandy: boolean;
   side: Side; // whose light it is — the renderer draws the opponent's inverted, like its rainbows
+  // How many parallel lines this beam is drawn as: the level of the unicorn whose light it is,
+  // which is what the rainbow at the end of it pays and what it feeds a tree. So a grown
+  // unicorn's whole light path — the beam through the fountain and the pink feed beyond the
+  // rainbow — comes out three lines wide, and what it is worth can be counted off the board.
+  // A beam that died in a fountain never sets it: an unlit one pays nothing to count.
+  lines?: number;
 }
 
 /**
@@ -629,6 +686,10 @@ export function updateRainbows(map: GameMap) {
     const side = getSide(glower);
     if (!isSeen(tile, side)) return;
     const { x, y } = getPosition(index);
+    // How grown the thing shining is, which is the whole of what a level does: it is stamped
+    // onto every rainbow this light makes, and everything downstream — the drops, the sweets a
+    // tree is fed, how wide the light is drawn — is read back off that. See getUnicornLevel.
+    const level = getUnicornLevel(tile);
 
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
@@ -647,28 +708,39 @@ export function updateRainbows(map: GameMap) {
         if (isLit) {
           target.object = SIDE_RAINBOW[side];
           target.seen |= 1 << side; // its own light lifts its own side's fog over it
+          target.light = level; // how big this rainbow is, for everything that reads it later
           map.rainbowCounts[side]++;
         }
 
-        map.beams.push({ x, y, dx, dy, isLit, isCandy: false, side });
+        // Only a rainbow that got there is drawn at the level's full width: an unlit beam is
+        // light that came to nothing, and three lines of nothing would read as three times as
+        // much of it. The count stays the rainbow's worth throughout.
+        map.beams.push({ x, y, dx, dy, isLit, isCandy: false, side, lines: isLit ? level : 1 });
       }
     }
   });
 
-  // What each purse takes next turn: that side's rainbows shining, plus the flat pay of every
-  // bathtub it owns. Counted from the tiles rather than kept as a number of its own, so a tub
-  // built mid-run starts paying without anything having to be told about it — and a tub site
-  // raised by the opponent starts paying the opponent for exactly the same reason.
-  map.dropIncome = SIDES.map(
-    (side) => map.rainbowCounts[side] + BASE_INCOME * map.tiles.filter((tile) => tile.object === SIDE_BATHTUB[side]).length,
+  // What each purse takes next turn: every rainbow of that side's at the size it came out, plus
+  // the flat pay of every bathtub it owns. Counted from the tiles rather than kept as a number
+  // of its own, so a tub built mid-run starts paying without anything having to be told about it
+  // — and a tub site raised by the opponent starts paying the opponent for exactly the same
+  // reason. The rainbows are summed by their `light` rather than counted, which is the one place
+  // a grown unicorn's water actually arrives; `rainbowCounts` stays a count, because the score
+  // is about how much is built and not about how big it is.
+  map.dropIncome = SIDES.map((side) =>
+    map.tiles.reduce(
+      (total, tile) => total + (tile.object === SIDE_RAINBOW[side] ? tile.light! : tile.object === SIDE_BATHTUB[side] ? BASE_INCOME : 0),
+      0,
+    ),
   );
 
   // The second income, counted once the rainbows are in place: a lollipop tree standing next
-  // to one turns the light into sweets. One candy per rainbow beside it, so a tree with two
-  // of them pays twice — the light is the thing being turned into sweets, and there is simply
-  // more of it. It also means lighting a fountain's second and third side is worth doing for
-  // the jar and not only for the score, which is what ties the sweets to how built-up the
-  // board is rather than to how many trees happen to be standing on it.
+  // to one turns the light into sweets. Each rainbow's own size in candy, so a tree with two of
+  // them pays for both and a tree lit by a grown unicorn pays several times one lit by a
+  // newcomer — the light is the thing being turned into sweets, and there is simply more of it.
+  // It also means lighting a fountain's second and third side is worth doing for the jar and not
+  // only for the score, which is what ties the sweets to how built-up the board is rather than
+  // to how many trees happen to be standing on it.
   // Every pairing gets a pink beam of its own, drawn in the same pass, so the lines the player
   // sees and the candy the jar is paid are counted off exactly the same rainbows.
   // A lollipop tree is neutral scenery, like the fountain it stands beside: it pays whoever's
@@ -681,23 +753,25 @@ export function updateRainbows(map: GameMap) {
 
     SIDES.forEach((side) =>
       getFeedingRainbows(map, position, side).forEach((rainbow) => {
-        map.candyIncome[side]++;
-        map.beams.push({ ...rainbow, dx: position.x - rainbow.x, dy: position.y - rainbow.y, isLit: false, isCandy: true, side });
+        const lines = getTile(map, rainbow)!.light!; // what that rainbow is worth, stamped on it as it was cast
+
+        map.candyIncome[side] += lines;
+        map.beams.push({ ...rainbow, dx: position.x - rainbow.x, dy: position.y - rainbow.y, isLit: false, isCandy: true, side, lines });
       }),
     );
   });
 }
 
 /**
- * Every rainbow making a lollipop tree earn — one candy apiece — or an empty list if this
- * tile is not a tree, is a tree the player has not found, or has no rainbow beside it.
+ * Every rainbow making a lollipop tree earn — its own size in candy apiece — or an empty list if
+ * this tile is not a tree, is a tree the player has not found, or has no rainbow beside it.
  *
  * Only trees the player has found earn: an unseen one paying into the jar would give its
  * position away, the same reason a fogged glower casts no light.
  *
- * The board draws its glowing trees from this and the payout flies one sweet per entry, so
- * what the player sees lit, what flies at the end of the turn and what the jar is actually
- * paid are all counted off the one list and cannot drift apart.
+ * The board draws its glowing trees from this and the payout flies each rainbow's size in
+ * sweets, so what the player sees lit, what flies at the end of the turn and what the jar is
+ * actually paid are all counted off the one list and cannot drift apart.
  */
 export function getFeedingRainbows(map: GameMap, { x, y }: Position, side: Side): Position[] {
   const rainbows: Position[] = [];
@@ -814,7 +888,12 @@ export function moveCharacter(map: GameMap, from: Position, to: Position) {
   const fromTile = getTile(map, from)!;
   const toTile = getTile(map, to)!;
   toTile.living = fromTile.living;
-  fromTile.living = undefined;
+  // How grown it is belongs to the unicorn, not to the ground it was standing on, so it comes
+  // along — and is cleared behind it, or the tile would hand the next unicorn to walk over it a
+  // level somebody else earned. Assigned rather than merged for the same reason: whatever the
+  // destination remembers of an earlier occupant is not this one's.
+  toTile.growth = fromTile.growth;
+  fromTile.living = fromTile.growth = undefined;
 
   if (toTile.object === GameObjectType.DONUT) {
     // Only for the side that walked in. Whose walk it was is written on the character itself,
@@ -1000,6 +1079,40 @@ export function endTurn(map: GameMap, side: Side) {
  */
 export function nextTurn(map: GameMap) {
   map.turn++;
+  growUnicorns(map);
+}
+
+/**
+ * Brings the herd up, once per turn rather than once per go: a unicorn shone or it did not for
+ * the turn as a whole, and both sides have had their say by the time this runs. Both herds at
+ * once and off the same rule, since it is the board's own light that decides it.
+ *
+ * Shining means at least one of its beams got through to a rainbow — read off `map.beams`, which
+ * is the same list the income and the halos are drawn from, so what the player was shown glowing
+ * all turn is exactly what grows. A unicorn under its own side's fog casts no light at all, so
+ * it cannot grow either, for the same reason it cannot earn.
+ *
+ * A dark turn costs the progress towards the next level and nothing more (`% GROWTH_PER_LEVEL`
+ * off the counter): a level once reached is the unicorn's for good, so it can be sent off across
+ * the board without growing back down on the way, while one that spends the rest of the run
+ * walking simply stops climbing.
+ */
+function growUnicorns(map: GameMap) {
+  const shining = new Set(map.beams.filter((beam) => beam.isLit).map(getIndex));
+
+  map.tiles.forEach((tile, index) => {
+    if (tile.living === undefined) return; // only living things grow, and every one of them is a unicorn
+    const growth = tile.growth || 0;
+
+    tile.growth = shining.has(index) ? Math.min(growth + 1, MAX_GROWTH) : growth - (growth % GROWTH_PER_LEVEL);
+  });
+
+  // Both incomes are counted off the levels, so one gained just now leaves them out of date —
+  // and nothing else would necessarily recount them: a player who ends the turn without moving
+  // anything would go on being paid what the herd was worth before it grew up. Recounted
+  // unconditionally rather than only when something grew, because it costs a fraction of what a
+  // single step already costs and cannot then be wrong.
+  updateRainbows(map);
 }
 
 /** The run has used up all its turns. */

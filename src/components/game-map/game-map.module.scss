@@ -27,6 +27,12 @@ $badge-scale: 0.4;
 // cover, are drawn down.
 $big-scale: 1.3;
 $small-scale: 0.7;
+// PLACEHOLDER: how big a unicorn is drawn, and what one level of growing up adds to it. A
+// newcomer sits a little under the flat size the whole herd used to be drawn at, so growing up
+// is a change the eye can read in both directions — a level-3 unicorn stands a quarter taller
+// than the level-1 beside it, and taller than the tub it came out of.
+$unicorn-scale: 1.2;
+$level-scale: 0.15;
 
 // Where the board stops and the panels begin, once a screen is wide enough to have the
 // room beside it. In px rather than rem on purpose: a media query's rem is the browser's
@@ -397,6 +403,14 @@ $win-hop-height: 2rem;
 
     &.small {
       --g: #{$small-scale};
+    }
+
+    // The herd. Every living thing there is is a unicorn, so this is the only glyph the layer
+    // ever holds — and how big it is drawn is how grown it is: --l is its level (see render).
+    // It replaces the flat .big the herd used to share with the tub, rather than scaling against
+    // it, so the ramp is stated in one place at full size.
+    &.character {
+      --g: calc(#{$unicorn-scale} + #{$level-scale} * (var(--l, 1) - 1));
     }
 
     // PLACEHOLDER art: the lollipop emoji is drawn on a 45° stick, so it is turned

@@ -33,7 +33,9 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_GOAL]: "|Build up before the turns run out. Every 🌈 and 🦄 scores 1 point per % of ☁️ you cleared.",
   [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
   [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
-  [TranslationKey.INFO_TREE]: "Lollipop tree|It makes one 🍬 a turn per 🌈 next to it. No rainbow can appear here.",
+  // "per 🌈" rather than a number: what one rainbow feeds it is that rainbow's own size, so
+  // the sum is on the board — one pink line per sweet — rather than in the sentence.
+  [TranslationKey.INFO_TREE]: "Lollipop tree|It makes 🍬 a turn per 🌈 next to it. No rainbow can appear here.",
   // The whole price rather than the surcharge — "one more than a step" is arithmetic the
   // player has to do at exactly the moment they are counting drops. The number repeats
   // PORTAL_COST by hand, the same way the tub's line repeats BASE_INCOME: change them together.

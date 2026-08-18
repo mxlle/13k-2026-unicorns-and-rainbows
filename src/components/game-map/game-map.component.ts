@@ -22,10 +22,12 @@ import {
   getUnicornPrice,
   getExploration,
   getFeedingRainbows,
+  getUnicornLevel,
   getMoveCost,
   getMoveTargets,
   getPortalTargets,
   getPosition,
+  getTile,
   getScore,
   getScoreParts,
   getSpawnTargets,
@@ -67,6 +69,9 @@ const LAST_TURN_EMOJI = "⌛";
 const SCORE_EMOJI = "⭐";
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
+// How grown a unicorn is, one of these per level, after its name in the info panel. Sparkles
+// rather than stars: ⭐ is the score's own glyph and would read as points.
+const LEVEL_EMOJI = "✨";
 // Not the seedling: that is the lollipop-tree build site now, and two different things in the
 // info panel must not wear the same glyph.
 const EMPTY_EMOJI = "🌾";
@@ -109,6 +114,11 @@ const FLY_SPREAD = 400;
 // leaves its tree. It is dead time on top of the flights themselves, so it buys the two halves
 // their separation at the price of a longer wait between turns.
 const CURRENCY_GAP = 400;
+// PLACEHOLDER: how far apart a candy beam's parallel lines sit, in tiles. One line per sweet
+// the pairing pays (see renderBeams), so a fully grown tree draws three of them across the one
+// tile between it and its rainbow — wide enough to count, narrow enough to still read as one
+// feed rather than as three unrelated beams.
+const BEAM_GAP = 0.16;
 // PLACEHOLDER: the counter's reaction to an arrival — out and back, so the whole pop is
 // twice this. Short enough that a stagger's worth of payments still reads as separate hits.
 const POP_DURATION = 120;
@@ -260,7 +270,7 @@ export function GameMapComponent(
     // The whole layer is drawn up: everything that can ever stand on a tile is an actor, and
     // an actor is what the player is looking for. Set once here rather than per render,
     // because nothing about it depends on what is on the tile.
-    livingGlyphs = createElements({ tag: "span", cssClass: styles.big }, MAP_SIZE * MAP_SIZE);
+    livingGlyphs = createElements({ tag: "span", cssClass: styles.character }, MAP_SIZE * MAP_SIZE);
     tileElements = groundGlyphs.map((ground, index) =>
       createElement({ cssClass: [styles.tile, CssClass.EMOJI] }, [ground, livingGlyphs[index]]),
     );
@@ -648,6 +658,11 @@ export function GameMapComponent(
 
       ground.textContent = isVisible ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
       livingGlyphs[index].textContent = hasLiving ? OBJECT_CONFIG[tile.living!].emoji : "";
+      // How grown it is, handed to the stylesheet to draw it at: a unicorn that has been
+      // shining stands taller than the newcomer beside it, which is the level said in the one
+      // place the player is already looking. Only worth writing when somebody is home — an
+      // empty layer draws nothing whatever size it is set to.
+      if (hasLiving) livingGlyphs[index].style.setProperty("--l", `${getUnicornLevel(tile)}`);
     });
 
     // Each currency reads "what you have (+what next turn pays)". The income half updates as
@@ -718,19 +733,27 @@ export function GameMapComponent(
    */
   function renderBeams() {
     beamLayer.replaceChildren(
-      ...map.beams.filter(showsBeam).map(({ x, y, dx, dy, isLit, isCandy, side }) => {
-        const element = createElement({
-          cssClass: [styles.beam, isCandy ? styles.candy : isLit ? "" : styles.unlit, HAS_OPPONENT && side === RIVAL ? styles.dark : ""],
-        });
+      ...map.beams.filter(showsBeam).flatMap(({ x, y, dx, dy, isLit, isCandy, side, lines = 1 }) => {
         const tileSize = 100 / MAP_SIZE; // one tile as a percentage of the board
+        const length = Math.hypot(dx, dy); // diagonals are longer by exactly the hypotenuse of a 1x1 tile
 
-        element.style.left = `${(x + 0.5) * tileSize}%`;
-        element.style.top = `${(y + 0.5) * tileSize}%`;
-        // diagonals are longer by exactly the hypotenuse of a 1x1 tile
-        element.style.width = `${(isLit ? 2 : 1) * Math.hypot(dx, dy) * tileSize}%`;
-        element.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+        // One line per sweet the pairing pays, side by side across the gap — so what a grown
+        // tree is worth can be counted off the board rather than guessed from a thickness.
+        // Spread along the perpendicular (-dy, dx), which needs dividing by the length to be a
+        // direction rather than a diagonal that spreads further than a straight one.
+        return Array.from({ length: lines }, (_, i) => {
+          const element = createElement({
+            cssClass: [styles.beam, isCandy ? styles.candy : isLit ? "" : styles.unlit, HAS_OPPONENT && side === RIVAL ? styles.dark : ""],
+          });
+          const spread = ((i - (lines - 1) / 2) * BEAM_GAP * tileSize) / length;
 
-        return element;
+          element.style.left = `${(x + 0.5) * tileSize - spread * dy}%`;
+          element.style.top = `${(y + 0.5) * tileSize + spread * dx}%`;
+          element.style.width = `${(isLit ? 2 : 1) * length * tileSize}%`;
+          element.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+
+          return element;
+        });
       }),
     );
   }
@@ -772,6 +795,11 @@ export function GameMapComponent(
       // The rival's tub sells to the rival, so the offer is not described on it at all.
       if (objectType === GameObjectType.BATHTUB && TREE_COUNT)
         infoText.textContent += ` ${getTranslation(TranslationKey.INFO_BATHTUB_SELL)}`;
+      // How grown a unicorn is, one sparkle per level, after its name. A count rather than a
+      // number and with no word for "level" in it: it needs no translating, and it is the same
+      // reading as the light it casts, which is drawn one line per level. Either side's — the
+      // rival's own progress is a thing worth being able to look up.
+      if (SIDE_UNICORN.includes(objectType)) infoName.textContent += ` ${LEVEL_EMOJI.repeat(getUnicornLevel(map.tiles[index!]))}`;
     } else if (index === undefined)
       setInfo(
         isOpening ? TranslationKey.INFO_GOAL : TranslationKey.INFO_HINT,
@@ -1073,14 +1101,22 @@ export function GameMapComponent(
     // score is the thing to watch it by, and thirty more glyphs a turn crossing the screen
     // would say nothing the number does not.
     map.tiles.forEach((tile, index) => {
-      if (tile.object === GameObjectType.RAINBOW) groups[0].push(index);
+      // A rainbow throws what it is worth: one drop per level of the unicorn whose light made
+      // it, so a grown one is counted out in three glyphs and the size of the herd's income can
+      // be watched arriving rather than only read off the counter.
+      if (tile.object === GameObjectType.RAINBOW) groups[0].push(...Array<number>(tile.light!).fill(index));
       // A tub pays its flat drops out of itself, one glyph each, so the income that needs no
       // setting up is counted out on the board exactly like the income that does.
       else if (tile.object === GameObjectType.BATHTUB) groups[0].push(...Array<number>(BASE_INCOME).fill(index));
-      // And a lollipop tree one sweet per rainbow feeding it — same rule, so a tree catching
-      // two of them throws two, and the flight counts out the price of a unicorn in the same
-      // glyphs the purchase will spend.
-      else groups[1].push(...Array<number>(getFeedingRainbows(map, getPosition(index), PLAYER).length).fill(index));
+      // And a lollipop tree each feeding rainbow's size in sweets — same rule, so a tree catching
+      // two of them throws for both, and the flight counts out the price of a unicorn in the
+      // same glyphs the purchase will spend.
+      else
+        groups[1].push(
+          ...Array<number>(
+            getFeedingRainbows(map, getPosition(index), PLAYER).reduce((sweets, rainbow) => sweets + getTile(map, rainbow)!.light!, 0),
+          ).fill(index),
+        );
     });
 
     let start = 0; // when this currency's first glyph sets off

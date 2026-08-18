@@ -19,7 +19,7 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_GOAL]: "|Bau auf, bevor die Züge ausgehen. Jedes 🌈 und 🦄 zählt 1 Punkt pro % freigeräumter ☁️.",
     [TranslationKey.INFO_FOG]: "Wolke|Hier kannst du noch nichts sehen. Lauf mit einem Einhorn näher heran.",
     [TranslationKey.INFO_EMPTY]: "Wiese|Freier Platz. Hier kann ein Regenbogen entstehen.",
-    [TranslationKey.INFO_TREE]: "Lollibaum|Er macht ein 🍬 pro Zug für jeden 🌈 daneben. Hier kann kein Regenbogen entstehen.",
+    [TranslationKey.INFO_TREE]: "Lollibaum|Er macht 🍬 pro Zug für jeden 🌈 daneben. Hier kann kein Regenbogen entstehen.",
     [TranslationKey.INFO_DONUT]: "Donut|Ein Portal. Tippe einen anderen 🍩 an, um für 2 💧 dorthin zu springen.",
     [TranslationKey.INFO_FLOWER]: "Blume|Ein Schritt darauf ist gratis. Aber hier kann kein Regenbogen entstehen.",
     [TranslationKey.INFO_CHEST]: "Geschenk|Betritt es zum Öffnen. Darin ist 💧, 🍬 oder ein neues 🦄.",

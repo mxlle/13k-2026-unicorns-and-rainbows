@@ -4,7 +4,9 @@ import {
   buyUnicorn,
   canBuild,
   canUsePortal,
+  countTreesBeside,
   endTurn,
+  EXCLUSIVE_EARNING,
   GameMap,
   getBuild,
   CHEST_CANDY,
@@ -511,28 +513,6 @@ function getRainbows(map: GameMap, { x, y }: Position, lit: boolean, side: Side)
   return rainbows;
 }
 
-/**
- * How many lollipop trees this side has found stand beside this tile — which is to say, how many
- * jars a rainbow landing here would be filling as well as scoring. Since a tree earns per
- * rainbow, that is a real difference between one rainbow and the next, and the whole reason the
- * rainbows are carried around as positions rather than counted.
- *
- * Counted rather than answered as a yes: a rainbow between two trees pays both of them, and the
- * bot has to be able to prefer that tile to the one next to it.
- */
-function countTreesBeside(map: GameMap, { x, y }: Position, side: Side): number {
-  let trees = 0;
-
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const tile = getTile(map, { x: x + dx, y: y + dy });
-      if ((dx || dy) && isSeen(tile, side) && tile!.object === GameObjectType.TREE) trees++;
-    }
-  }
-
-  return trees;
-}
-
 /** How much of this side's own fog a character standing here would lift — its own tile included. */
 function countFog(map: GameMap, { x, y }: Position, side: Side): number {
   let count = 0;
@@ -711,12 +691,19 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    *
    * The score half does not scale: a rainbow is one thing built however big it is, which is what
    * the game's own score says.
+   *
+   * Under EXCLUSIVE_EARNING a fed rainbow pays no water at all, and the bot has to know: the rule
+   * turns "which side of the fountain" from a question with a right answer into a choice between
+   * two currencies, and a bot still counting the water would light the tree side for both and
+   * then wonder where the purse went.
    */
   const getRainbowsValue = (rainbows: Position[], level: number) =>
-    rainbows.reduce(
-      (total, rainbow) => total + thingValue + level * turnsLeft * (DROP_VALUE + countTreesBeside(map, rainbow, side) * CANDY_VALUE),
-      0,
-    );
+    rainbows.reduce((total, rainbow) => {
+      const trees = countTreesBeside(map, rainbow, side);
+      const perTurn = trees * CANDY_VALUE + (EXCLUSIVE_EARNING && trees ? 0 : DROP_VALUE);
+
+      return total + thingValue + level * turnsLeft * perTurn;
+    }, 0);
 
   /**
    * What raising a site is worth, already carrying its own strategy weight — the tub is the

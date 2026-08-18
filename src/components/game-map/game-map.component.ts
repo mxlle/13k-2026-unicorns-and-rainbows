@@ -27,6 +27,7 @@ import {
   getMoveTargets,
   getPortalTargets,
   getPosition,
+  getRainbowDrops,
   getTile,
   getScore,
   getScoreParts,
@@ -1103,8 +1104,10 @@ export function GameMapComponent(
     map.tiles.forEach((tile, index) => {
       // A rainbow throws what it is worth: one drop per level of the unicorn whose light made
       // it, so a grown one is counted out in three glyphs and the size of the herd's income can
-      // be watched arriving rather than only read off the counter.
-      if (tile.object === GameObjectType.RAINBOW) groups[0].push(...Array<number>(tile.light!).fill(index));
+      // be watched arriving rather than only read off the counter. Through getRainbowDrops, so
+      // one whose light is being fed to a tree throws nothing and the flight stays the truth.
+      if (tile.object === GameObjectType.RAINBOW)
+        groups[0].push(...Array<number>(getRainbowDrops(map, getPosition(index), PLAYER)).fill(index));
       // A tub pays its flat drops out of itself, one glyph each, so the income that needs no
       // setting up is counted out on the board exactly like the income that does.
       else if (tile.object === GameObjectType.BATHTUB) groups[0].push(...Array<number>(BASE_INCOME).fill(index));

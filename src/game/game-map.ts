@@ -101,6 +101,31 @@ export function setRivalEnabled(enabled: boolean) {
   rivalEnabled = enabled;
 }
 
+/**
+ * EXPERIMENT, off by default: a rainbow earns *either* water *or* sweets, never both. Today one
+ * that lands beside a lollipop tree pays a drop into the purse **and** a sweet into the jar for
+ * every tree beside it, which makes those tiles pay double and is a good part of where a
+ * well-played board's water surplus comes from. With this on, a rainbow feeding a tree pays no
+ * water at all — its light is fed to the tree instead — so lighting a tree-side spot and lighting
+ * a bare one become a choice between the two currencies rather than one strictly better tile.
+ *
+ * The sweets are unchanged either way: still one per tree per level, so a rainbow between two
+ * trees still pays both of them. All this rule takes away is the water half of a fed rainbow.
+ *
+ * A runtime switch rather than a build flag, so `npm run bot -- --exclusive` measures it against
+ * the same seeds in the same shape as the reading without it — the same reason setRivalEnabled
+ * and setUsesBoardWeights exist. It is meant to be short-lived: once the question is settled, the
+ * losing branch and this switch come out together.
+ *
+ * Exported as a live binding, the way MAP_SIZE is, so the bot's value model can read the rule it
+ * is playing under without it being threaded through every call.
+ */
+export let EXCLUSIVE_EARNING = false;
+
+export function setExclusiveEarning(enabled: boolean) {
+  EXCLUSIVE_EARNING = enabled;
+}
+
 // The tutorial board, which is simply the first rung of the ladder. Kept as a flag rather than
 // re-derived at each use so that "this is the tutorial" is one idea in one place.
 let isTutorial = false;
@@ -818,10 +843,17 @@ export function updateRainbows(map: GameMap) {
   // — and a tub site raised by the opponent starts paying the opponent for exactly the same
   // reason. The rainbows are summed by their `light` rather than counted, which is the one place
   // a grown unicorn's water actually arrives; `rainbowCounts` stays a count, because the score
-  // is about how much is built and not about how big it is.
+  // is about how much is built and not about how big it is. What one pays goes through
+  // getRainbowDrops, which is where the experiment that redirects it into the jar lives.
   map.dropIncome = SIDES.map((side) =>
     map.tiles.reduce(
-      (total, tile) => total + (tile.object === SIDE_RAINBOW[side] ? tile.light! : tile.object === SIDE_BATHTUB[side] ? BASE_INCOME : 0),
+      (total, tile, index) =>
+        total +
+        (tile.object === SIDE_RAINBOW[side]
+          ? getRainbowDrops(map, getPosition(index), side)
+          : tile.object === SIDE_BATHTUB[side]
+            ? BASE_INCOME
+            : 0),
       0,
     ),
   );
@@ -879,6 +911,39 @@ export function getFeedingRainbows(map: GameMap, { x, y }: Position, side: Side)
   }
 
   return rainbows;
+}
+
+/**
+ * How many lollipop trees this side has found standing beside this tile. It is the mirror of
+ * getFeedingRainbows — that one asks a tree which rainbows feed it, this one asks a rainbow how
+ * many trees it feeds — and both apply the same fog rule, so a tree nobody has found neither
+ * takes a rainbow's water nor pays it any sweets.
+ *
+ * Counted rather than answered as a yes: a rainbow between two trees pays both of them, and the
+ * bot has to be able to prefer that tile to the one next to it.
+ */
+export function countTreesBeside(map: GameMap, { x, y }: Position, side: Side): number {
+  let trees = 0;
+
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const tile = getTile(map, { x: x + dx, y: y + dy });
+      if ((dx || dy) && isSeen(tile, side) && tile!.object === GameObjectType.TREE) trees++;
+    }
+  }
+
+  return trees;
+}
+
+/**
+ * What the rainbow on this tile pays into the purse: its own size, or — under EXCLUSIVE_EARNING,
+ * and only then — nothing at all, because its light is being fed to a lollipop tree instead.
+ *
+ * The one place that question is answered, so the income the counter promises and the drops that
+ * fly out of the tile at the end of the turn cannot come apart.
+ */
+export function getRainbowDrops(map: GameMap, position: Position, side: Side): number {
+  return EXCLUSIVE_EARNING && countTreesBeside(map, position, side) ? 0 : getTile(map, position)!.light!;
 }
 
 function blocksMove(objectType: GameObjectType | undefined): boolean {

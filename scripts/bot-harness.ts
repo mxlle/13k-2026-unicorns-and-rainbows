@@ -6,6 +6,7 @@ import {
   isRunOver,
   MAP_SIZES,
   nextTurn,
+  EXCLUSIVE_EARNING,
   setExclusiveEarning,
   setRivalEnabled,
   TURN_LIMIT,
@@ -34,9 +35,13 @@ import { applyBotAction, BOT_STRATEGIES, BOT_STRATEGY_NAMES, BotActionKind, BotS
  *                                        one run, every action it takes and what it thought
  *                                        the action was worth
  *   npm run bot -- --solo                the opponent switched off on every board
- *   npm run bot -- --exclusive           a rainbow earns water OR sweets, never both — the
- *                                        experiment behind EXCLUSIVE_EARNING, off by default,
- *                                        so the same command with and without it is the A/B
+ *   npm run bot -- --exclusive           a rainbow earns water OR sweets, never both
+ *   npm run bot -- --classic             a rainbow earns water AND sweets, as it always did
+ *                                        Two flags rather than one, and both of them explicit,
+ *                                        because EXCLUSIVE_EARNING's own default is a thing
+ *                                        being decided: whichever way it is pointing today,
+ *                                        each half of the A/B has to be nameable from here, and
+ *                                        every board's header says which one it played.
  *
  * The opponent changes what this measures on the boards it turns up on (21x21 and 25x25): the
  * bot under test is no longer alone on the map, so its score there is a score against
@@ -72,10 +77,12 @@ if (flag("solo")) setRivalEnabled(false);
 
 // The earning experiment, likewise set once before any board exists — it changes what an income
 // is worth and nothing about how a board is built, but the bot reads the rule while it plays and
-// there is no reason for it to change under a run. See EXCLUSIVE_EARNING.
-const exclusive = flag("exclusive");
+// there is no reason for it to change under a run. Neither flag given means "however the model
+// is pointing today", which is the reading you get from just running the harness. See
+// EXCLUSIVE_EARNING.
+const exclusive = flag("classic") ? false : flag("exclusive") || EXCLUSIVE_EARNING;
 
-if (exclusive) setExclusiveEarning(true);
+setExclusiveEarning(exclusive);
 
 interface Result {
   score: number;
@@ -152,7 +159,7 @@ for (const size of sizes) {
   // playing — an A/B whose two halves cannot be told apart afterwards is not one.
   console.log(
     `\n=== ${size}x${size} · ${size} turns · ${seeds.length} seed${seeds.length > 1 ? "s" : ""} from ${FIRST_SEED}` +
-      `${exclusive ? " · 🌈 earns 💧 OR 🍬" : ""} ===`,
+      ` · 🌈 earns 💧 ${exclusive ? "OR" : "AND"} 🍬 ===`,
   );
 
   for (const strategy of strategies) {

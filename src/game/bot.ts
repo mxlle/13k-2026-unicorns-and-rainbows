@@ -158,10 +158,28 @@ export const STRATEGY_WEIGHTS: [explore: number, economy: number][] = [
 // multiplies what has been built — but that is 0 on the opening turn, which would leave a
 // bot with nothing to do on the very turn it has to start walking. A flat value instead.
 const TILE_VALUE = 12;
-// One water drop in hand — roughly one step, and a step is worth a fraction of a reveal.
-// It is also the exchange rate income is valued at: a rainbow pays one drop a turn.
-const DROP_VALUE = 4;
-// One sweet in the jar. Worth more than a drop because it buys unicorns, which score.
+// One water drop in hand — one step, and a step reveals a tile or two on a board with any fog
+// left on it. It is also the exchange rate income is valued at: a rainbow pays its level in
+// drops a turn.
+//
+// Was 4, on the reading that "a step is worth a fraction of a reveal". Gridded against
+// CANDY_VALUE over {4, 8, 12} x {6, 12, 18} on the 13x13, 17x17 and 21x21 once a rainbow started
+// earning water *or* sweets (see EXCLUSIVE_EARNING), and 4 turned out to be the single worst
+// thing in the bot's beliefs: it priced a fed rainbow's sweets at three times a bare one's water,
+// so the bot lit tree-side spots for the jar, ran out of drops, stopped walking, and sat on
+// sweets it could no longer justify spending. At 20 seeds, raising it to 12 was worth +33% on the
+// 13x13, +128% on the 17x17 and +52% on the 21x21, and it bought back the exploring the bot had
+// given up — 55% of the 17x17 seen became 86%.
+//
+// It costs a little under the older rule where a fed rainbow pays both: −1% on the 13x13 and the
+// 17x17, −10% on the 21x21. That is the price of one set of beliefs serving both rules while the
+// question is open, and the exclusive rule is the one being played now.
+const DROP_VALUE = 12;
+// One sweet in the jar. The same as a drop, which reads oddly for the currency that buys the
+// unicorns — until you notice what a sweet actually converts to: `price` of them buy one unicorn
+// and the price is the size of the herd, so a sweet is worth a whole unicorn on the opening turn
+// and a thirtieth of one by the end. A flat rate has to sit somewhere in between, and every grid
+// row above picked 12 whatever the drops were worth.
 const CANDY_VALUE = 12;
 // The loot table's odds: three outcomes, one entry each, so an unopened present is worth the
 // plain mean of a pile of drops, a pile of sweets and a whole unicorn. A number rather than a

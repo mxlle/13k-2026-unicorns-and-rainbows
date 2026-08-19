@@ -106,26 +106,52 @@ $sidebar-width: min(20rem, 30vw);
   margin-top: -0.5 * $beam-width; // centres the beam on the tile it leaves from
   transform-origin: 0 50%; // it grows out of that centre, in the direction it is rotated to
   border-radius: $beam-width;
-  // fades in and out instead of starting and stopping flat, so it reads as light, not a bar
-  background: linear-gradient(90deg, transparent, theme.$light-color 25%, theme.$light-color 75%, transparent);
+  // fades in and out instead of starting and stopping flat, so it reads as light, not a bar.
+  // Its colour is a variable, set by the state rules below: every beam is in exactly one of
+  // three states and each side has its own shade of each, so the gradient is written once here
+  // rather than six times over.
+  background: linear-gradient(90deg, transparent, var(--c) 25%, var(--c) 75%, transparent);
 
-  // The opponent's light. Not a colour of its own: the same gradient inverted, so a dark beam
-  // is the photographic negative of the one beside it and the pairing needs no legend.
-  &.dark {
-    filter: invert(1);
+  // What the light is worth, said in colour. A rainbow paying the purse is water blue all the way
+  // from the unicorn that cast it; one feeding a lollipop tree is candy red all the way from
+  // the unicorn, through the rainbow, to the tree — the feed beam and the light that makes it
+  // carry the same class, which is what makes a path read as one thing (see updateRainbows).
+  // The tree's own glow is drawn in the same red, so the two ends of it agree.
+  &.water {
+    --c: #{theme.$water-color};
   }
 
-  // the light died in the fountain — nothing at the far end, so it just peters out
-  &.unlit {
-    opacity: 0.4;
-    background: linear-gradient(90deg, theme.$light-color, transparent);
-  }
-
-  // Not light at all: a rainbow feeding the lollipop tree beside it. Candy pink, the same
-  // colour the earning tree's own glow is drawn in, so the beam and the glow read as the two
-  // ends of one thing — and one tile long, because that is all the distance there is.
   &.candy {
-    background: linear-gradient(90deg, transparent, theme.$main-color-secondary 25%, theme.$main-color-secondary 75%, transparent);
+    --c: #{theme.$candy-color};
+  }
+
+  // the light died in the fountain — nothing at the far end, so it just peters out, and it keeps
+  // the plain sunlight of light that earned nothing
+  &.unlit {
+    --c: #{theme.$light-color};
+    opacity: 0.4;
+    background: linear-gradient(90deg, var(--c), transparent);
+  }
+
+  // The opponent's light: the same three states in darker shades of the same colours, so what a
+  // beam is *doing* still reads at a glance and whose it is reads with it. Three classes deep,
+  // which is what puts these ahead of the two-class rules above.
+  &.dark {
+    // The glyph layers' shared .dark inverts what it is on (see .dark below) and lands on a beam
+    // as well, so it has to be turned off here — a beam says whose it is in its colour instead.
+    filter: none;
+
+    &.water {
+      --c: #{theme.$water-color-dark};
+    }
+
+    &.candy {
+      --c: #{theme.$candy-color-dark};
+    }
+
+    &.unlit {
+      --c: #{theme.$light-color-dark};
+    }
   }
 }
 
@@ -436,7 +462,8 @@ $win-hop-height: 2rem;
     // the 45° rotation above leaves it perfectly symmetrical.
     &.earning {
       filter: none;
-      text-shadow: 0 0 0.3em theme.$main-color;
+      // the candy red of the beams feeding it, so the tree and its light are one thing
+      text-shadow: 0 0 0.3em theme.$candy-color;
     }
 
     // Ground under a character: out of the middle entirely and into the top-right corner, as

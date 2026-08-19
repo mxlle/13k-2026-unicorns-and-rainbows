@@ -744,7 +744,13 @@ export function GameMapComponent(
         // direction rather than a diagonal that spreads further than a straight one.
         return Array.from({ length: lines }, (_, i) => {
           const element = createElement({
-            cssClass: [styles.beam, isCandy ? styles.candy : isLit ? "" : styles.unlit, HAS_OPPONENT && side === RIVAL ? styles.dark : ""],
+            cssClass: [
+              styles.beam,
+              // three states, and they are the three things light can be doing: turning into
+              // sweets, turning into water, or having died in the fountain on the way
+              isCandy ? styles.candy : isLit ? styles.water : styles.unlit,
+              HAS_OPPONENT && side === RIVAL ? styles.dark : "",
+            ],
           });
           const spread = ((i - (lines - 1) / 2) * BEAM_GAP * tileSize) / length;
 

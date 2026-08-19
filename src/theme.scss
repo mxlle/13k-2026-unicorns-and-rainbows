@@ -10,6 +10,29 @@ $success-color: #227744;
 $success-color-light: #44aa77;
 $warning-color: #ffaa00;
 $light-color: #ffe9a8; // warm sunlight — the glow on light sources and their beams
+// The two currencies, for the light that is on its way to becoming one of them: a rainbow paying
+// the purse is drawn in water blue, one whose light a lollipop tree is turning into sweets in
+// candy red. Both are taken off the emoji they stand for — 💧 and 🍬 — so the beam, the glow on
+// the tree and the counter it all feeds say the same thing without a legend. Keep the sweet one
+// clear of $warning-color, which is the amber the closing turn goes, and of $light-color, which
+// is what unearned light is drawn in. See .beam in the map's stylesheet.
+$water-color: #7ecbf5;
+$candy-color: #fb6a3c;
+// The same two, for the opponent's light, plus a dimmed sunlight for light that earned nothing.
+// Darker rather than inverted: inverting candy red lands on a cyan close enough to the player's
+// own water blue to be misread, and knowing whose light a beam is matters more than the neatness
+// of a negative.
+//
+// A beam is seen through a tile at a quarter of its strength, over $tile-color-1, and that is
+// what these are picked against rather than against themselves. It has one consequence worth
+// knowing before tuning them: past a point, *darker* stops buying separation. The deep water blue
+// below lands on screen at rgb(26, 56, 95) against a tile of rgb(21, 49, 42) — barely any
+// difference in brightness, and it reads all the same because the hue is nowhere near the
+// meadow's. So saturation is the lever here, not lightness; a duller dark blue disappears where
+// a vivid one does not.
+$water-color-dark: #2b4cff;
+$candy-color-dark: #8c300f;
+$light-color-dark: #8a7444;
 // The rainbow: the page background wash and the highlight button share it, and both
 // cycle it with the same `rainbow` hue-rotate keyframes, so they stay in step.
 $rainbow-gradient: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3);

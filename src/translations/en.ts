@@ -15,8 +15,16 @@ export const enTranslations: Record<TranslationKey, string> = {
   // PLACEHOLDER wording — "Name|Description", split at the pipe by the info panel.
   // Plain, short words: many players will not be native speakers. The 🦄⛲🌈 pattern
   // carries the line-up rule without language, and repeats, so it costs almost nothing.
-  [TranslationKey.INFO_UNICORN]: "Unicorn|It shines. Line it up like this: 🦄⛲🌈",
-  [TranslationKey.INFO_RAINBOW]: "Rainbow|One 💧 every turn, and it scores while it shines.",
+  // The ✨ the panel puts after the name is the only place a level is stated, so this is where it
+  // has to be explained: what earns one, and that it is worth having. "worth more" rather than a
+  // number because a grown rainbow pays more of whichever currency it is on — see INFO_RAINBOW.
+  // The 3 repeats GROWTH_PER_LEVEL by hand, the way the tub's line repeats BASE_INCOME: change
+  // them together.
+  [TranslationKey.INFO_UNICORN]: "Unicorn|It shines. Line it up like this: 🦄⛲🌈. Each ✨ (3 turns shining) makes its 🌈 worth more.",
+  // Both halves of the earning rule in one line, because a rainbow is where the choice is made:
+  // the same tile pays a different currency depending on what is standing next to it. The
+  // beams say it in colour — blue for the purse, red for the jar — and this says it in words.
+  [TranslationKey.INFO_RAINBOW]: "Rainbow|It scores while it shines. Beside a 🍭 it makes 🍬, otherwise 💧.",
   [TranslationKey.INFO_FOUNTAIN]: "Fountain|Light comes out the other side as a rainbow: 🦄⛲🌈",
   // The two halves of what the tub is, kept apart because the tutorial board only has the
   // first: the flat income it pays wherever it stands, and — once there are trees on the board
@@ -34,8 +42,10 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
   [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
   // "per 🌈" rather than a number: what one rainbow feeds it is that rainbow's own size, so
-  // the sum is on the board — one pink line per sweet — rather than in the sentence.
-  [TranslationKey.INFO_TREE]: "Lollipop tree|It makes 🍬 a turn per 🌈 next to it. No rainbow can appear here.",
+  // the sum is on the board — one red line per sweet — rather than in the sentence. It says
+  // "instead of 💧" because that is the whole of the trade: the tree does not add sweets to a
+  // rainbow's water, it drinks the water and makes sweets out of it.
+  [TranslationKey.INFO_TREE]: "Lollipop tree|It turns the 💧 of every 🌈 next to it into 🍬. No rainbow can appear here.",
   // The whole price rather than the surcharge — "one more than a step" is arithmetic the
   // player has to do at exactly the moment they are counting drops. The number repeats
   // PORTAL_COST by hand, the same way the tub's line repeats BASE_INCOME: change them together.

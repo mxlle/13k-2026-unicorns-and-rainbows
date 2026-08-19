@@ -343,9 +343,12 @@ export interface Beam extends Position {
   dx: number;
   dy: number;
   isLit: boolean; // the light got through and made a rainbow, instead of dying in the fountain
-  // The pink kind, which is not light at all: a rainbow feeding the lollipop tree beside it.
-  // Never lit — it spans the one tile between the two, the same reach as a beam that stopped
-  // inside a fountain, so the two share the width the renderer works out from isLit.
+  // Whether this beam's light is being turned into sweets rather than water — the one thing that
+  // decides its colour, and it is stamped on every beam of a path so the path reads as one.
+  // Two kinds of beam carry it: the light from a unicorn to a rainbow that is feeding a tree,
+  // and the feed itself, from that rainbow to that tree. The feed is never lit — it spans the one
+  // tile between the two, the same reach as a beam that stopped inside a fountain, so the two
+  // share the width the renderer works out from isLit.
   isCandy: boolean;
   side: Side; // whose light it is — the renderer draws the opponent's inverted, like its rainbows
   // How many parallel lines this beam is drawn as: the level of the unicorn whose light it is,
@@ -812,7 +815,8 @@ export function updateRainbows(map: GameMap) {
       for (let dx = -1; dx <= 1; dx++) {
         // the fountain sits one step away, the rainbow one further along the same line
         if ((!dx && !dy) || getTile(map, { x: x + dx, y: y + dy })?.object !== GameObjectType.FOUNTAIN) continue;
-        const target = getTile(map, { x: x + 2 * dx, y: y + 2 * dy });
+        const position = { x: x + 2 * dx, y: y + 2 * dy };
+        const target = getTile(map, position);
         // An occupied tile swallows the light, and that is the whole of the contest over a
         // fountain: the first rainbow onto a tile holds it, and the other side's light dies in
         // the fountain until whoever is holding it walks away. Nothing new had to be written
@@ -832,7 +836,16 @@ export function updateRainbows(map: GameMap) {
         // Only a rainbow that got there is drawn at the level's full width: an unlit beam is
         // light that came to nothing, and three lines of nothing would read as three times as
         // much of it. The count stays the rainbow's worth throughout.
-        map.beams.push({ x, y, dx, dy, isLit, isCandy: false, side, lines: isLit ? level : 1 });
+        //
+        // And it is drawn in the colour of whatever it is about to become: the water blue of the
+        // purse, or — when the rainbow at the far end is feeding a tree instead — the candy
+        // red of the jar, the same colour as the feed beyond it. So the whole path from the
+        // unicorn through the fountain to the tree is one colour, and which of the two things a
+        // unicorn is doing can be read off the board at a glance rather than worked out from
+        // where the trees happen to be. Under the older rule a rainbow pays the purse whatever
+        // else it does, so everything comes out blue and only the feeds are red, which is
+        // exactly as true a picture of that rule.
+        map.beams.push({ x, y, dx, dy, isLit, isCandy: isLit && !getRainbowDrops(map, position, side), side, lines: isLit ? level : 1 });
       }
     }
   });

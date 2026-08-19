@@ -74,13 +74,14 @@ const DONUT_SIZE = 9;
 const DONUT_DENSITY = 6; // tiles of width per donut — see setMapSize
 const SITE_SIZE = 13;
 /**
- * PLACEHOLDER: the board width at which the opponent turns up. The two biggest boards, which
- * is the right end of the ladder for it: a rival is only a race if there is ground to race
- * over, and on a 13x13 two herds would be treading on each other from the opening turn.
- * It is also where the run is long enough for the opponent's economy to become something the
- * player can watch getting away from them.
+ * PLACEHOLDER: the board width at which the opponent turns up — the top three rungs of the
+ * ladder. A rival is only a race if there is ground to race over: on a 13x13 two herds would be
+ * treading on each other from the opening turn, and the run is too short for either economy to
+ * become something the other can watch getting away from them. The 17x17 is where both of those
+ * stop being true, which is also where the boards start being ones a player has to plan rather
+ * than simply walk.
  */
-const RIVAL_SIZE = 21;
+const RIVAL_SIZE = 17;
 // Whether the board being played has an opponent on it. Derived from the width like everything
 // else, so it follows the ladder rather than being a second list of levels — and gated on the
 // build flag, so the whole feature folds away with it.

@@ -150,9 +150,9 @@ that can be beaten fairly.
 
 ## The opponent — two sides on one board
 
-Behind `HAS_OPPONENT` (currently `!IS_JS13K`), the boards from `RIVAL_SIZE` up — the 21x21 and
-the 25x25 — carry a second player: a dark unicorn starting from the mirrored corner, driven by
-the `mixed` bot, taking a whole turn of its own between the player's turns.
+Behind `HAS_OPPONENT` (currently `!IS_JS13K`), the boards from `RIVAL_SIZE` up — the 17x17, the
+21x21 and the 25x25 — carry a second player: a dark unicorn starting from the mirrored corner,
+driven by the `mixed` bot, taking a whole turn of its own between the player's turns.
 
 Everything about it follows from three decisions, and knowing them is most of reading the code:
 

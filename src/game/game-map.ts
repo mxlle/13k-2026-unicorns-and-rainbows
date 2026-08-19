@@ -120,7 +120,7 @@ export function setRivalEnabled(enabled: boolean) {
  * Exported as a live binding, the way MAP_SIZE is, so the bot's value model can read the rule it
  * is playing under without it being threaded through every call.
  */
-export let EXCLUSIVE_EARNING = false;
+export let EXCLUSIVE_EARNING = true;
 
 export function setExclusiveEarning(enabled: boolean) {
   EXCLUSIVE_EARNING = enabled;

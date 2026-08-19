@@ -373,6 +373,15 @@ $win-hop-height: 2rem;
     }
   }
 
+  // The tile the rival is acting on, while it is acting. Deliberately not the HINT pulse the
+  // player's own affordances wear: that means "you may act here", and this is its opposite — the
+  // one tile on the board that is not yours to touch. A ring rather than a tint, so whatever the
+  // tile is already showing still reads through it, and in a neutral tone so it belongs to
+  // neither currency.
+  &.acting {
+    box-shadow: inset 0 0 0 2px theme.$text-secondary;
+  }
+
   &.target {
     background: rgba(theme.$main-color, 0.12);
     box-shadow: inset 0 0 0 2px rgba(theme.$main-color, 0.45);

@@ -224,6 +224,11 @@ export function GameMapComponent(
   // today — but a rival still walking about on a map that has been replaced underneath it is a
   // bad enough failure to be worth one variable.
   let rivalTimer: number | undefined;
+  // The tile the rival is acting on, ringed while it acts so the change on the board has a source
+  // the eye can find. Held as the element rather than an index because it has to outlive a
+  // render: nothing in render() touches this class, so the ring moves with the rival a step at a
+  // time instead of being worked out again for every tile on every repaint.
+  let rivalMark: HTMLElement | undefined;
   // The score's working is open: the breakdown that ends a run, shown mid-run on demand.
   // It holds the info panel until it is closed or a tile takes the panel over.
   let showsScore = false;
@@ -327,6 +332,20 @@ export function GameMapComponent(
   }
 
   const rivalScoreDisplay = HAS_OPPONENT ? createRivalScore() : rivalScoreCount;
+
+  // What the end-turn button wears while the rival is on the board — see render(). An element
+  // rather than text so it can carry the inverted unicorn the rest of the interface already means
+  // "the rival" by, and built through a function for the same reason createRivalScore is: with
+  // HAS_OPPONENT folded away this is an uncalled declaration and goes out with the tree-shaking.
+  function createRivalGlyph(): HTMLElement {
+    return createElement({
+      tag: "span",
+      cssClass: [CssClass.EMOJI, styles.dark],
+      text: OBJECT_CONFIG[GameObjectType.DARK_UNICORN].emoji,
+    });
+  }
+
+  const rivalTurnGlyph = HAS_OPPONENT ? createRivalGlyph() : undefined;
   const turnBar = createElement({ cssClass: styles.turnBar }, [
     turnDisplay,
     scoreDisplay,
@@ -703,7 +722,12 @@ export function GameMapComponent(
     buildButton.disabled = !canRaise;
     if (buildSite) renderBuildButton(map.tiles[getIndex(buildSite)].object!);
 
-    endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
+    // While the rival is walking, the button stops being an action and becomes the answer to "why
+    // will nothing respond": whose turn it is, in the glyph that means the rival everywhere else.
+    // It is disabled either way (see isLocked), so this changes what it says, not what it does —
+    // and it says it where the player last pressed, which is where they are looking.
+    if (HAS_OPPONENT && isRivalTurn) endTurnButton.replaceChildren(rivalTurnGlyph!);
+    else endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
     endTurnButton.disabled = isLocked(); // no second turn until this one is paid out and the rival has moved
     // Ending a turn is one step among many; starting the next run is the whole screen.
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
@@ -1201,6 +1225,12 @@ export function GameMapComponent(
    * does — when it can find nothing worth doing — and END_TURN is what stops the timer. That
    * is the same guarantee the run has always leaned on, that a turn always ends.
    */
+  function markRivalAction(position?: Position) {
+    rivalMark?.classList.remove(styles.acting);
+    rivalMark = position && tileElements[getIndex(position)];
+    rivalMark?.classList.add(styles.acting);
+  }
+
   function playRivalTurn(onDone: () => void) {
     isRivalTurn = true;
     render(); // takes the board out of reach for as long as the rival is on it
@@ -1213,11 +1243,15 @@ export function GameMapComponent(
         rivalTimer = undefined;
         endTurn(map, RIVAL); // its own payout, on the model — nothing flies for it
         isRivalTurn = false;
+        markRivalAction(); // the ring goes out with the turn, or it would read as an offer
         onDone();
         return;
       }
 
       applyBotAction(map, action, RIVAL);
+      // Where it just acted: the tile it stepped onto, or the one it stood on to build. After the
+      // action rather than before, so the ring lands where the unicorn now is.
+      markRivalAction(action.to ?? action.from);
       // Re-selected rather than only redrawn: the rival may have walked onto the very tile
       // this selection was offering as a step, and a highlight that outlives what it was
       // offering is worse than none. The board is locked either way, so nothing can be acted
@@ -1266,6 +1300,7 @@ export function GameMapComponent(
     clearInterval(rivalTimer);
     rivalTimer = undefined;
     isRivalTurn = false;
+    if (HAS_OPPONENT) markRivalAction(); // a ring from the last board must not open the next one
     if (tileElements.length !== MAP_SIZE * MAP_SIZE) buildBoard();
     showsScore = false; // render() clears last run's working with it, before the new board shows
     isRunning = true; // before render(), which reads it for the turn button

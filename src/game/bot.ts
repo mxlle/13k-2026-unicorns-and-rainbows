@@ -374,6 +374,26 @@ function pickRandom<T>(items: T[]): T {
 }
 
 /**
+ * Whether the `count`-th thing found to be worth exactly as much as the best so far should take
+ * its place — true with probability 1/count, which leaves every one of a run of equals with the
+ * same chance of being the one picked.
+ *
+ * It exists because the alternative is not "no tie-break" but "the first one scanned", and the
+ * scan is row-major: ties went to the tile nearest the top-left corner of the board. That is a
+ * tailwind for whichever herd lives in the *opposite* corner — its ties point out into the open
+ * board, while the other side's point back into ground it has already walked. Measured on the
+ * 21x21 over 40 seeds it was worth about 13% of the score to the dark side, and reversing the
+ * scan handed light 10% instead: the same code, playing both sides, was not playing them the
+ * same game. The board is mirror-symmetric by construction (see `mirror`), and this is what
+ * stops the bot's own reading of it from having a direction.
+ *
+ * Seeded, like everything else the bot rolls, so a board still replays exactly.
+ */
+function pickTie(count: number): boolean {
+  return botRandom() * count < 1;
+}
+
+/**
  * What the bot would do next, or undefined once the run is over. Nothing is applied here —
  * the caller carries the action out through the same paths a tap goes through, so the bot
  * can only ever do things a player could have done, and it sees the same animations.
@@ -917,6 +937,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
     // doing. Only one of the two is ever offered — see the choice below.
     let best: BotAction | undefined;
     let planned: BotAction | undefined;
+    let ties = 0; // how many candidates share `best`'s value, for pickTie
 
     map.tiles.forEach((_, index) => {
       // Not the tile it is on, not one it has already stood on this turn, nothing out of reach.
@@ -961,7 +982,14 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
       };
 
       if (index === committed) planned = candidate;
-      if (!best || value > best.value) best = candidate;
+
+      // Ties go to nobody in particular — see `pickTie`. Two tiles worth exactly the same is the
+      // commonest thing on an early board, where most of what a step is worth is the fog it
+      // lifts and every direction out of a corner lifts the same amount.
+      if (!best || value > best.value) {
+        best = candidate;
+        ties = 1;
+      } else if (value === best.value && pickTie(++ties)) best = candidate;
     });
 
     // One offer per unicorn, and it is the plan already under way unless something is a good
@@ -975,7 +1003,15 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
     if (move) candidates.push(move);
   });
 
-  const best = candidates.reduce<BotAction | undefined>((best, action) => (!best || action.value > best.value ? action : best), undefined);
+  let best: BotAction | undefined;
+  let bestTies = 0;
+
+  candidates.forEach((action) => {
+    if (!best || action.value > best.value) {
+      best = action;
+      bestTies = 1;
+    } else if (action.value === best.value && pickTie(++bestTies)) best = action;
+  });
 
   // Nothing worth doing: bank the drops and let the board pay out. It is also the only way a
   // turn can ever end, so a bot that finds nothing to do still plays the run to its end.

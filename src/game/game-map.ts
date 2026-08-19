@@ -101,31 +101,6 @@ export function setRivalEnabled(enabled: boolean) {
   rivalEnabled = enabled;
 }
 
-/**
- * EXPERIMENT, off by default: a rainbow earns *either* water *or* sweets, never both. Today one
- * that lands beside a lollipop tree pays a drop into the purse **and** a sweet into the jar for
- * every tree beside it, which makes those tiles pay double and is a good part of where a
- * well-played board's water surplus comes from. With this on, a rainbow feeding a tree pays no
- * water at all — its light is fed to the tree instead — so lighting a tree-side spot and lighting
- * a bare one become a choice between the two currencies rather than one strictly better tile.
- *
- * The sweets are unchanged either way: still one per tree per level, so a rainbow between two
- * trees still pays both of them. All this rule takes away is the water half of a fed rainbow.
- *
- * A runtime switch rather than a build flag, so `npm run bot -- --exclusive` measures it against
- * the same seeds in the same shape as the reading without it — the same reason setRivalEnabled
- * and setUsesBoardWeights exist. It is meant to be short-lived: once the question is settled, the
- * losing branch and this switch come out together.
- *
- * Exported as a live binding, the way MAP_SIZE is, so the bot's value model can read the rule it
- * is playing under without it being threaded through every call.
- */
-export let EXCLUSIVE_EARNING = true;
-
-export function setExclusiveEarning(enabled: boolean) {
-  EXCLUSIVE_EARNING = enabled;
-}
-
 // The tutorial board, which is simply the first rung of the ladder. Kept as a flag rather than
 // re-derived at each use so that "this is the tutorial" is one idea in one place.
 let isTutorial = false;
@@ -842,9 +817,7 @@ export function updateRainbows(map: GameMap) {
         // red of the jar, the same colour as the feed beyond it. So the whole path from the
         // unicorn through the fountain to the tree is one colour, and which of the two things a
         // unicorn is doing can be read off the board at a glance rather than worked out from
-        // where the trees happen to be. Under the older rule a rainbow pays the purse whatever
-        // else it does, so everything comes out blue and only the feeds are red, which is
-        // exactly as true a picture of that rule.
+        // where the trees happen to be.
         map.beams.push({ x, y, dx, dy, isLit, isCandy: isLit && !getRainbowDrops(map, position, side), side, lines: isLit ? level : 1 });
       }
     }
@@ -949,14 +922,22 @@ export function countTreesBeside(map: GameMap, { x, y }: Position, side: Side): 
 }
 
 /**
- * What the rainbow on this tile pays into the purse: its own size, or — under EXCLUSIVE_EARNING,
- * and only then — nothing at all, because its light is being fed to a lollipop tree instead.
+ * What the rainbow on this tile pays into the purse: its own size, or nothing at all when its
+ * light is being fed to a lollipop tree instead.
  *
- * The one place that question is answered, so the income the counter promises and the drops that
- * fly out of the tile at the end of the turn cannot come apart.
+ * **A rainbow earns either water or sweets, never both**, and this is the whole of that rule. It
+ * used to pay a drop into the purse *and* a sweet into the jar for every tree beside it, which
+ * made a tree-side tile strictly better than a bare one and was where a well-played board's water
+ * surplus came from. Now the tree drinks the water and makes sweets out of it, so which side of a
+ * fountain to light is a choice between the two currencies rather than a tile with a right answer.
+ * The sweets themselves are untouched by it — still one per tree per level, so a rainbow between
+ * two trees still pays both of them. All the rule takes away is the water half of a fed rainbow.
+ *
+ * The one place that question is answered, so the income the counter promises, the drops that fly
+ * out of the tile at the end of the turn, and the colour the light is drawn in cannot come apart.
  */
 export function getRainbowDrops(map: GameMap, position: Position, side: Side): number {
-  return EXCLUSIVE_EARNING && countTreesBeside(map, position, side) ? 0 : getTile(map, position)!.light!;
+  return countTreesBeside(map, position, side) ? 0 : getTile(map, position)!.light!;
 }
 
 function blocksMove(objectType: GameObjectType | undefined): boolean {

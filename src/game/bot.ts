@@ -6,7 +6,6 @@ import {
   canUsePortal,
   countTreesBeside,
   endTurn,
-  EXCLUSIVE_EARNING,
   GameMap,
   getBuild,
   CHEST_CANDY,
@@ -163,17 +162,13 @@ const TILE_VALUE = 12;
 // drops a turn.
 //
 // Was 4, on the reading that "a step is worth a fraction of a reveal". Gridded against
-// CANDY_VALUE over {4, 8, 12} x {6, 12, 18} on the 13x13, 17x17 and 21x21 once a rainbow started
-// earning water *or* sweets (see EXCLUSIVE_EARNING), and 4 turned out to be the single worst
-// thing in the bot's beliefs: it priced a fed rainbow's sweets at three times a bare one's water,
-// so the bot lit tree-side spots for the jar, ran out of drops, stopped walking, and sat on
-// sweets it could no longer justify spending. At 20 seeds, raising it to 12 was worth +33% on the
-// 13x13, +128% on the 17x17 and +52% on the 21x21, and it bought back the exploring the bot had
-// given up — 55% of the 17x17 seen became 86%.
-//
-// It costs a little under the older rule where a fed rainbow pays both: −1% on the 13x13 and the
-// 17x17, −10% on the 21x21. That is the price of one set of beliefs serving both rules while the
-// question is open, and the exclusive rule is the one being played now.
+// CANDY_VALUE over {4, 8, 12} x {6, 12, 18} on the 13x13, 17x17 and 21x21 once a rainbow began
+// earning water *or* sweets rather than both, and 4 turned out to be the single worst thing in the
+// bot's beliefs: it priced a fed rainbow's sweets at three times a bare one's water, so the bot
+// lit tree-side spots for the jar, ran out of drops, stopped walking, and sat on sweets it could
+// no longer justify spending. At 20 seeds, raising it to 12 was worth +33% on the 13x13, +128% on
+// the 17x17 and +52% on the 21x21, and it bought back the exploring the bot had given up — 55% of
+// the 17x17 seen became 86%.
 const DROP_VALUE = 12;
 // One sweet in the jar. The same as a drop, which reads oddly for the currency that buys the
 // unicorns — until you notice what a sweet actually converts to: `price` of them buy one unicorn
@@ -779,15 +774,15 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    * The score half does not scale: a rainbow is one thing built however big it is, which is what
    * the game's own score says.
    *
-   * Under EXCLUSIVE_EARNING a fed rainbow pays no water at all, and the bot has to know: the rule
-   * turns "which side of the fountain" from a question with a right answer into a choice between
-   * two currencies, and a bot still counting the water would light the tree side for both and
-   * then wonder where the purse went.
+   * Water *or* sweets, never both — see getRainbowDrops, which is the rule this mirrors. A bot
+   * counting both would light the tree side for the pair of them and then wonder where the purse
+   * went, so which side of a fountain gets lit is a choice here in the same way it is on the
+   * board: sweets if a tree is beside it, water if not.
    */
   const getRainbowsValue = (rainbows: Position[], level: number) =>
     rainbows.reduce((total, rainbow) => {
       const trees = countTreesBeside(map, rainbow, side);
-      const perTurn = trees * CANDY_VALUE + (EXCLUSIVE_EARNING && trees ? 0 : dropWorth);
+      const perTurn = trees ? trees * CANDY_VALUE : dropWorth;
 
       return total + thingValue + level * turnsLeft * perTurn;
     }, 0);

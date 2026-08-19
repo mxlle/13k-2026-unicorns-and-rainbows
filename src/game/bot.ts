@@ -216,6 +216,12 @@ const DISTANCE_DISCOUNT = 0.85;
  * about the board. Turn this down to make every bot more restless without touching what
  * anything is worth: it changes only how dearly a post is held, never which of two posts is
  * preferred.
+ *
+ * Which is also why turning it down was the wrong fix for the standing-still that DROP_VALUE = 12
+ * brought with it. Gridded at {1, 0.7, 0.5, 0.3}: 0.7 did cure the idling and cost 18% of the
+ * score, and 0.5 and 0.3 threw the game away entirely — because the dial is indiscriminate, and
+ * the bot was not holding *every* post too dearly, only the ones paying it money it was not
+ * spending. That belonged in what a drop is worth. See dropWorth.
  */
 const LEAVING_WEIGHT = 1;
 /**
@@ -250,6 +256,23 @@ const MIN_ACTION_VALUE = 1;
  * up before it is too late to walk anywhere with what it buys.
  */
 const CURRENCY_HORIZON = 3;
+/**
+ * How many drops per unicorn count as a purse the run can still spend. Below that the next drop
+ * of income is worth DROP_VALUE; above it, water is piling up faster than the herd can walk it
+ * off and the surplus is worth less and less — see `dropWorth`.
+ *
+ * It is the income-side twin of CURRENCY_HORIZON above. That one says money left at the whistle
+ * scored nothing, and discounts what a *price* costs the run near the end. This says money left
+ * in the purse *turn after turn* scored nothing either, and discounts what an *income* is worth
+ * while it is going unspent. Both are the same sentence about a currency being worth only what
+ * it buys, read from the two ends.
+ *
+ * Per unicorn rather than flat, because the same purse means opposite things at the two ends of
+ * a run: fifty drops behind one unicorn is a fortnight of standing still, and behind twenty it is
+ * barely a turn of walking. Without that, a big board's ordinary working balance would read as a
+ * glut and the bot would stop valuing water exactly when it needs it most.
+ */
+const SPENDABLE_PER_UNICORN = 4;
 
 export const BotActionKind = { MOVE: 0, PORTAL: 1, BUY: 2, BUILD: 3, END_TURN: 4 } as const;
 export type BotActionKind = (typeof BotActionKind)[keyof typeof BotActionKind];
@@ -331,7 +354,7 @@ const lastTurn = [0, 0];
  * What the board earns is a fact about the turn, not about the step, and reading it once a
  * turn is both truer and unshakeable.
  */
-const income = [0, 1].map(() => ({ drops: 0, candy: 0, dropIncome: 0, candyIncome: 0 }));
+const income = [0, 1].map(() => ({ drops: 0, candy: 0, dropIncome: 0, candyIncome: 0, herd: 0 }));
 
 export function resetBot(seed: number) {
   botState = ((Math.imul(seed, 2654435761) >>> 0) % (MODULUS - 1)) + 1;
@@ -365,7 +388,15 @@ export function getBotAction(map: GameMap, strategy: BotStrategy, side: Side): B
   if (map.turn !== lastTurn[side]) {
     lastTurn[side] = map.turn;
     getUnicorns(map, side).forEach((position) => trails.delete(getIndex(position)));
-    income[side] = { drops: map.drops[side], candy: map.candy[side], dropIncome: map.dropIncome[side], candyIncome: map.candyIncome[side] };
+    income[side] = {
+      drops: map.drops[side],
+      candy: map.candy[side],
+      dropIncome: map.dropIncome[side],
+      candyIncome: map.candyIncome[side],
+      // How many pairs of legs there are to walk the purse off with — read here with everything
+      // else it is judged against, and for the same reason: it must not shift under a step.
+      herd: getUnicorns(map, side).length,
+    };
   }
 
   const action = strategy === BotStrategy.RANDOM ? pickRandom(getLegalActions(map, side)) : getBestAction(map, getWeights(strategy), side);
@@ -681,16 +712,34 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // The same number as before the score was rewritten — the two forms agree exactly — so
   // every tuning constant below is still in the units it was tuned in.
   const thingValue = getExploration(map, side);
+  /**
+   * What one drop is actually worth to this side right now — DROP_VALUE while the purse is one
+   * the herd can still walk off, and less and less as it piles up past that. See
+   * SPENDABLE_PER_UNICORN.
+   *
+   * This is the whole of the fix for a bot that would post its one unicorn on a bare rainbow and
+   * stand there for eleven turns with fifty drops in hand. Holding that post is worth every turn
+   * of water it will ever pay, charged in full against walking away from it (LEAVING_WEIGHT), so
+   * nothing on the board could ever beat it — while the drops it was paid sat there buying
+   * nothing. Now the pile itself is what makes the post cheap to leave, the unicorn walks, the
+   * purse empties, and water is worth holding a post for again. It corrects itself, in both
+   * directions, without a dial to set.
+   *
+   * Read off the turn's snapshot rather than the live purse, like everything else judged against
+   * money here: a value that fell as a unicorn spent its own drops walking would be a value that
+   * changes under the deciding unicorn's feet, which is how the pacing bugs start.
+   */
+  const dropWorth = DROP_VALUE * Math.min(1, (SPENDABLE_PER_UNICORN * income[side].herd) / Math.max(1, income[side].drops));
   // What a rainbow is worth to a *newcomer*: it scores, and it pays a drop a turn. A grown
   // unicorn's is worth more, which is what getRainbowsValue takes a level for — this is the
   // level-1 reading, and the one thing that reads it directly is a fountain site, whose light
   // is whoever's happens to reach it later rather than anybody's in particular.
-  const rainbowValue = thingValue + turnsLeft * DROP_VALUE;
+  const rainbowValue = thingValue + turnsLeft * dropWorth;
   const unicornValue = thingValue + UNICORN_POTENTIAL;
   // What a price actually costs the run, which is not what it costs the purse: money left
   // over at the end is money that scored nothing. See CURRENCY_HORIZON.
   const spendability = Math.min(1, turnsLeft / CURRENCY_HORIZON);
-  const dropPrice = DROP_VALUE * spendability;
+  const dropPrice = dropWorth * spendability;
   const candyPrice = CANDY_VALUE * spendability;
   // A unicorn is both halves of the game at once: another pair of eyes and another light.
   // So it is bought on the average of the two weights rather than under either of them.
@@ -698,7 +747,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // What an unopened present is worth: its three outcomes at their odds, priced in what this
   // board's presents actually hold. It used to be a flat 70, which was fine while the contents
   // were flat too — now a 25x25 present carries five times a 5x5 one and the bot has to know.
-  const chestValue = CHEST_ODDS * (CHEST_DROPS * DROP_VALUE + CHEST_CANDY * CANDY_VALUE + unicornValue);
+  const chestValue = CHEST_ODDS * (CHEST_DROPS * dropWorth + CHEST_CANDY * CANDY_VALUE + unicornValue);
 
   /**
    * What a set of rainbows cast by a `level` unicorn is worth. Every one of them scores, and
@@ -718,7 +767,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   const getRainbowsValue = (rainbows: Position[], level: number) =>
     rainbows.reduce((total, rainbow) => {
       const trees = countTreesBeside(map, rainbow, side);
-      const perTurn = trees * CANDY_VALUE + (EXCLUSIVE_EARNING && trees ? 0 : DROP_VALUE);
+      const perTurn = trees * CANDY_VALUE + (EXCLUSIVE_EARNING && trees ? 0 : dropWorth);
 
       return total + thingValue + level * turnsLeft * perTurn;
     }, 0);
@@ -731,7 +780,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    */
   const getBuildValue = (objectType: GameObjectType, position: Position) => {
     if (objectType === GameObjectType.TUB_SITE)
-      return economy * (turnsLeft * BASE_INCOME * DROP_VALUE + TUB_UNICORN_VALUE) + explore * countFog(map, position, side) * TILE_VALUE;
+      return economy * (turnsLeft * BASE_INCOME * dropWorth + TUB_UNICORN_VALUE) + explore * countFog(map, position, side) * TILE_VALUE;
     if (objectType === GameObjectType.FOUNTAIN_SITE) return economy * (hasRainbowSpot(map, position) ? rainbowValue : 0);
 
     // A lollipop tree: one sweet a turn per rainbow it catches, so a spot that would catch two

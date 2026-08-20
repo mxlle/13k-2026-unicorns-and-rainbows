@@ -40,7 +40,7 @@ $level-scale: 0.15;
 $wide-screen: 900px;
 // The panel column on such a screen. Capped against the viewport as well, so a short wide
 // window does not hand the panels a third of the room the board wants.
-$sidebar-width: min(20rem, 30vw);
+$sidebar-width: min(24rem, 30vw);
 
 // Map / info panel / turn bar, top to bottom. The info row is always there — that is
 // what keeps it from ever covering the board or shifting it when the selection changes.
@@ -178,15 +178,15 @@ $sidebar-width: min(20rem, 30vw);
 
   > button {
     margin-left: auto; // turn count left, the button on the far right
-    // Its label must never wrap to a second line: that would change the height of the
-    // bar and shift the board above it.
-    flex-shrink: 0;
     white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    font-size: 0.9em;
   }
 }
 
 .count {
-  font-size: 1.2rem;
+  font-size: 1rem;
   white-space: nowrap; // a counter and its income never wrap into a second line
 }
 
@@ -518,5 +518,9 @@ $win-hop-height: 2rem;
   .turnBar {
     grid-area: 2 / 2;
     flex-wrap: wrap; // four controls in a narrow column need a second line to fall back on
+
+    > button {
+      font-size: 1em;
+    }
   }
 }

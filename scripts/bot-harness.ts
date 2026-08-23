@@ -3,6 +3,7 @@ import {
   getExploration,
   getScore,
   HAS_RIVAL,
+  hasGo,
   isRunOver,
   MAP_SIZES,
   nextTurn,
@@ -116,7 +117,10 @@ function play(size: number, seed: number, strategy: BotStrategy): Result {
   // A turn is now every side's go, then the clock. Without an opponent that is one go and a
   // tick, which is exactly what the flat loop here used to be.
   while (!isRunOver(map) && actions < MAX_ACTIONS) {
-    const sides: Side[] = HAS_RIVAL ? [PLAYER, RIVAL] : [PLAYER];
+    // Who actually plays this turn, asked of the game rather than assumed: the rival has no go
+    // on the closing turn (see hasGo), and a harness that gave it one would be measuring a
+    // rival a whole turn stronger than the one on the board.
+    const sides: Side[] = (HAS_RIVAL ? [PLAYER, RIVAL] : [PLAYER]).filter((side) => hasGo(map, side));
     for (const side of sides) actions += playGo(map, strategy, side, kinds, MAX_ACTIONS - actions);
     nextTurn(map);
   }

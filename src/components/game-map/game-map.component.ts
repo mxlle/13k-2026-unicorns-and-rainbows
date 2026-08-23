@@ -34,6 +34,7 @@ import {
   getSpawnTargets,
   hasFreeMove,
   HAS_RIVAL,
+  hasGo,
   isRunOver,
   isSeen,
   MAP_SIZE,
@@ -1197,7 +1198,9 @@ export function GameMapComponent(
       // The rival goes next, and the clock only moves on once it has had its turn — so a
       // "turn" is the pair of them. Without an opponent the two halves collapse into what
       // this always did: pay the player, tick over, see whether the run is out of turns.
-      if (HAS_OPPONENT && HAS_RIVAL) playRivalTurn(closeTurn);
+      // On the closing turn it has no go (see hasGo), so the run ends on the player's move
+      // rather than on somebody else's.
+      if (HAS_OPPONENT && HAS_RIVAL && hasGo(map, RIVAL)) playRivalTurn(closeTurn);
       else closeTurn();
     }, wait);
   }

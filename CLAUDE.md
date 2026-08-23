@@ -193,7 +193,10 @@ Everything about it follows from three decisions, and knowing them is most of re
    function in `game-map.ts` takes a `side` — it is the cost of that decision, spread thin.
 3. **Currencies are per-side arrays.** `map.drops[side]`, `map.candy[side]`, and likewise the
    two incomes and `rainbowCounts`. A turn is now every side's go and *then* the clock, which
-   is why `endTurn(map, side)` and `nextTurn(map)` are two calls.
+   is why `endTurn(map, side)` and `nextTurn(map)` are two calls. Who has a go is `hasGo`, and
+   there is one exception in it: the rival does not play the closing turn, so a run ends on the
+   player's own move rather than on an answer to it. Both the interface and `npm run bot` ask
+   `hasGo` — the harness would otherwise measure a rival a whole turn stronger than the real one.
 
 The contest itself is almost entirely emergent rather than written: a rainbow has always needed
 empty ground, so the first one onto a tile holds it and the other side's light dies in the

@@ -1216,6 +1216,27 @@ export function getScore(map: GameMap, side: Side): number {
 }
 
 /**
+ * Whether `side` still has a go to play this turn. Both sides do, all through the run, bar the
+ * one exception: the rival does not play the closing turn.
+ *
+ * It is about where a run *ends* rather than about fairness. A turn is the player's go and then
+ * the rival's, so with both sides playing to the whistle the last thing that ever happened was
+ * the opponent moving — the result came up on somebody else's move, and a player's own closing
+ * turn, the one the live score makes as valuable as the first, was answered before they could
+ * see what it came to. Cutting the rival's last go rather than letting it open the turn keeps
+ * the player moving first all run, which is the half of the arrangement worth keeping.
+ *
+ * The price is that the rival plays one go fewer than the player, and it is a real one — see
+ * the 🌑 column in `npm run bot`. It is paid on purpose: the run ends on the player's move.
+ *
+ * Lives here rather than in the interface because the headless runs have to play the same game
+ * the buttons do — the harness asks this too.
+ */
+export function hasGo(map: GameMap, side: Side): boolean {
+  return side === PLAYER || map.turn < TURN_LIMIT;
+}
+
+/**
  * Ends the turn and collects what the board earns: drops to move with, candy to buy with.
  * Which is the same board, and so the same payment, whether it is called the end of this turn
  * or the start of the next — nothing happens in between. The one place the two differ is the
@@ -1237,10 +1258,11 @@ export function endTurn(map: GameMap, side: Side) {
 }
 
 /**
- * Moves the clock on, once both sides have had their go. Split out of endTurn because with an
- * opponent on the board a turn is now two goes — the player's, then the rival's — and each of
- * them is paid out as it closes while the turn number belongs to the pair of them. Without an
- * opponent the two calls sit side by side and mean exactly what the one used to.
+ * Moves the clock on, once everybody with a go this turn has had it — which is both sides
+ * every turn but the last, where the rival has none (see hasGo). Split out of endTurn because
+ * with an opponent on the board a turn is now two goes — the player's, then the rival's — and
+ * each of them is paid out as it closes while the turn number belongs to the pair of them.
+ * Without an opponent the two calls sit side by side and mean exactly what the one used to.
  */
 export function nextTurn(map: GameMap) {
   map.turn++;

@@ -36,8 +36,9 @@ implementation support**. Creative decisions stay on Almut's side.
 - `npm run build-js13k-roadroller` — same + Roadroller-crunched JS inlined into the HTML (test in browser afterwards, it is eval-based!)
 - `npm run build-poki` — Poki platform build (Poki SDK, no property mangling)
 - `npm run size` — re-report last `dist.zip` size without rebuilding
-- `npm run bot` — headless balancing runs: the dev bot plays every board with every strategy
-  (see "Dev tools" below). Never shipped, never part of a build
+- `npm run bot` — headless balancing runs: the bot plays every board with every strategy
+  (see "Dev tools" below). The *harness* is never shipped; the bot itself is — it is the
+  opponent (see "The opponent")
 - `npm run sweep` — turns one bot strategy's weights over a grid and plays the whole board
   ladder at every point of it, to find out which bot is worth measuring with (see "Dev tools")
 - `npm run typecheck` — strict `tsc` check (the vendored `small-player*.ts` are `@ts-nocheck`'d,
@@ -45,11 +46,19 @@ implementation support**. Creative decisions stay on Almut's side.
 - `npm run lint` — `scripts/lint-invariants.mjs` mechanically checks the size-machinery rules
   below (enum registration, no `Object.values(Enum)`, no direct `import.meta.env`); also in CI
 
+CI (`.github/workflows/build.yml`) runs typecheck, **`prettier --check`** (so unformatted code
+fails the build — run `npm run prettier`), the invariant lint, the friends-&-family build with a
+deploy to GitHub Pages, and a js13k build that **enforces the 13 kB limit**.
+
 After **every** change while working on the js13k build, run `npm run build-js13k` and check the
 reported size. `scripts/package.js` prints a per-file breakdown, the diff to the previous build
 (tracked in `.size-history.json`, gitignored — competition builds only via `--track`, so poki
-builds don't pollute the diffs), and bytes left. For a treemap of what costs what,
-open `dist-analyzation/stats.html` after any build.
+builds don't pollute the diffs), and bytes left.
+
+`dist-analyzation/stats.html` draws a treemap of the bundle, but **do not trust its numbers**:
+under rolldown it reports modules that were tree-shaken away as though they shipped — the js13k
+treemap currently lists `de.ts` and `poki-integration.ts`, and neither is in the zip. Use it to
+see what the bundle is *made of*; get every actual figure from a build delta.
 
 ## Build modes / feature flags
 
@@ -61,10 +70,13 @@ instead. Because the flags are compile-time constants, everything behind `if (HA
 tree-shaken out of builds where the flag is false. That is the mechanism that lets the
 friends-&-family build carry extra content without costing the js13k build a single byte.
 
-- js13k mode: short texts, no console logs, no manifest/meta tags, no nice-to-have styles, no
-  bot working (`HAS_BOT_LOGS` — the labels on the bot's actions and the RANDOM strategy, which
-  only a measurement ever plays). The opponent **is** in it now (`HAS_OPPONENT`, on in every
-  mode); see "The opponent" below
+- js13k mode: no console logs, no manifest/meta tags, no nice-to-have styles, no bot working
+  (`HAS_BOT_LOGS` — the labels on the bot's actions and the RANDOM strategy, which only a
+  measurement ever plays). The opponent is in it (`HAS_OPPONENT`, on in every mode); see
+  "The opponent" below.
+  `HAS_SHORT_TEXTS` is wired up but **nothing reads it yet** — the competition build ships the
+  same full-length texts as the others. Writing the short variants is worth ~123 bytes, and the
+  way to do it is two whole literal maps rather than per-entry ternaries (see byte-golfing)
 - poki mode: loads the Poki SDK (`src/poki-integration.ts`), gameplayStart/Stop wired in `index.ts`;
   terser property mangling is DISABLED for poki (their SDK breaks otherwise)
 
@@ -74,11 +86,11 @@ The dev-only tools are reached only from behind `HAS_DEV_TOOLS` (which is `IS_DE
 absent from the friends-&-family build too) and tree-shaken out of every real build. Keep it
 that way — `npm run build-js13k` is the check.
 
-**The bot is no longer one of them.** It lives at `src/game/bot.ts` and it ships wherever
-`HAS_OPPONENT` is on — which is now every build — because the opponent on the big boards *is*
-the bot playing the other side (see "The opponent" below). It is still not byte-golfed and
-should not be — clarity is what makes it re-tunable, and an opponent's behaviour has to be
-arguable — but it is no longer free, so a change to it now shows up in the size report.
+**The bot is not one of them.** It lives at `src/game/bot.ts` and ships wherever `HAS_OPPONENT`
+is on — every build — because the opponent on the big boards *is* the bot playing the other
+side (see "The opponent" below). It is not byte-golfed and should not be — clarity is what
+makes it re-tunable, and an opponent's behaviour has to be arguable — but it is not free
+either, so a change to it shows up in the size report.
 
 What does *not* ship is the bot showing its working: `HAS_BOT_LOGS` (env-utils.ts) gates the
 `label` on every action and the RANDOM strategy that `getLegalActions` is the only caller of.
@@ -130,7 +142,10 @@ flag too**, or a sentence nothing reads goes into the zip.
 go on playing a game that no longer exists and hand you balancing numbers for it. After a
 change to the economy, the objects or the board, walk `src/game/bot.ts`:
 
-- `getLegalActions` — anything a player can now do that is not in there is invisible to the bot.
+- `getLegalActions` — the RANDOM yardstick's action list, and the definition of "legal" the
+  scoring bot is *held* to by convention. It is behind `HAS_BOT_LOGS` and `getBestAction`
+  invents its own candidates, so adding an action here alone changes nothing about how the
+  opponent plays — do both.
 - the value model (`getBestAction`, `getStandingValue`, `getBuildValue`) — a new object, price
   or income stream needs a worth in score points, or the bot plays as if it were worth nothing.
 - `applyBotAction` — the one place in the repo that says a second time what the interface does
@@ -159,9 +174,10 @@ that can be beaten fairly.
 
 ## The opponent — two sides on one board
 
-Behind `HAS_OPPONENT` (now `true` in every build — it costs ~2.2 kB zipped and the size round
-that paid for it is in the git log), the boards from `RIVAL_SIZE` up — the 17x17, the
-21x21 and the 25x25 — carry a second player: a dark unicorn starting from the mirrored corner,
+Behind `HAS_OPPONENT` (`true` in every build; it costs ~2.2 kB zipped, which is the number to
+weigh if the last kilobyte ever has to come from somewhere), the boards from `RIVAL_SIZE` up —
+the 17x17, the 21x21 and the 25x25 — carry a second player: a dark unicorn from the mirrored
+corner,
 driven by the `mixed` bot, taking a whole turn of its own between the player's turns.
 
 Everything about it follows from three decisions, and knowing them is most of reading the code:
@@ -171,7 +187,7 @@ Everything about it follows from three decisions, and knowing them is most of re
    no tile carries an owner. Anything doubled goes in one of the `SIDE_*` tables in
    `game-objects.ts` and is looked up by side; only the three things that can *belong* to
    somebody are doubled. Fountains, trees, donuts, flowers, chests and build sites are neutral.
-2. **Each side has its own fog.** `Tile.isRevealed` became `Tile.seen`, a bitmask, read through
+2. **Each side has its own fog.** `Tile.seen` is a bitmask, one bit per side, read through
    `isSeen(tile, side)`. Exploration is the score's own multiplier, so a shared cloud layer
    would have each side handing the other its multiplier for free. This is why nearly every
    function in `game-map.ts` takes a `side` — it is the cost of that decision, spread thin.
@@ -193,8 +209,8 @@ heuristic that reasons about the other side would also be one the player has no 
 When the rules change, the opponent changes with them for free — it is the same code — but
 **check the two harnesses**: `npm run bot` now plays both sides on the big boards and prints a
 🌑 column, `npm run bot -- --solo` is the old single-player reading, and `npm run sweep` turns
-the opponent off entirely (a grid comparing weights must not have a different game under two of
-its seven rungs).
+the opponent off entirely (a grid comparing weights must not have a different game under three
+of the six rungs it plays — it drops the 5x5).
 
 ## Size machinery — read before touching vite.config.ts or adding enums
 
@@ -202,13 +218,14 @@ The unusual parts of this codebase exist to make minification maximally effectiv
 
 1. **`defineEnum` + build-time inlining.** Enums are plain objects created with `defineEnum`
    (`src/utils/enums.ts`). `vite.config.ts` textually replaces every member access
-   (`Direction.UP` → `0`) via `@rollup/plugin-replace`, so the enum object itself is tree-shaken
-   away. **Every new `defineEnum` enum MUST be registered in the `replaceEnums({...})` call in
-   `vite.config.ts`**, and enum member access must always be written literally as `EnumName.MEMBER`
-   (never destructured or aliased), or the replacement misses it. In particular, **never write
+   (`GameObjectType.UNICORN` → `0`) via `@rollup/plugin-replace`, so the enum object itself is
+   tree-shaken away. **Every new `defineEnum` enum MUST be registered in the
+   `replaceEnums({...})` call in `vite.config.ts`**, and enum member access must always be
+   written literally as `EnumName.MEMBER` (never destructured or aliased), or the replacement
+   misses it. In particular, **never write
    `Object.values(SomeEnum)`** — it keeps the whole enum object alive in the bundle; write the
-   literal member list instead (`[Direction.UP, Direction.DOWN, ...]`), which inlines to plain
-   numbers (2025 postmortem: five such calls cost ~57 zipped bytes).
+   literal member list instead (`[GameObjectType.UNICORN, GameObjectType.RAINBOW, ...]`), which
+   inlines to plain numbers (2025 postmortem: five such calls cost ~57 zipped bytes).
 2. **Enum-keyed maps get compacted.** A custom AST transformer rewrites numeric-keyed object
    literals (`{0: "a", 1: "b"}`) into arrays or `"a|b".split("|")` — writing lookup maps keyed by
    enums is therefore cheap and idiomatic here.
@@ -287,8 +304,9 @@ The unusual parts of this codebase exist to make minification maximally effectiv
   policy taking 10% of the budget away on submission day. Build to fit *without* it and let it
   be the margin that finishes features, not budget already spent. Run it and click through the
   result regularly, so a break surfaces early.
-- Output filenames and HTML attributes count too: js13k mode already uses single-letter
-  bundle names (filenames are stored twice in a zip) and strips `crossorigin` attributes.
+- HTML attributes count too: js13k strips `crossorigin`. The single-letter bundle names
+  (`a.js`, `a.css`) now mostly matter as a fallback — `scripts/inline.js` folds both into
+  `index.html` and deletes them, so the zip normally holds one entry whose name is fixed.
 
 ## Conventions
 

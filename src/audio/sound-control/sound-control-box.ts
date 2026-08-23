@@ -1,6 +1,6 @@
 import { coinSound, loseSound, winSound } from "../songs/music-and-sounds";
 import { generateUntilDone } from "../music-control";
-import { CPlayer } from "../small-player";
+import { CPlayerSimple as CPlayer } from "../small-player-simple";
 
 export let winSoundSrcUrl: string | undefined;
 export let loseSoundSrcUrl: string | undefined;

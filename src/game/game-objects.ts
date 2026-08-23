@@ -1,16 +1,6 @@
 import { defineEnum } from "../utils/enums";
 import { TranslationKey } from "../translations/translationKey";
 
-// What a thing *is* — purely semantic. The behavioural bits (blocksMove /
-// blocksVision) are separate flags below, so a future "living but harmless" or
-// "static but walk-through" object doesn't need a new category.
-export type ObjectCategory = defineEnum<typeof ObjectCategory>;
-export const ObjectCategory = defineEnum({
-  LIVING: 0, // acts on its own — the unicorn today, creatures later
-  GOAL: 1, // what winning is about — the rainbows
-  STATIC: 2, // scenery that just sits there — rocks, trees, water later
-});
-
 export type GameObjectType = defineEnum<typeof GameObjectType>;
 export const GameObjectType = defineEnum({
   UNICORN: 0,
@@ -72,9 +62,7 @@ export const ChestLoot = defineEnum({
 
 interface GameObjectConfig {
   emoji: string;
-  category: ObjectCategory;
   blocksMove: boolean;
-  blocksVision: boolean;
   glows: boolean; // a light source: casts a rainbow through a fountain it stands next to
   info: TranslationKey; // "Name|Description" for the info popup
 }
@@ -83,25 +71,19 @@ interface GameObjectConfig {
 export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   [GameObjectType.UNICORN]: {
     emoji: "🦄",
-    category: ObjectCategory.LIVING,
     blocksMove: true,
-    blocksVision: false,
     glows: true,
     info: TranslationKey.INFO_UNICORN,
   },
   [GameObjectType.RAINBOW]: {
     emoji: "🌈",
-    category: ObjectCategory.GOAL,
     blocksMove: false,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_RAINBOW,
   },
   [GameObjectType.FOUNTAIN]: {
     emoji: "⛲",
-    category: ObjectCategory.STATIC,
     blocksMove: true,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_FOUNTAIN,
   },
@@ -109,9 +91,7 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   // gives off no light of its own — the corner it stands in is a purse, not a puzzle.
   [GameObjectType.BATHTUB]: {
     emoji: "🛁",
-    category: ObjectCategory.STATIC,
     blocksMove: true,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_BATHTUB,
   },
@@ -119,9 +99,7 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   // the stylesheet stands it upright (see .tile > span in game-map.module.scss).
   [GameObjectType.TREE]: {
     emoji: "🍭",
-    category: ObjectCategory.STATIC,
     blocksMove: true,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_TREE,
   },
@@ -129,9 +107,7 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   // It still owns the ground layer, so a rainbow can never land on a donut.
   [GameObjectType.DONUT]: {
     emoji: "🍩",
-    category: ObjectCategory.STATIC,
     blocksMove: false,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_DONUT,
   },
@@ -141,9 +117,7 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   // until then: an opened chest leaves plain meadow behind, rainbows and all.
   [GameObjectType.CHEST]: {
     emoji: "🎁",
-    category: ObjectCategory.STATIC,
     blocksMove: false,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_CHEST,
   },
@@ -156,25 +130,19 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   // They also own the ground layer, so no rainbow can land on one until it is built.
   [GameObjectType.TUB_SITE]: {
     emoji: "🪣",
-    category: ObjectCategory.STATIC,
     blocksMove: true,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_TUB_SITE,
   },
   [GameObjectType.FOUNTAIN_SITE]: {
     emoji: "🪨",
-    category: ObjectCategory.STATIC,
     blocksMove: true,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_FOUNTAIN_SITE,
   },
   [GameObjectType.TREE_SITE]: {
     emoji: "🌱",
-    category: ObjectCategory.STATIC,
     blocksMove: true,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_TREE_SITE,
   },
@@ -182,9 +150,7 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   // owns the ground layer, so the free path it offers costs a rainbow spot in return.
   [GameObjectType.FLOWER]: {
     emoji: "🌺",
-    category: ObjectCategory.STATIC,
     blocksMove: false,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_FLOWER,
   },
@@ -195,25 +161,19 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   // CSS `invert`, which costs no bytes and reads as the negative of the thing it is racing.
   [GameObjectType.DARK_UNICORN]: {
     emoji: "🦄",
-    category: ObjectCategory.LIVING,
     blocksMove: true,
-    blocksVision: false,
     glows: true,
     info: TranslationKey.INFO_RIVAL,
   },
   [GameObjectType.DARK_RAINBOW]: {
     emoji: "🌈",
-    category: ObjectCategory.GOAL,
     blocksMove: false,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_DARK_RAINBOW,
   },
   [GameObjectType.DARK_BATHTUB]: {
     emoji: "🛁",
-    category: ObjectCategory.STATIC,
     blocksMove: true,
-    blocksVision: false,
     glows: false,
     info: TranslationKey.INFO_BATHTUB,
   },

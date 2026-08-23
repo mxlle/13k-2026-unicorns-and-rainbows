@@ -7,7 +7,7 @@ import { initAudio } from "./audio/music-control";
 import { getLocalStorageItem, LocalStorageKey } from "./utils/local-storage";
 import { GAME_EMOJI, GAME_TITLE, HAS_SIMPLE_SOUND_EFFECTS, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
 import { coinSoundSrcUrl, initWinLoseSoundEffects, loseSoundSrcUrl, winSoundSrcUrl } from "./audio/sound-control/sound-control-box";
-import { playSound } from "./audio/sound-control/sound-control";
+import { playSoundSimple } from "./audio/sound-control/sound-control";
 import { HeaderComponent } from "./framework/components/header/header.component";
 import { MuteButton } from "./components/mute-button/mute-button";
 import { GameMapComponent } from "./components/game-map/game-map.component";
@@ -59,7 +59,7 @@ function init() {
 
   if (HAS_SIMPLE_SOUND_EFFECTS) {
     pubSubService.subscribe(PubSubEvent.STAR_COLLECT, () => {
-      coinSoundSrcUrl && playSound(coinSoundSrcUrl);
+      coinSoundSrcUrl && playSoundSimple(coinSoundSrcUrl);
     });
   }
 
@@ -70,7 +70,7 @@ function init() {
 
     if (HAS_SIMPLE_SOUND_EFFECTS) {
       const soundEffect = result.isWon ? winSoundSrcUrl : loseSoundSrcUrl;
-      soundEffect && playSound(soundEffect);
+      soundEffect && playSoundSimple(soundEffect);
     }
 
     if (IS_POKI_ENABLED) {

@@ -99,18 +99,6 @@ button {
     padding: 0.25rem 1rem;
   }
 
-  &.#{$TERTIARY} {
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: 0.8em;
-    color: $main-color-tertiary;
-    text-decoration: underline;
-    cursor: pointer;
-    border-radius: 0;
-    width: fit-content;
-  }
-
   &[disabled] {
     opacity: 0.3;
     pointer-events: none;
@@ -141,17 +129,8 @@ button.#{$ICON_BTN} {
   display: none !important;
 }
 
-.#{$OPACITY_HIDDEN} {
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
 .#{$EMOJI} {
   font-family: "Noto Color Emoji", sans-serif;
-}
-
-.#{$ONE_LINER} {
-  white-space: nowrap;
 }
 
 // Nudges the player towards the next step — put it on whatever is the obvious

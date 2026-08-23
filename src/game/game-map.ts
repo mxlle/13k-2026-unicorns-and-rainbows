@@ -4,7 +4,6 @@ import {
   ChestLoot,
   GameObjectType,
   getSide,
-  ObjectCategory,
   OBJECT_CONFIG,
   PLAYER,
   RIVAL,
@@ -570,8 +569,9 @@ function getPositionsOf(map: GameMap, objectType: GameObjectType): Position[] {
  * this kind the board is getting, which is what the spacing is worked out from (see SPREAD);
  * `margin` is the distance it keeps from the border, and `diagonal` asks for that spacing
  * along *both* axes instead of as the crow flies — the rule that stops the donuts from lining
- * up in one row or column. Which layer it lands on follows from its category, so a unicorn
- * walks over the ground and a fountain becomes part of it.
+ * up in one row or column. Everything placed here lands on the ground layer: nothing living
+ * is ever placed by the generator — the herd is one unicorn per side at the start and every
+ * other one is bought from a tub.
  *
  * The spacing is stepped down rather than dropped when nothing satisfies it: the last few
  * things onto a filling board still get placed as far apart as that board still allows,
@@ -602,8 +602,7 @@ function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin
   const position = getRandomItem(candidates);
   const tile = getTile(map, position)!;
 
-  if (OBJECT_CONFIG[objectType].category === ObjectCategory.LIVING) tile.living = objectType;
-  else tile.object = objectType;
+  tile.object = objectType;
 
   return position;
 }

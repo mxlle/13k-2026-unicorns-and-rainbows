@@ -13,17 +13,19 @@ import { HAS_GERMAN, HAS_TEXT_PLACEHOLDERS } from "../env-utils";
 //   2. env-utils.ts: export const HAS_FRENCH = import.meta.env.LANG_FR_ENABLED === "true";
 //   3. src/translations/fr.ts: export a getFrTranslationMap() (see de.ts)
 //   4. add one branch below
+// Both halves are written inside the flag rather than around it: `navigator.language` is a
+// property read terser cannot prove side-effect-free, so a sniff whose only reader has been
+// compiled away is kept and performed on every lookup. Same for the <html lang>, which is
+// only ever anything but the "en" index.html already carries once a second language ships.
 function getActiveTranslations(): [lang: string, records: Record<TranslationKey, string>] {
-  const browserLang = getShortLanguageName(navigator.language);
-
-  if (HAS_GERMAN && browserLang === "de") return ["de", getDeTranslationMap()];
+  if (HAS_GERMAN && getShortLanguageName(navigator.language) === "de") return ["de", getDeTranslationMap()];
 
   return ["en", enTranslations];
 }
 
 export function getTranslation(key: TranslationKey, ...args: string[]): string {
   const [lang, records] = getActiveTranslations();
-  document.documentElement.setAttribute("lang", lang);
+  if (HAS_GERMAN) document.documentElement.setAttribute("lang", lang);
 
   const translation = records[key];
 

@@ -61,8 +61,10 @@ instead. Because the flags are compile-time constants, everything behind `if (HA
 tree-shaken out of builds where the flag is false. That is the mechanism that lets the
 friends-&-family build carry extra content without costing the js13k build a single byte.
 
-- js13k mode: short texts, no console logs, no manifest/meta tags, no nice-to-have styles, and
-  — for now — no opponent (`HAS_OPPONENT`; see "The opponent" below for what it costs)
+- js13k mode: short texts, no console logs, no manifest/meta tags, no nice-to-have styles, no
+  bot working (`HAS_BOT_LOGS` — the labels on the bot's actions and the RANDOM strategy, which
+  only a measurement ever plays). The opponent **is** in it now (`HAS_OPPONENT`, on in every
+  mode); see "The opponent" below
 - poki mode: loads the Poki SDK (`src/poki-integration.ts`), gameplayStart/Stop wired in `index.ts`;
   terser property mangling is DISABLED for poki (their SDK breaks otherwise)
 
@@ -73,10 +75,17 @@ absent from the friends-&-family build too) and tree-shaken out of every real bu
 that way — `npm run build-js13k` is the check.
 
 **The bot is no longer one of them.** It lives at `src/game/bot.ts` and it ships wherever
-`HAS_OPPONENT` is on, because the opponent on the big boards *is* the bot playing the other
-side (see "The opponent" below). It is still not byte-golfed and should not be — clarity is
-what makes it re-tunable, and an opponent's behaviour has to be arguable — but it is no longer
-free, so a change to it now shows up in the size report.
+`HAS_OPPONENT` is on — which is now every build — because the opponent on the big boards *is*
+the bot playing the other side (see "The opponent" below). It is still not byte-golfed and
+should not be — clarity is what makes it re-tunable, and an opponent's behaviour has to be
+arguable — but it is no longer free, so a change to it now shows up in the size report.
+
+What does *not* ship is the bot showing its working: `HAS_BOT_LOGS` (env-utils.ts) gates the
+`label` on every action and the RANDOM strategy that `getLegalActions` is the only caller of.
+The flag is wider than `HAS_DEV_TOOLS` on purpose — `npm run bot` is a `vite build`, so `DEV`
+is false there and gating on it would have taken the harness's own `--verbose` output out with
+the competition build's. **A new kind of action needs its label written as a ternary on that
+flag too**, or a sentence nothing reads goes into the zip.
 
 - **☁️ fog toggle** — the clouds off, for looking at how a board actually came out. Drawing
   only; the model's `seen` bits are untouched, so the run behaves exactly as it would with the
@@ -150,7 +159,8 @@ that can be beaten fairly.
 
 ## The opponent — two sides on one board
 
-Behind `HAS_OPPONENT` (currently `!IS_JS13K`), the boards from `RIVAL_SIZE` up — the 17x17, the
+Behind `HAS_OPPONENT` (now `true` in every build — it costs ~2.2 kB zipped and the size round
+that paid for it is in the git log), the boards from `RIVAL_SIZE` up — the 17x17, the
 21x21 and the 25x25 — carry a second player: a dark unicorn starting from the mirrored corner,
 driven by the `mixed` bot, taking a whole turn of its own between the player's turns.
 
@@ -222,6 +232,17 @@ The unusual parts of this codebase exist to make minification maximally effectiv
   Minified+zipped size correlates poorly with source size — repetitive code compresses well.
 - Prefer data-driven code (lookup tables keyed by enums) over branching; the map transformer and
   zip compression both love it.
+- **One non-literal value costs a whole map its compaction.** The AST transformer only rewrites a
+  numeric-keyed object literal when *every* value is a literal (see `replaceMapsTransformer`), so a
+  single `FLAG ? "a" : "b"` in a 25-entry translation map leaves all 25 keys written out longhand —
+  measured at 68 bytes, more than the strings the ternaries were saving. Where a map needs two
+  variants, write **two whole literal maps** and pick between them (`FLAG ? shortMap : longMap`):
+  both compact, and the unused one tree-shakes. Measured at −123 bytes against per-entry ternaries.
+- **Don't refactor for repetition — gzip already has it.** Wrapping a builtin that appears 28 times
+  (`classList.toggle`, 448 raw chars) in a helper was worth *2 bytes*; the 32 identical 3x3
+  neighbour loop headers (704 raw chars) are in the same boat. Zipped size only moves for *unique*
+  content, so hunt whole dead features, unread fields and one-off strings instead. The corollary:
+  a repetitive lookup table really is free, and clarity is never worth trading for de-duplication.
 - Emojis are the sprite sheet: one emoji ≈ 4 bytes buys full-color art. No image assets.
 - But keep emojis (and any repeated markers) out of *data tables*: store level/config data as
   compact digit strings and reconstruct the presentation at runtime. In 2025, replacing 21

@@ -32,6 +32,7 @@ import {
   updateRainbows,
 } from "./game-map";
 import { GameObjectType, OBJECT_CONFIG, Side, SIDE_BATHTUB, SIDE_RAINBOW, SIDE_UNICORN } from "./game-objects";
+import { HAS_BOT_LOGS } from "../env-utils";
 
 /**
  * A bot that plays the game. It has two jobs, and they are the same code:
@@ -118,7 +119,9 @@ export function setUsesBoardWeights(uses: boolean) {
 
 /** What a strategy weighs the two halves of the game by, on the board being played. */
 function getWeights(strategy: BotStrategy): [explore: number, economy: number] {
-  const [explore, economy] = STRATEGY_WEIGHTS[strategy];
+  // MIXED is the only strategy a shipped build ever plays, so the other three rows of the
+  // table go with the rest of the working — see HAS_BOT_LOGS.
+  const [explore, economy] = HAS_BOT_LOGS ? STRATEGY_WEIGHTS[strategy] : STRATEGY_WEIGHTS[BotStrategy.MIXED];
   const board = Math.min(MIXED_ECONOMY_CAP, (MIXED_ECONOMY_AT_ZERO - MAP_SIZE) / MIXED_ECONOMY_SLOPE);
 
   return [explore, strategy === BotStrategy.MIXED && usesBoardWeights ? board : economy];
@@ -288,6 +291,12 @@ export interface BotAction {
   to?: Position;
   goal?: number;
   value: number;
+  /**
+   * What the bot thought it was doing, for the console and the harnesses — see HAS_BOT_LOGS.
+   * Every one is written as a ternary on that flag, so a shipped build carries the empty
+   * string and not the sentence: a label nothing reads is a template literal built, joined
+   * and thrown away on every candidate of every decision.
+   */
   label: string;
 }
 
@@ -414,7 +423,12 @@ export function getBotAction(map: GameMap, strategy: BotStrategy, side: Side): B
     };
   }
 
-  const action = strategy === BotStrategy.RANDOM ? pickRandom(getLegalActions(map, side)) : getBestAction(map, getWeights(strategy), side);
+  // RANDOM is a yardstick rather than an opponent, so it — and the getLegalActions it is the
+  // only caller of — goes out of a shipped build with the rest of the working.
+  const action =
+    HAS_BOT_LOGS && strategy === BotStrategy.RANDOM
+      ? pickRandom(getLegalActions(map, side))
+      : getBestAction(map, getWeights(strategy), side);
   rememberGoal(action);
 
   return action;
@@ -837,7 +851,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
             kind: BotActionKind.BUILD,
             from: position,
             value,
-            label: `build ${OBJECT_CONFIG[built].emoji} at ${say(position)}`,
+            label: HAS_BOT_LOGS ? `build ${OBJECT_CONFIG[built].emoji} at ${say(position)}` : "",
           });
       } else if (
         // Not affordable yet, but a unicorn is already in place and the income will cover it
@@ -865,7 +879,13 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
         const value = gain - price * candyPrice;
 
         if (value > 0)
-          candidates.push({ kind: BotActionKind.BUY, from: position, to, value, label: `buy a unicorn onto ${say(to)} for ${price}` });
+          candidates.push({
+            kind: BotActionKind.BUY,
+            from: position,
+            to,
+            value,
+            label: HAS_BOT_LOGS ? `buy a unicorn onto ${say(to)} for ${price}` : "",
+          });
       });
     }
   });
@@ -971,9 +991,10 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
         to,
         goal: index,
         value,
-        label:
-          `${isPortal ? "jump" : "step"} ${say(from)} → ${say(to)}, heading for ${say(getPosition(index))} ` +
-          `(${cost[index]}💧 away${index === committed ? ", as planned" : ""})`,
+        label: HAS_BOT_LOGS
+          ? `${isPortal ? "jump" : "step"} ${say(from)} → ${say(to)}, heading for ${say(getPosition(index))} ` +
+            `(${cost[index]}💧 away${index === committed ? ", as planned" : ""})`
+          : "",
       };
 
       if (index === committed) planned = candidate;
@@ -1012,5 +1033,5 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // turn can ever end, so a bot that finds nothing to do still plays the run to its end.
   return best && best.value >= MIN_ACTION_VALUE
     ? best
-    : { kind: BotActionKind.END_TURN, value: 0, label: "end turn — nothing worth doing" };
+    : { kind: BotActionKind.END_TURN, value: 0, label: HAS_BOT_LOGS ? "end turn — nothing worth doing" : "" };
 }

@@ -16,7 +16,7 @@
 //
 // Preview: afplay out/<name>.wav (macOS), aplay/paplay (Linux),
 //          Start-Process out/<name>.wav (Windows PowerShell)
-import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -33,12 +33,20 @@ if (!songFile) {
   process.exit(1);
 }
 
-// The player and song sources are type-annotation-free JS in .ts files;
-// copying them to .mjs makes them importable by Node's ESM loader.
+// The song sources are type-annotation-free JS in .ts files, so copying them to .mjs makes
+// them importable by Node's ESM loader as they stand. The two players are very nearly that:
+// they are `@ts-nocheck` vendored JS, but each carries exactly two type-only bits that Node
+// cannot parse — an `import type` line and the annotation on the exported class. Both are
+// erasable by hand, which is what this does; a real TS toolchain in a script whose whole
+// point is to run with nothing installed would cost more than it is worth.
+// If a third kind of annotation ever appears in a player, it belongs in this list.
 const tmp = mkdtempSync(join(tmpdir(), "soundbox-"));
 async function importAsMjs(file) {
   const target = join(tmp, basename(file).replace(/\.\w+$/, "") + ".mjs");
-  copyFileSync(file, target);
+  const source = readFileSync(file, "utf8")
+    .replace(/^import type .*$/gm, "")
+    .replace(/^(export var \w+)\s*:\s*[\w.]+/gm, "$1");
+  writeFileSync(target, source);
   return import(pathToFileURL(target).href);
 }
 

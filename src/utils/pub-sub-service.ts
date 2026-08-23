@@ -42,19 +42,9 @@ export class PubSubService {
     this._subscriptions[event].push(callback);
   }
 
-  /**
-   * Unsubscribes from an event.
-   */
-  unsubscribe<Event extends PubSubEvent>(event: Event, callback: Callback<Event>) {
-    if (!this._subscriptions[event]) {
-      return;
-    }
-
-    const index = this._subscriptions[event].indexOf(callback);
-    if (index >= 0) {
-      this._subscriptions[event].splice(index, 1);
-    }
-  }
+  // There is no unsubscribe: nothing in the game has ever needed one — every subscriber is
+  // a module-level listener that lives as long as the page — and a class method cannot be
+  // tree-shaken, so an unused one ships. Add it back the day something has to stop listening.
 
   /**
    * Publishes an event.

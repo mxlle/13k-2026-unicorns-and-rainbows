@@ -2,7 +2,7 @@ import { cozyPawsSong as song } from "./songs/cozy-paws";
 import { LocalStorageKey, setLocalStorageItem } from "../utils/local-storage";
 import { PubSubEvent, pubSubService } from "../utils/pub-sub-service";
 import { IS_POKI_ENABLED } from "../env-utils";
-import { CPlayer } from "./small-player";
+import { CPlayerSimple as CPlayer } from "./small-player-simple";
 import type { SoundBoxPlayer } from "./player-interface";
 
 let audioElem: HTMLAudioElement;

@@ -12,11 +12,10 @@ interface CreateElementOptions<TagName extends HTMLTagName = HTMLTagName> {
   cssClass?: string | string[];
   text?: string;
   // children?: (Node | string | CreateElementOptions)[];
-  html?: string;
   onClick?: (this: ElementByTag<TagName>, evt: MouseEvent & { target: ElementByTag<TagName> }) => void;
 }
 export function createElement<TagName extends HTMLTagName = "div">(
-  { tag, cssClass, text, html, onClick }: CreateElementOptions<TagName> = {},
+  { tag, cssClass, text, onClick }: CreateElementOptions<TagName> = {},
   children: (Node | string)[] = [],
 ) {
   const elem = document.createElement(tag || "div") as ElementByTag<TagName>;
@@ -27,7 +26,6 @@ export function createElement<TagName extends HTMLTagName = "div">(
   for (let child of children) {
     if (child) elem.append(child);
   }
-  if (html) elem.innerHTML += html;
   if (text) elem.append(text);
   if (onClick) elem.addEventListener("click", onClick as EventListener);
   return elem;

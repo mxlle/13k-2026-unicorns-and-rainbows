@@ -1,5 +1,4 @@
 import { TranslationKey } from "./translationKey";
-import { HAS_OPPONENT } from "../env-utils";
 
 // For texts that should be shorter in the competition build, use per-entry
 // ternaries on the HAS_SHORT_TEXTS flag (env-utils.ts) — the unused variant is
@@ -59,15 +58,17 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_TUB_SITE]: "Empty tub|A unicorn beside it can fill it up.",
   [TranslationKey.INFO_FOUNTAIN_SITE]: "Rubble|A unicorn beside it can rebuild the fountain.",
   [TranslationKey.INFO_TREE_SITE]: "Seedling|A unicorn beside it can grow it into a 🍭 tree.",
-  // The opponent, behind its flag so a build without it carries the key and not the sentence.
+  // The opponent. Written flat rather than behind a HAS_OPPONENT ternary, and that is a size
+  // decision rather than a tidy-up: the AST transformer only compacts a numeric-keyed map into
+  // an array when *every* value is a literal (see vite.config.ts), so four ternaries in here
+  // were costing the whole map its compaction — more than the four sentences they saved. The
+  // opponent ships in every build now, so there was nothing left to weigh against it.
   // What it says is the whole of what the player has to know: it plays the same game, its
   // rainbows are its own, and the fountains are what the two of you are actually racing for.
-  [TranslationKey.INFO_RIVAL]: HAS_OPPONENT ? "Dark unicorn|Your rival. It plays the same game — beat it to the fountains." : "",
-  [TranslationKey.INFO_DARK_RAINBOW]: HAS_OPPONENT
-    ? "Dark rainbow|It scores for your rival. Its tile is taken; yours cannot land here."
-    : "",
+  [TranslationKey.INFO_RIVAL]: "Dark unicorn|Your rival. It plays the same game — beat it to the fountains.",
+  [TranslationKey.INFO_DARK_RAINBOW]: "Dark rainbow|It scores for your rival. Its tile is taken; yours cannot land here.",
   // Both endings end the same way — a score to read — so both lines end ready for a number,
   // exactly as WON does. The rival's own total is a row in the breakdown underneath.
-  [TranslationKey.WON_RACE]: HAS_OPPONENT ? "You win!|Your final score:" : "",
-  [TranslationKey.LOST_RACE]: HAS_OPPONENT ? "Your rival wins!|Your final score:" : "",
+  [TranslationKey.WON_RACE]: "You win!|Your final score:",
+  [TranslationKey.LOST_RACE]: "Your rival wins!|Your final score:",
 };

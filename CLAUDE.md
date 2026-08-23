@@ -261,9 +261,22 @@ The unusual parts of this codebase exist to make minification maximally effectiv
   make external requests (offline rule) and falls back to the system emoji font.
 - Reuse translations keys / strings where possible; identical strings compress, but each unique
   string costs.
+- **The js13k build is one file, and that is a size decision.** `scripts/inline.js` folds the
+  stylesheet and the bundle into `index.html` between vite and `package.js`. A zip compresses
+  each entry separately, so three files cost three headers plus three filenames (~96 bytes
+  apiece) and share no compression dictionary — merging them was measured at 263 bytes for no
+  change to any game code. Only js13k does it; the other builds keep separate files for the
+  dev tools. Anything writing a payload into HTML must pass `replace` a **function**: `$&`,
+  `$'`, "$`" and `$1` in a replacement *string* are substitution patterns, and terser mangles
+  identifiers to `$`, so a string replacement corrupts the bundle silently.
 - ECT zip recompression runs automatically in package.js (via the `ect-bin` npm package, so it
   also works on CI) and is worth ~4%. Roadroller (`build-js13k-roadroller`) is the emergency
-  reserve for the last kilobyte — don't design around it.
+  reserve for the last kilobyte — don't design around it. Measured at **-1348 bytes** with no
+  cost at startup (time-to-launch-screen over five runs: median 396 ms either way), and the
+  packed build plays correctly — but it is eval, so the risk is a browser or judging-host
+  policy taking 10% of the budget away on submission day. Build to fit *without* it and let it
+  be the margin that finishes features, not budget already spent. Run it and click through the
+  result regularly, so a break surfaces early.
 - Output filenames and HTML attributes count too: js13k mode already uses single-letter
   bundle names (filenames are stored twice in a zip) and strips `crossorigin` attributes.
 

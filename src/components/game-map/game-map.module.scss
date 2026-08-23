@@ -188,6 +188,12 @@ $sidebar-width: min(24rem, 30vw);
 .count {
   font-size: 1rem;
   white-space: nowrap; // a counter and its income never wrap into a second line
+
+  // So a half of a counter can pop without the other half: `scale` has no effect on an inline
+  // box, and these are spans.
+  > span {
+    display: inline-block;
+  }
 }
 
 // A counter that leads somewhere — only the score does, and it opens its own breakdown.

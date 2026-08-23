@@ -129,6 +129,10 @@ const POP_SCALE = 1.35;
 // in the negative. A literal because a keyframe cannot read a stylesheet: keep it in step
 // with theme.scss's $danger-color-contrast by hand.
 const SPEND_COLOR = "#e06d80";
+// The colour a counter takes when what it is worth goes *up* — the income growing, the score
+// climbing. The mirror of SPEND_COLOR, and a literal for the same reason: a keyframe cannot
+// read a stylesheet, so keep it in step with theme.scss's $success-color-light by hand.
+const GAIN_COLOR = "#44aa77";
 // PLACEHOLDER spend-feedback timings. One drop rises off the tile per drop paid, so a portal
 // jump throws two and a free step over a flower throws none — the same "one glyph, one unit"
 // the payout speaks in. The rise is in em, so it scales with the glyph rather than the zoom.
@@ -139,6 +143,17 @@ const SPEND_STAGGER = 120;
 // purchase take longer to watch the bigger the herd got.
 const SPEND_SPREAD = 400;
 const SPEND_RISE = 2.2;
+// PLACEHOLDER: a cloud blowing off a tile the moment it stops hiding anything. Exploring is
+// the score's own multiplier and it was the one thing on the board that happened invisibly —
+// the fog simply was not there any more on the next frame, so the act the whole score
+// multiplies by had no moment of its own. Slower than a spend and it swells as it goes: this
+// is weather clearing, not a coin being paid.
+const PUFF_DURATION = 550;
+const PUFF_SCALE = 1.7;
+const PUFF_RISE = 0.5; // in em of the tile's own glyph, so it drifts the same way at any zoom
+// The share of a tile's width its glyph is drawn at — `font-size` on .board, kept here so a
+// cloud that has left the board behind can still be drawn the size of the one it replaces.
+const TILE_GLYPH_SCALE = 0.62;
 // Every counter reaction is this same beat, whichever direction the money went.
 const POP_OPTIONS: KeyframeAnimationOptions = { "duration": POP_DURATION, "direction": "alternate", "iterations": 2 };
 // PLACEHOLDER: the beat between two actions while the dev bot is playing a run out by itself.
@@ -166,11 +181,23 @@ function centre(element: HTMLElement): number[] {
  * taken off again when it lands. It is positioned by its centre — see the `translate` in the
  * stylesheet — so `from` is the middle of whatever it is leaving.
  */
-function flyGlyph(emoji: string, [x, y]: number[], keyframe: Keyframe, options: KeyframeAnimationOptions, onLand?: () => void) {
+function flyGlyph(
+  emoji: string,
+  [x, y]: number[],
+  keyframe: Keyframe,
+  options: KeyframeAnimationOptions,
+  onLand?: () => void,
+  size?: number,
+) {
   const element = createElement({ cssClass: [styles.fly, CssClass.EMOJI], text: emoji });
 
   element.style.left = `${x}px`;
   element.style.top = `${y}px`;
+  // Money keeps the stylesheet's own size: it has a whole screen to cross and has to read on
+  // the way. A cloud blowing off a tile is the exception — it is standing in for the glyph
+  // that was just on that tile, so it has to be that tile's size or a zoomed-out board puffs
+  // clouds three times the width of the squares they came from.
+  if (size) element.style.fontSize = `${size}px`;
   document.body.append(element);
 
   // A single keyframe on purpose: the missing one is filled in from the element as it stands,
@@ -314,6 +341,17 @@ export function GameMapComponent(
   // it is still being played, so "where are my points coming from" is answerable in time to
   // act on the answer rather than only afterwards.
   const scoreDisplay = counter(SCORE_EMOJI, scoreCount, toggleScore);
+  // What the bar last showed, so a render can tell a number that moved from one that did not.
+  // The two incomes by currency, then the score — seeded by render() itself on the first pass
+  // of a run (see newRun), so opening a board is not a flurry of pops for numbers that were
+  // never anything else.
+  let lastIncome: number[] = [];
+  let lastScore = 0;
+  // Which tiles the player had already found last time the board was drawn, so a render can
+  // tell the ones that have just come out from under the cloud. Read off the model's own bit
+  // rather than off what is drawn, or the dev fog switch would blow six hundred clouds at once.
+  let lastSeen: boolean[] = [];
+  let newRun = true;
   // The opponent's score, live beside the player's own. It is the whole reason to have a rival
   // rather than a par to beat: being able to see the gap while there are still turns left to
   // close it. Its face is the dark unicorn rather than a second star, so which number belongs
@@ -360,6 +398,16 @@ export function GameMapComponent(
   // and what pops when it lands, and both need the whole counter — emoji and number — rather
   // than the number alone. Indexed by currency, which is what flyIncome sorts its flights by.
   const currencyDisplays = [counter(DROP_EMOJI, dropCount), counter(CANDY_EMOJI, candyCount)];
+  // The "(+n)" half, as an element of its own rather than more text in the number beside it.
+  // Two signals were landing on the one counter and the later one won: a step that costs a
+  // drop *and* lines up a rainbow would flash the spend's red over the income's green —
+  // precisely the move the green is there to teach. Split, they never overlap: the number you
+  // have reacts to money moving, the rate beside it reacts to the rate changing.
+  // It is the better reading anyway. What you hold and what the board pays you are two
+  // different facts, and they now look like two.
+  const currencyIncomes = [createElement({ tag: "span" }), createElement({ tag: "span" })];
+  const currencyValues = [dropCount, candyCount];
+  currencyDisplays.forEach((display, currency) => display.append(currencyIncomes[currency]));
   const status = createElement({ cssClass: styles.status }, currencyDisplays);
 
   // Object info: a permanent row of its own between map and turn bar, so it can never
@@ -613,6 +661,7 @@ export function GameMapComponent(
     // Filtered by what the player can see for the same reason the beams themselves are — see
     // showsBeam. Without it a cloud hiding an opponent's unicorn wears that unicorn's halo.
     const shining = new Set(map.beams.filter((beam) => beam.isLit && showsBeam(beam)).map(getIndex));
+    const revealed: number[] = [];
 
     map.tiles.forEach((tile, index) => {
       const element = tileElements[index];
@@ -632,13 +681,32 @@ export function GameMapComponent(
       // two are the same for everyone but a developer who has switched the clouds off. It is
       // the player's own fog throughout: the opponent's is never drawn, and the only thing
       // that gives away where the rival has been is the rival itself, once seen.
-      const isVisible = isSeen(tile, PLAYER) || (HAS_DEV_TOOLS && xray);
+      // The model's own bit, kept apart from isVisible below: what the player has *found* is
+      // what a cloud can blow off, and the dev switch finds nothing.
+      const isFound = isSeen(tile, PLAYER);
+      // Just come out from under the cloud — so the cloud gets to leave rather than simply
+      // stopping. Suppressed on a board's first draw, where every opening tile would puff.
+      // Collected rather than blown here: a puff has to measure its tile, and a measurement
+      // in the middle of a loop that is still writing classes onto tiles forces the layout
+      // again on every one of six hundred iterations. They go up together after the loop.
+      if (isFound && !lastSeen[index] && !newRun) revealed.push(index);
+      lastSeen[index] = isFound;
+      const isVisible = isFound || (HAS_DEV_TOOLS && xray);
+      // Either side's tub: the same piece of furniture, drawn at the same size, and — see the
+      // glow below — earning for whoever owns it every turn it stands.
+      const isTub = isVisible && SIDE_BATHTUB.includes(tile.object!);
       element.classList.toggle(styles.revealed, isVisible);
       // The halo means "this one is producing", not "this one is a light source" — every
       // unicorn is the latter, so it used to say nothing the glyph did not already say. A
       // unicorn with no halo is one whose walk is still ahead of it, and it keeps its full
       // colour and size on purpose: it is the one the player is being asked to move.
-      element.classList.toggle(styles.glowing, shining.has(index));
+      // A tub pays BASE_INCOME every turn it stands, so it is producing whenever it is on the
+      // board — the third producer, and the one that used to wear nothing while the unicorns
+      // haloed and the trees glowed pink. Sunlight rather than candy pink, because that is
+      // what the glow already sorts by: light and water on one side, sweets on the other.
+      // Either side's, exactly as a visible rival unicorn haloes: the glow says "this is
+      // earning", not "this is yours".
+      element.classList.toggle(styles.glowing, shining.has(index) || isTub);
       element.classList.toggle(
         CssClass.HINT,
         canSpawn || canRaiseHere || (hintCharacters && isSeen(tile, PLAYER) && tile.living === GameObjectType.UNICORN),
@@ -660,7 +728,7 @@ export function GameMapComponent(
       // up with them, the flowers are ground cover and are drawn down. Guarded on isVisible for
       // the same reason .tree is — an unrevealed tile is a cloud, not the thing under it.
       // Either side's tub, since both are the same piece of furniture at the same size.
-      ground.classList.toggle(styles.big, isVisible && SIDE_BATHTUB.includes(tile.object!));
+      ground.classList.toggle(styles.big, isTub);
       ground.classList.toggle(styles.small, isVisible && tile.object === GameObjectType.FLOWER);
       // which trees are paying into the player's jar this turn — read off the same list the
       // income itself is counted from, so the glow can never promise candy that never comes.
@@ -686,6 +754,8 @@ export function GameMapComponent(
       if (hasLiving) livingGlyphs[index].style.setProperty("--l", `${getUnicornLevel(tile)}`);
     });
 
+    revealed.forEach(showReveal);
+
     // Each currency reads "what you have (+what next turn pays)". The income half updates as
     // the player moves, so the cost of rearranging the board and its effect on next turn's
     // takings are visible in the same glance.
@@ -696,13 +766,39 @@ export function GameMapComponent(
     const isLastTurn = map.turn >= TURN_LIMIT;
     turnEmoji.textContent = isLastTurn ? LAST_TURN_EMOJI : TURN_EMOJI;
     turnDisplay.classList.toggle(styles.lastTurn, isLastTurn);
-    dropCount.textContent = `${map.drops[PLAYER]} (+${map.dropIncome[PLAYER]})`;
-    candyCount.textContent = `${map.candy[PLAYER]} (+${map.candyIncome[PLAYER]})`;
+    dropCount.textContent = `${map.drops[PLAYER]}`;
+    candyCount.textContent = `${map.candy[PLAYER]}`;
+    // What the board will pay next turn, reacting when it moves. It is the one number in the
+    // game that used to change in silence, and it is the change the whole game turns on: a
+    // unicorn steps into 🦄⛲🌈 and the income goes up, steps out and it goes down. Everything
+    // else here already announces itself with this pop, so the lesson is taught in a language
+    // the player has been reading since their first step.
+    //
+    // Both directions, and green or red says which: the rival taking a fountain off you costs
+    // you income exactly as walking away from one does, and neither should pass unremarked.
+    const income = [map.dropIncome[PLAYER], map.candyIncome[PLAYER]];
+    income.forEach((value, currency) => {
+      // A no-break space: the halves are inline-blocks now (so each can pop on its own), and an
+      // ordinary space at the start of one is trimmed away — the same reason the launch screen
+      // pads its labels with them.
+      currencyIncomes[currency].textContent = `\u00a0(+${value})`;
+      if (!newRun && value !== lastIncome[currency])
+        pop(currencyIncomes[currency], value > lastIncome[currency] ? GAIN_COLOR : SPEND_COLOR);
+    });
+    lastIncome = income;
     // A board with no trees has no way to make a sweet and nothing to spend one on, so the
     // jar stays out of the header rather than sitting at zero teaching a currency that is not
     // in the game yet. Trees are what make candy, so their count is the honest condition.
     currencyDisplays[1].classList.toggle(CssClass.HIDDEN, !TREE_COUNT);
-    scoreCount.textContent = `${getScore(map, PLAYER)}`; // a snapshot, so it has no "+" to show
+    const score = getScore(map, PLAYER);
+    scoreCount.textContent = `${score}`; // a snapshot, so it has no "+" to show
+    // And the star reacts too, for the same reason the income does: it moves on a step into
+    // the clouds, on a rainbow lit and on a unicorn found, and those three are the whole of
+    // what the run is for. A snapshot can fall as well as climb — a rainbow that goes out
+    // takes its points with it — so this says which way it went in the same two colours.
+    if (!newRun && score !== lastScore) pop(scoreDisplay, score > lastScore ? GAIN_COLOR : SPEND_COLOR);
+    lastScore = score;
+    newRun = false; // from here on the bar has a past to compare against
     // The rival's, live beside it — and out of the bar entirely on a board without one, the
     // same way the candy counter stays out of a board with no trees on it.
     if (HAS_OPPONENT) {
@@ -1022,16 +1118,20 @@ export function GameMapComponent(
   }
 
   /**
-   * A currency counter reacting to its number changing: it swells and settles back. `colour`
-   * tints it for the length of the pop, which is what tells the two directions apart — money
-   * coming in leaves the counter its own colour, money going out turns it red.
+   * A counter reacting to its number changing: it swells and settles back. `colour` tints it
+   * for the length of the pop, which is what tells the directions apart — money going out
+   * turns it red, a number growing turns it green, money arriving leaves it its own colour
+   * because the glyph that flew in has already said where it came from.
    * `scale` rather than a `transform`, so it cannot overwrite a transform the counter may be
    * carrying, and alternated back to nothing so there is nothing to clean up afterwards.
+   *
+   * Takes the counter rather than an index into the currencies: the score is one of these now,
+   * and it is not a currency.
    */
-  function pop(currency: number, colour?: string) {
+  function pop(display: HTMLElement, colour?: string) {
     // The tint is spread in rather than set to undefined: a keyframe value the browser cannot
     // parse is dropped silently, and "silently" is how the mangled options below went unnoticed.
-    currencyDisplays[currency].animate([{ "scale": POP_SCALE, ...(colour && { "color": colour }) }], POP_OPTIONS);
+    display.animate([{ "scale": POP_SCALE, ...(colour && { "color": colour }) }], POP_OPTIONS);
   }
 
   /**
@@ -1061,7 +1161,31 @@ export function GameMapComponent(
       );
     }
 
-    pop(currency, SPEND_COLOR);
+    pop(currencyValues[currency], SPEND_COLOR);
+  }
+
+  /**
+   * The cloud leaving a tile that has just been found: it swells, drifts and fades, in the
+   * place of the glyph that is taking over the tile underneath it. Drawn at the tile's own
+   * size, so it reads as *that* cloud going rather than as a new thing arriving.
+   *
+   * It is the counterpart of showSpending — the same "something happened here" said where the
+   * player is looking — for the half of the score that had no such moment: a step into the fog
+   * lifts the multiplier under every rainbow and every unicorn on the board, and used to do it
+   * between two frames with nothing to see.
+   */
+  function showReveal(index: number) {
+    // One measurement, both answers: where the cloud starts and how big it has to be drawn.
+    const { x, y, width, height } = tileElements[index].getBoundingClientRect();
+
+    flyGlyph(
+      FOG_EMOJI,
+      [x + width / 2, y + height / 2],
+      { "transform": `translateY(-${PUFF_RISE}em) scale(${PUFF_SCALE})`, "opacity": 0 },
+      { "duration": PUFF_DURATION, "easing": "ease-out" },
+      undefined,
+      width * TILE_GLYPH_SCALE,
+    );
   }
 
   /**
@@ -1080,7 +1204,7 @@ export function GameMapComponent(
       from,
       { "transform": `translate(${to[0] - from[0]}px, ${to[1] - from[1]}px) scale(0.5)`, "opacity": 0.5 },
       { "duration": FLY_DURATION, "delay": delay, "easing": "ease-in" },
-      () => pop(currency),
+      () => pop(currencyValues[currency]),
     );
   }
 
@@ -1306,6 +1430,7 @@ export function GameMapComponent(
     if (HAS_OPPONENT) markRivalAction(); // a ring from the last board must not open the next one
     if (tileElements.length !== MAP_SIZE * MAP_SIZE) buildBoard();
     showsScore = false; // render() clears last run's working with it, before the new board shows
+    newRun = true; // the first render of a board seeds the bar rather than reacting to it
     isRunning = true; // before render(), which reads it for the turn button
     select(undefined);
     render();

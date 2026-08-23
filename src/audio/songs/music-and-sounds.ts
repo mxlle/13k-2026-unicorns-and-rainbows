@@ -44,7 +44,7 @@ export const winSound = {
       // Patterns
       p: [1],
       // Columns
-      c: [{ n: [135, 139, 142, 147], f: [] }],
+      c: [{ n: [135, 139, 142, 147] }],
     },
   ],
   rowLen: 11025, // In sample lengths
@@ -91,7 +91,7 @@ export const coinSound = {
         2, // FX_DELAY_TIME (2 rows)
       ],
       p: [1],
-      c: [{ n: [158, 163], f: [] }], // B5 then E6 — classic rising coin blip
+      c: [{ n: [158, 163] }], // B5 then E6 — classic rising coin blip
     },
   ],
   rowLen: 2756, // ~62 ms per row — fast
@@ -108,7 +108,7 @@ export const loseSound = {
       // Patterns
       p: [1],
       // Columns
-      c: [{ n: [129, 126, 123, , , , , , , , , , , , , , , , 126, , , , , , , , , , , , , , , , 129], f: [] }],
+      c: [{ n: [129, 126, 123, , , , , , , , , , , , , , , , 126, , , , , , , , , , , , , , , , 129] }],
     },
   ],
   rowLen: 11025, // In sample lengths

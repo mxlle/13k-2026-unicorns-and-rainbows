@@ -17,8 +17,10 @@ object anatomy, all 29 instrument parameters, and the note-number table.
 
 - `src/audio/small-player.ts` (`CPlayer`) — **the template default**: all 4 oscillators
   (0 sin, 1 square, 2 saw, 3 tri), filter LFO, distortion. Compose freely against this.
-- `src/audio/small-player-simple.ts` (`CPlayerSimple`) — the 2025-shipped trim
-  (sine-only, no filter-LFO/distortion), kept as a worked example of trimming.
+- `src/audio/small-player-simple.ts` (`CPlayerSimple`) — **what this game ships**, trimmed
+  past the 2025 version: sine-only, no filter LFO, no distortion, and no effect-command
+  (f-automation) block. Arpeggio is kept on purpose. Song columns therefore carry no
+  `f: []` — don't add one back, and strip it from anything exported by SoundBox.
 
 Before shipping, run `node scripts/audit-player-usage.mjs` — it scans all songs,
 reports which features are actually used, and says what's safe to delete: either
@@ -27,8 +29,13 @@ the full player per its checklist. Trimming is a *ship-time size optimization*, 
 composing constraint.
 
 Trap once trimmed: a waveform index the trimmed player lacks **crashes** it
-(`mOscillators[1]` is undefined in the simple player) — not a graceful fallback.
+(`mOscillators[1]` is undefined in the simple player) — not a graceful fallback. A removed
+*effect* is worse than a crash: an ignored `f` automation lane is silently wrong rather than
+loud about it. The audit's verdict gates on all of it.
 After any trim, re-render every song (`--simple` for the simple player) and listen.
+
+Checksum-comparing renders only works for songs with no noise: `NOISE_VOL` draws on
+`Math.random()`, so cozy-paws differs on every render. Zero its `NOISE_VOL` to diff bit-exactly.
 
 ## Workflow
 

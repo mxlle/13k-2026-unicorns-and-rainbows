@@ -253,9 +253,19 @@ The unusual parts of this codebase exist to make minification maximally effectiv
   (the 2025 background track ≈ 290 zipped bytes). Use the `soundbox-composer` skill to
   compose/edit them in code (audible preview + size/loop-seam stats via
   `node scripts/render-song.mjs`), or compose at https://sb.bitsnbites.eu/ and export as JS.
-  The full-featured player is the default; before shipping, run
-  `node scripts/audit-player-usage.mjs` and trim the player to what the songs actually use
-  (switch to `CPlayerSimple` if everything is sine-only — that's the 2025 trim).
+  **The synth is the cost, not the songs**: measured, all four songs' data together is 287
+  zipped bytes against 1530 for the player and its plumbing — so compose freely, and take the
+  bytes out of the player instead. The game ships `CPlayerSimple`, trimmed past the 2025
+  version: sine only, no filter LFO, no distortion, no f-automation (so song columns carry no
+  `f: []`). Arpeggio is deliberately kept — it is the cheap way to get moving harmony out of
+  one channel in a sine-only palette. Compose against the full `CPlayer` (`render-song.mjs`
+  default), preview what ships with `--simple`, and before shipping run
+  `node scripts/audit-player-usage.mjs`, whose verdict knows what the trimmed player can no
+  longer do. A song using a removed feature plays back **wrong, not broken**.
+  Two gotchas when regression-testing audio: a song with a noise channel renders differently
+  every time (`Math.random()`), so checksum-compare it with `NOISE_VOL` temporarily 0; and a
+  column's `n` is `[voice][row]` flattened at `patternLen` stride, so a "late note" is often
+  a chord.
 - Fonts: system/monospace + Noto Color Emoji. The Noto webfont import lives in
   `globals.nice2have.scss` so it ships only in non-js13k builds — the competition build must not
   make external requests (offline rule) and falls back to the system emoji font.

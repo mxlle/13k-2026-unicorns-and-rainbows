@@ -6,8 +6,8 @@
 //        (default: every .ts file in src/audio/songs/)
 //
 // Trimming options, in order of effort:
-//  1. Everything sine-only and no LFO/distortion? -> switch imports to
-//     small-player-simple.ts (the 2025-shipped trim) and delete small-player.ts.
+//  1. Everything sine-only, and no LFO / distortion / f-automation? -> switch imports to
+//     small-player-simple.ts (the shipped trim) and delete small-player.ts.
 //  2. Otherwise: copy small-player.ts and delete the unused oscillator functions /
 //     effect blocks this audit lists (that's exactly how small-player-simple.ts
 //     was made). Keep the zlib header and the "altered version" note.
@@ -76,7 +76,7 @@ console.log(`distortion: ${used.dist} | panning: ${used.pan} | delay: ${used.del
 
 const sineOnly = waveforms.every((w) => w === 0);
 console.log("\n--- Trimming verdict ---");
-if (sineOnly && !used.lfo && !used.dist) {
+if (sineOnly && !used.lfo && !used.dist && !used.fx_automation) {
   console.log("Songs fit small-player-simple.ts as-is -> switch imports in music-control.ts");
   console.log("and sound-control-box.ts to CPlayerSimple and let small-player.ts tree-shake away.");
 } else {

@@ -31,7 +31,16 @@ import type { SoundBoxPlayerClass } from "./player-interface";
 // NOTE: This is a MODIFIED version of SoundBox's player-small.js
 // (https://sb.bitsnbites.eu/player-small.js, zlib license — see header above):
 // converted to an ES module and trimmed for size — only the sine oscillator is
-// kept; square/saw/tri, the filter LFO, and distortion are commented out.
+// kept; square/saw/tri, the filter LFO, and distortion are commented out, and the
+// effect-command (f-automation) block is deleted outright.
+//
+// Arpeggio IS still here: no song uses it, but it is the cheap way to get moving
+// harmony out of one channel in a sine-only palette, so it stays until the music is
+// settled. Everything else the songs do not touch has gone.
+//
+// What that costs: a song exported from sb.bitsnbites.eu using a removed feature plays
+// back WRONG rather than failing. `node scripts/audit-player-usage.mjs` is the guard —
+// its verdict knows what this file can no longer do. Keep the two in step.
 
 // Some general notes and recommendations:
 //  * This code uses modern ECMAScript features, such as ** instead of
@@ -197,23 +206,8 @@ export var CPlayerSimple: SoundBoxPlayerClass = function () {
 
       // Pattern rows
       for (row = 0; row < patternLen; ++row) {
-        // Execute effect command.
-        var cmdNo = cp ? instr.c[cp - 1].f[row] : 0;
-        if (cmdNo) {
-          instr.i[cmdNo - 1] = instr.c[cp - 1].f[row + patternLen] || 0;
-
-          // Clear the note cache since the instrument has changed.
-          if (cmdNo < 17) {
-            noteCache = [];
-          }
-        }
-
         // Put performance critical instrument properties in local variables
-        var oscLFO = mOscillators[instr.i[16]],
-          lfoAmt = instr.i[17] / 512,
-          lfoFreq = 2 ** (instr.i[18] - 9) / rowLen,
-          fxLFO = instr.i[19],
-          fxFilter = instr.i[20],
+        var fxFilter = instr.i[20],
           fxFreq = (instr.i[21] * 43.23529 * 3.141592) / 44100,
           q = 1 - instr.i[22] / 255,
           dist = instr.i[23] * 1e-5,
@@ -252,9 +246,10 @@ export var CPlayerSimple: SoundBoxPlayerClass = function () {
           if (rsample || filterActive) {
             // State variable filter
             f = fxFreq;
-            // if (fxLFO) {
-            //   f *= oscLFO(lfoFreq * k) * lfoAmt + 0.5;
-            // }
+            // The filter LFO went here. Its four locals (oscLFO / lfoAmt / lfoFreq / fxLFO,
+            // off instr.i[16..19]) are gone too — they were being computed once a row for a
+            // line that no longer exists. Put both back together if a song ever wants it.
+            // f *= oscLFO(lfoFreq * k) * lfoAmt + 0.5;
             f = 1.5 * Math.sin(f);
             low += f * band;
             high = q * (rsample - band) - low;

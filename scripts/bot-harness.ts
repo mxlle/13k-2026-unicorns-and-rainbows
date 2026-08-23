@@ -137,7 +137,11 @@ const seeds = Array.from({ length: verbose ? 1 : SEED_COUNT }, (_, index) => FIR
 const pad = (value: number, width: number, digits = 1) => value.toFixed(digits).padStart(width);
 
 for (const size of sizes) {
-  console.log(`\n=== ${size}x${size} · ${size} turns · ${seeds.length} seed${seeds.length > 1 ? "s" : ""} from ${FIRST_SEED} ===`);
+  // A board's turns are its width everywhere but the tutorial, so the header asks the game
+  // rather than assuming. TURN_LIMIT is derived in setMapSize, which is createGameMap's first
+  // act — hence the throwaway board built here purely to set the size-derived globals.
+  createGameMap(FIRST_SEED, size);
+  console.log(`\n=== ${size}x${size} · ${TURN_LIMIT} turns · ${seeds.length} seed${seeds.length > 1 ? "s" : ""} from ${FIRST_SEED} ===`);
 
   for (const strategy of strategies) {
     if (verbose) console.log(`\n${BOT_STRATEGY_NAMES[strategy]}:`);

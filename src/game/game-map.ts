@@ -47,7 +47,7 @@ export let CHEST_DROPS = 0;
 export let CHEST_CANDY = 0;
 export let DONUT_COUNT = 0; // the portal network: a pair at least, or nothing at all
 export let SITE_COUNT = 0; // build sites, of each of the three kinds
-export let TURN_LIMIT = 0; // the whole run — as many turns as the board is wide
+export let TURN_LIMIT = 0; // the whole run — as many turns as the board is wide, bar the tutorial
 
 export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
 
@@ -69,6 +69,20 @@ const TREE_SIZE = 7; // and with the trees comes candy, which is what gives the 
  * entirely — see crowdsFountain.
  */
 const TREES_PER_FOUNTAIN = 2;
+/**
+ * The tutorial's run, which is the one board whose turns are not its width. Five turns were
+ * three turns of playing and two of watching: 25 tiles are walkable inside three turns' drops,
+ * and the ceiling — 100% uncovered, the two unicorns the board can hold, the two rainbows its
+ * one fountain can hold — is 400 on every seed and is reached on turn 3. Nothing on the board
+ * compounds, so nothing can happen after it: adding a second fountain or a second present
+ * raises that ceiling and is reached *sooner*, not later.
+ *
+ * Three, then, and the level ends where it was already over. It is deliberately the one
+ * exception on the ladder rather than a second list beside MAP_SIZES: every other board is
+ * still as many turns as it is wide, because from the 7x7 up there are trees, and an economy
+ * that compounds is what gives a later turn something an earlier one could not do.
+ */
+const TUTORIAL_TURNS = 3;
 const DONUT_SIZE = 9;
 const DONUT_DENSITY = 6; // tiles of width per donut — see setMapSize
 const SITE_SIZE = 13;
@@ -144,7 +158,7 @@ function setMapSize(size: number) {
   // what should stay steady across the boards is how many sites a run has the turns to reach,
   // not how many are on the map. Works out at 2 of each kind on the 13x13, 3 on the 21x21.
   SITE_COUNT = size < SITE_SIZE ? 0 : (size / 7 + 0.5) | 0;
-  TURN_LIMIT = size;
+  TURN_LIMIT = isTutorial ? TUTORIAL_TURNS : size;
   HAS_RIVAL = HAS_OPPONENT && rivalEnabled && size >= RIVAL_SIZE;
 }
 

@@ -98,11 +98,15 @@ $wide-screen: 900px;
   }
 }
 
-// Below this width the header's title text steps aside, leaving the emoji: the end elements
-// carry live counters and the chip is centred on the whole header, so there is not room for
-// words as well. Width only — this costs no height and is wanted on a short window too.
+// Below this width the header's title text steps aside, leaving the emoji: the run's chip is
+// centred on the whole header and takes no notice of what is in the flow beside it, so past
+// this the words and the numbers would be drawn over each other. Width only — this costs no
+// height and is wanted on a short window too.
+// It is 1099 rather than the 999 the stacked header uses because the chip carries four
+// counters now (see .status): measured at ~380px against the title's ~335px, which need a
+// window over a thousand pixels wide to sit side by side without touching.
 @mixin narrowHeader {
-  @media (max-width: 999px) {
+  @media (max-width: 1099px) {
     @content;
   }
 }

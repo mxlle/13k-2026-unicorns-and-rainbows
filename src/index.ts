@@ -34,17 +34,18 @@ function init() {
   });
 
   // The launch screen and the board take turns in the same row under the header, so whichever
-  // is up has the whole window. What the run lends the header — its counters and its zoom —
-  // belongs to the run rather than to the header, and goes with the board: neither has
-  // anything to say before one is being played.
+  // is up has the whole window. What the run lends the header — its chip of counters — belongs
+  // to the run rather than to the header, and goes with the board: neither has anything to say
+  // before one is being played. The zoom steps need no hiding of their own; they are in the
+  // turn bar, which is part of the board's own component.
   function showLaunchScreen(show: boolean) {
     gameArea.classList.toggle(CssClass.HIDDEN, show);
     headerControls.classList.toggle(CssClass.HIDDEN, show);
     launchScreen.classList.toggle(CssClass.HIDDEN, !show);
   }
 
-  // the run's controls sit in the header rather than over the board, so they can never cover
-  // a tile; the chip among them takes itself out of the flow and centres — see its styles
+  // the run's counters sit in the header rather than over the board, so they can never cover
+  // a tile; the chip takes itself out of the flow and centres — see its styles
   document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [headerControls, MuteButton()]), gameArea, launchScreen);
 
   showLaunchScreen(true);

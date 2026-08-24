@@ -69,6 +69,10 @@ const TURN_EMOJI = "⏳";
 // stays out of the end-turn button, which already carries three states of its own.
 const LAST_TURN_EMOJI = "⌛";
 const SCORE_EMOJI = "⭐";
+// Labels the two zoom steps in the turn bar, the way every counter in the game is labelled by
+// the thing it counts. Without it a bare − and + beside a clock read as something to do with
+// the turns rather than with the board.
+const ZOOM_EMOJI = "🔍";
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
 // How grown a unicorn is, one of these per level, after its name in the info panel. Sparkles
@@ -143,17 +147,6 @@ const SPEND_STAGGER = 120;
 // purchase take longer to watch the bigger the herd got.
 const SPEND_SPREAD = 400;
 const SPEND_RISE = 2.2;
-// PLACEHOLDER: a cloud blowing off a tile the moment it stops hiding anything. Exploring is
-// the score's own multiplier and it was the one thing on the board that happened invisibly —
-// the fog simply was not there any more on the next frame, so the act the whole score
-// multiplies by had no moment of its own. Slower than a spend and it swells as it goes: this
-// is weather clearing, not a coin being paid.
-const PUFF_DURATION = 550;
-const PUFF_SCALE = 1.7;
-const PUFF_RISE = 0.5; // in em of the tile's own glyph, so it drifts the same way at any zoom
-// The share of a tile's width its glyph is drawn at — `font-size` on .board, kept here so a
-// cloud that has left the board behind can still be drawn the size of the one it replaces.
-const TILE_GLYPH_SCALE = 0.62;
 // Every counter reaction is this same beat, whichever direction the money went.
 const POP_OPTIONS: KeyframeAnimationOptions = { "duration": POP_DURATION, "direction": "alternate", "iterations": 2 };
 // PLACEHOLDER: the beat between two actions while the dev bot is playing a run out by itself.
@@ -181,23 +174,11 @@ function centre(element: HTMLElement): number[] {
  * taken off again when it lands. It is positioned by its centre — see the `translate` in the
  * stylesheet — so `from` is the middle of whatever it is leaving.
  */
-function flyGlyph(
-  emoji: string,
-  [x, y]: number[],
-  keyframe: Keyframe,
-  options: KeyframeAnimationOptions,
-  onLand?: () => void,
-  size?: number,
-) {
+function flyGlyph(emoji: string, [x, y]: number[], keyframe: Keyframe, options: KeyframeAnimationOptions, onLand?: () => void) {
   const element = createElement({ cssClass: [styles.fly, CssClass.EMOJI], text: emoji });
 
   element.style.left = `${x}px`;
   element.style.top = `${y}px`;
-  // Money keeps the stylesheet's own size: it has a whole screen to cross and has to read on
-  // the way. A cloud blowing off a tile is the exception — it is standing in for the glyph
-  // that was just on that tile, so it has to be that tile's size or a zoomed-out board puffs
-  // clouds three times the width of the squares they came from.
-  if (size) element.style.fontSize = `${size}px`;
   document.body.append(element);
 
   // A single keyframe on purpose: the missing one is filled in from the element as it stands,
@@ -330,9 +311,9 @@ export function GameMapComponent(
   // once it is over. Which board to play next is that screen's question, not this bar's —
   // there are seven of them now, and they are the stripes of the rainbow over there.
   const endTurnButton = createButton({ onClick: () => (isRunning ? finishTurn() : onExit()) });
-  // The run's progress: how far through the turns, and what the board is worth right now.
-  // The score sits here rather than in the header chip because three "n (+n)" counters in a
-  // row overflow the header on a phone — and the turn bar has the width going spare.
+  // How far through the turns, next to the button that spends them. It is the one number that
+  // stayed down here when the scores went up to the chip: the clock and the thing that moves
+  // the clock on belong together, and the turn bar is otherwise all controls.
   const turnDisplay = counter(TURN_EMOJI, turnCounter);
   // Reached for through counter() rather than built by hand, so every counter in the bar is
   // still made the same way: the emoji span is always the first child of the row.
@@ -347,10 +328,6 @@ export function GameMapComponent(
   // never anything else.
   let lastIncome: number[] = [];
   let lastScore = 0;
-  // Which tiles the player had already found last time the board was drawn, so a render can
-  // tell the ones that have just come out from under the cloud. Read off the model's own bit
-  // rather than off what is drawn, or the dev fog switch would blow six hundred clouds at once.
-  let lastSeen: boolean[] = [];
   let newRun = true;
   // The opponent's score, live beside the player's own. It is the whole reason to have a rival
   // rather than a par to beat: being able to see the gap while there are still turns left to
@@ -385,15 +362,16 @@ export function GameMapComponent(
   }
 
   const rivalTurnGlyph = HAS_OPPONENT ? createRivalGlyph() : undefined;
-  const turnBar = createElement({ cssClass: styles.turnBar }, [
-    turnDisplay,
-    scoreDisplay,
-    ...(HAS_OPPONENT ? [rivalScoreDisplay] : []),
-    endTurnButton,
-  ]);
-  // The two currencies as one chip in the middle of the header, in view wherever the player
-  // is looking. Each reads "what you have (+what the board pays you next turn)", so the
-  // cost of a plan and the income funding it are side by side.
+  // Everything the run counts in one chip in the middle of the header, in view wherever the
+  // player is looking. The two currencies read "what you have (+what the board pays you next
+  // turn)", so the cost of a plan and the income funding it are side by side; the two scores
+  // follow them, so what the race stands at is read in the same glance as what it costs to
+  // change it. Nothing here is pressable except the score, which opens its own working.
+  //
+  // The scores used to sit in the turn bar, because three "n (+n)" counters in a row overflowed
+  // the header on a phone. Neither score carries an income, so these two are short — and the
+  // chip now takes a line of its own below the title row on a narrow screen (see .status),
+  // which is the room that made this possible. What is left in the bar is the things you press.
   // Kept as elements of their own, not just built inline: they are what the income flies to
   // and what pops when it lands, and both need the whole counter — emoji and number — rather
   // than the number alone. Indexed by currency, which is what flyIncome sorts its flights by.
@@ -408,7 +386,11 @@ export function GameMapComponent(
   const currencyIncomes = [createElement({ tag: "span" }), createElement({ tag: "span" })];
   const currencyValues = [dropCount, candyCount];
   currencyDisplays.forEach((display, currency) => display.append(currencyIncomes[currency]));
-  const status = createElement({ cssClass: styles.status }, currencyDisplays);
+  const status = createElement({ cssClass: styles.status }, [
+    ...currencyDisplays,
+    scoreDisplay,
+    ...(HAS_OPPONENT ? [rivalScoreDisplay] : []),
+  ]);
 
   // Object info: a permanent row of its own between map and turn bar, so it can never
   // cover the board and never shifts it either. Empty selection shows a hint instead.
@@ -578,8 +560,18 @@ export function GameMapComponent(
   const headerControls = createElement({ cssClass: styles.headerControls }, [
     status,
     ...(HAS_DEV_TOOLS ? [createFogButton(), ...createBotControls()] : []),
+  ]);
+  // Built here rather than up with its counters, because it holds the zoom steps and they have
+  // to exist first. They are controls for the board and now sit under it with the other one —
+  // the header is what the run counts, this is what the player presses.
+  // The board's own controls lead, labelled by what they act on, and the clock follows them on
+  // its way to the button that moves it on.
+  const turnBar = createElement({ cssClass: styles.turnBar }, [
+    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: ZOOM_EMOJI }),
     zoomOutButton,
     zoomInButton,
+    turnDisplay,
+    endTurnButton,
   ]);
   const hostElement = createElement({ cssClass: styles.host }, [mapArea, infoPanel, turnBar]);
 
@@ -635,13 +627,23 @@ export function GameMapComponent(
     // A tub's fields are never free — they cost candy — so they keep the plain target ring
     // even when the flower under one of them would have made the step itself free.
     const freeIndices = isTubSelected ? [] : targets.filter((target) => !getMoveCost(map, target, PLAYER)).map(getIndex);
-    // A tub's fields are the one thing on the board whose price moves — it is the size of the
-    // herd, so it goes up with every unicorn bought. That makes it worth writing onto the
-    // fields themselves rather than leaving it to the info text, which would be read once and
-    // remembered wrong. Every field costs the same, so it is one property on the board that
-    // all of them read, rather than a label built per tile.
-    board.classList.toggle(styles.buying, isTubSelected);
-    if (isTubSelected) board.style.setProperty("--p", `"${getUnicornPrice(map, PLAYER)}${CANDY_EMOJI}"`);
+    // The far donuts, which are lit like steps and priced like nothing else — see move()
+    const portalIndices = portalTargets.map(getIndex);
+    // What every lit tile costs, written on the tile. The tub's fields have always carried
+    // their price this way and it was the one offer on the board that did — a step's cost was
+    // only ever findable in the purse, after the step. Now the board states the price of
+    // whatever it is offering, in one language: the tub's fields in sweets, a step and a jump
+    // in drops, and a free step says so by staying green with nothing written on it.
+    // The tub's own price is the one that moves — it is the size of the herd, so it goes up
+    // with every unicorn bought, which is exactly why it is worth writing on the field rather
+    // than leaving it to an info text that would be read once and remembered wrong.
+    // Both prices are the same on every tile of their kind, so they are built once per render
+    // rather than per tile; only the jump differs, and only on the donuts.
+    // Signed, because a bare number on a tile reads as something the tile is worth rather than
+    // something it takes: every one of these is money leaving the purse. The same − the zoom
+    // step out wears, so the two are one character rather than two lookalikes.
+    const priceTag = isTubSelected ? `−${getUnicornPrice(map, PLAYER)}${CANDY_EMOJI}` : `−${MOVE_COST}${DROP_EMOJI}`;
+    const jumpTag = `−${PORTAL_COST}${DROP_EMOJI}`;
     // Guidance: an empty purse makes the income the only way on, so ending the turn
     // becomes the next step. Before that, on the opening turn, it is picking a character.
     // Once the run is over the same button is the only thing left to press.
@@ -661,7 +663,6 @@ export function GameMapComponent(
     // Filtered by what the player can see for the same reason the beams themselves are — see
     // showsBeam. Without it a cloud hiding an opponent's unicorn wears that unicorn's halo.
     const shining = new Set(map.beams.filter((beam) => beam.isLit && showsBeam(beam)).map(getIndex));
-    const revealed: number[] = [];
 
     map.tiles.forEach((tile, index) => {
       const element = tileElements[index];
@@ -681,16 +682,7 @@ export function GameMapComponent(
       // two are the same for everyone but a developer who has switched the clouds off. It is
       // the player's own fog throughout: the opponent's is never drawn, and the only thing
       // that gives away where the rival has been is the rival itself, once seen.
-      // The model's own bit, kept apart from isVisible below: what the player has *found* is
-      // what a cloud can blow off, and the dev switch finds nothing.
       const isFound = isSeen(tile, PLAYER);
-      // Just come out from under the cloud — so the cloud gets to leave rather than simply
-      // stopping. Suppressed on a board's first draw, where every opening tile would puff.
-      // Collected rather than blown here: a puff has to measure its tile, and a measurement
-      // in the middle of a loop that is still writing classes onto tiles forces the layout
-      // again on every one of six hundred iterations. They go up together after the loop.
-      if (isFound && !lastSeen[index] && !newRun) revealed.push(index);
-      lastSeen[index] = isFound;
       const isVisible = isFound || (HAS_DEV_TOOLS && xray);
       // Either side's tub: the same piece of furniture, drawn at the same size, and — see the
       // glow below — earning for whoever owns it every turn it stands.
@@ -716,6 +708,9 @@ export function GameMapComponent(
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
       element.classList.toggle(styles.target, targetIndices.includes(index));
       element.classList.toggle(styles.free, freeIndices.includes(index));
+      // Only the lit tiles are written on, and only they read it — a stale tag on a tile that
+      // has stopped being a target is a property nothing draws.
+      if (targetIndices.includes(index)) element.style.setProperty("--p", `"${portalIndices.includes(index) ? jumpTag : priceTag}"`);
 
       // The fog belongs to the ground layer: under it there is nothing else to show.
       const hasLiving = isVisible && tile.living !== undefined;
@@ -753,8 +748,6 @@ export function GameMapComponent(
       // empty layer draws nothing whatever size it is set to.
       if (hasLiving) livingGlyphs[index].style.setProperty("--l", `${getUnicornLevel(tile)}`);
     });
-
-    revealed.forEach(showReveal);
 
     // Each currency reads "what you have (+what next turn pays)". The income half updates as
     // the player moves, so the cost of rearranging the board and its effect on next turn's
@@ -902,9 +895,6 @@ export function GameMapComponent(
     if (showsScore) return setInfo(TranslationKey.INFO_GOAL, SCORE_EMOJI);
 
     const objectType = index === undefined ? undefined : getObject(index);
-    // with nothing picked up, the opening turn spells out what the run is about;
-    // from then on the nudge to tap around is enough
-    const isOpening = map.turn === FIRST_TURN;
 
     // The ground wins over whoever is standing on it, for the donut alone: a unicorn on a
     // donut is a unicorn that can jump, and where it can jump to is the thing worth reading.
@@ -928,11 +918,7 @@ export function GameMapComponent(
       // reading as the light it casts, which is drawn one line per level. Either side's — the
       // rival's own progress is a thing worth being able to look up.
       if (SIDE_UNICORN.includes(objectType)) infoName.textContent += ` ${LEVEL_EMOJI.repeat(getUnicornLevel(map.tiles[index!]))}`;
-    } else if (index === undefined)
-      setInfo(
-        isOpening ? TranslationKey.INFO_GOAL : TranslationKey.INFO_HINT,
-        isOpening ? OBJECT_CONFIG[GameObjectType.RAINBOW].emoji : HINT_EMOJI,
-      );
+    } else if (index === undefined) setInfo(TranslationKey.INFO_HINT, HINT_EMOJI);
     else if (isSeen(map.tiles[index], PLAYER)) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
     else setInfo(TranslationKey.INFO_FOG, FOG_EMOJI);
   }
@@ -1162,30 +1148,6 @@ export function GameMapComponent(
     }
 
     pop(currencyValues[currency], SPEND_COLOR);
-  }
-
-  /**
-   * The cloud leaving a tile that has just been found: it swells, drifts and fades, in the
-   * place of the glyph that is taking over the tile underneath it. Drawn at the tile's own
-   * size, so it reads as *that* cloud going rather than as a new thing arriving.
-   *
-   * It is the counterpart of showSpending — the same "something happened here" said where the
-   * player is looking — for the half of the score that had no such moment: a step into the fog
-   * lifts the multiplier under every rainbow and every unicorn on the board, and used to do it
-   * between two frames with nothing to see.
-   */
-  function showReveal(index: number) {
-    // One measurement, both answers: where the cloud starts and how big it has to be drawn.
-    const { x, y, width, height } = tileElements[index].getBoundingClientRect();
-
-    flyGlyph(
-      FOG_EMOJI,
-      [x + width / 2, y + height / 2],
-      { "transform": `translateY(-${PUFF_RISE}em) scale(${PUFF_SCALE})`, "opacity": 0 },
-      { "duration": PUFF_DURATION, "easing": "ease-out" },
-      undefined,
-      width * TILE_GLYPH_SCALE,
-    );
   }
 
   /**

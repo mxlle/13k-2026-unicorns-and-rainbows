@@ -32,7 +32,7 @@ export const enTranslations: Record<TranslationKey, string> = {
   // here on purpose: it is the size of the herd, so it moves every time one is bought.
   [TranslationKey.INFO_BATHTUB]: "Bathtub|It makes 2 💧 a turn.",
   [TranslationKey.INFO_BATHTUB_SELL]: "A new unicorn beside it costs one 🍬 per unicorn you have.",
-  [TranslationKey.INFO_HINT]: "|Tap anything on the map to find out what it does.",
+  [TranslationKey.INFO_HINT]: "|Tap anything to find out what it does.",
   // No turn count in the text — the turn bar shows it, and it stays right when TURN_LIMIT moves.
   // The shape of the sentence is the shape of the score: two things add up, and the cloud you
   // have cleared multiplies them. It is also the line held over the breakdown when the score is

@@ -28,11 +28,11 @@ const VIOLET_HUE = 300;
 const WARM_BIAS = 1.4;
 
 /**
- * The launch screen: one stripe per board on offer, picked in two taps — one to choose the
- * stripe, one on the button that appears at the end of it to start the run. Two taps rather
- * than one because a stripe is going to mean a level with a history behind it, and a screen
- * where looking at a level and committing to it are the same gesture leaves nowhere to put
- * that. It also means the board a run is about to be played on is stated before it starts.
+ * The launch screen: one stripe per board on offer, played in two taps — one to pick the
+ * stripe, a second anywhere on it to start the run. Two taps rather than one because a stripe
+ * is going to mean a level with a history behind it, and a screen where looking at a level and
+ * committing to it are the same gesture leaves nowhere to put that. It also means the board a
+ * run is about to be played on is stated before it starts.
  *
  * Long-term this is where the seven levels live, each stripe filling in as its level is
  * scored on — which is why there is one stripe per entry rather than a row of buttons over a
@@ -53,30 +53,13 @@ export function LaunchScreenComponent(onPlay: (size: number) => void): HTMLEleme
   // hidden: it is the same offer wherever it lands, and there is only ever one of it.
   // HINT because it is exactly what that class is for elsewhere in the game — the one
   // obvious thing to do next.
-  const playButton = createButton(
-    {
-      cssClass: [CssClass.HINT, styles.play],
-      // The stripe underneath is listening too, and this is inside it. Nothing bad would
-      // come of the pick being re-made on the way out, but the run has already started by
-      // then and a launch screen quietly rearranging itself behind it is not worth the byte
-      // it would save.
-      onClick: (event) => {
-        event.stopPropagation();
-        const size = MAP_SIZES[pickedIndex]; // read before the pick moves on
-        // The screen steps up a rung as the run starts, so it is already offering the next
-        // level by the time the player comes back to it. Both happen inside this one handler,
-        // so the screen is hidden before the browser ever paints the moved pick.
-        // The top of the ladder stays put: there is nothing above it to climb to.
-        const next = Math.min(pickedIndex + 1, MAP_SIZES.length - 1);
-        pick(next);
-        // What is stored is the rung now on offer rather than the one just played, so closing
-        // the tab and coming back lands in the same place as walking back from the run does.
-        setLocalStorageItem(LocalStorageKey.SIZE, `${MAP_SIZES[next]}`);
-        onPlay(size);
-      },
-    },
-    [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: GAME_EMOJI }), ` ${getTranslation(TranslationKey.PLAY)}`],
-  );
+  // It carries no handler of its own: it only ever sits inside the picked stripe, and a click
+  // on the picked stripe is already the thing this button offers (see the stripe below). So
+  // the click bubbles into that one handler instead of there being two ways to start a run.
+  const playButton = createButton({ cssClass: [CssClass.HINT, styles.play] }, [
+    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: GAME_EMOJI }),
+    ` ${getTranslation(TranslationKey.PLAY)}`,
+  ]);
 
   const host = createElement(
     { cssClass: styles.host },
@@ -101,7 +84,12 @@ export function LaunchScreenComponent(onPlay: (size: number) => void): HTMLEleme
       const width = `${size}`;
       const left = width.padStart(2, "\u00a0");
       const right = width.padEnd(2, "\u00a0");
-      const stripe = createElement({ cssClass: styles.stripe, onClick: () => pick(index) }, [
+      // A tap on a stripe that is not the picked one picks it; a tap anywhere on the picked
+      // one starts the run. Two taps to play a level the player was not already being offered,
+      // one to take the offer — and the whole stripe is that offer's target rather than just
+      // the button on it, which on a phone is the difference between a comfortable hit and a
+      // careful one. The button stays because it is what *says* the second tap plays.
+      const stripe = createElement({ cssClass: styles.stripe, onClick: () => (index === pickedIndex ? start() : pick(index)) }, [
         createElement({ cssClass: styles.label }, [
           createElement({ cssClass: styles.level, text: `${index + 1}` }),
           // Wrapped so the emoji and the dimensions are one flex item; loose, they would be two,
@@ -118,6 +106,22 @@ export function LaunchScreenComponent(onPlay: (size: number) => void): HTMLEleme
       return stripe;
     }),
   );
+
+  /**
+   * Starts the picked run. The screen steps up a rung as it goes, so it is already offering
+   * the next level by the time the player comes back to it — both happen in here, so the
+   * screen is hidden before the browser ever paints the moved pick. The top of the ladder
+   * stays put: there is nothing above it to climb to.
+   */
+  function start() {
+    const size = MAP_SIZES[pickedIndex]; // read before the pick moves on
+    const next = Math.min(pickedIndex + 1, MAP_SIZES.length - 1);
+    pick(next);
+    // What is stored is the rung now on offer rather than the one just played, so closing the
+    // tab and coming back lands in the same place as walking back from the run does.
+    setLocalStorageItem(LocalStorageKey.SIZE, `${MAP_SIZES[next]}`);
+    onPlay(size);
+  }
 
   function pick(index: number) {
     stripes[pickedIndex].classList.remove(styles.picked);

@@ -15,7 +15,7 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_FOUNTAIN]: "Brunnen|Auf der anderen Seite kommt ein Regenbogen heraus: 🦄⛲🌈",
     [TranslationKey.INFO_BATHTUB]: "Badewanne|Sie macht 2 💧 pro Zug.",
     [TranslationKey.INFO_BATHTUB_SELL]: "Ein neues Einhorn daneben kostet ein 🍬 pro Einhorn, das du hast.",
-    [TranslationKey.INFO_HINT]: "|Tippe etwas auf der Karte an, um zu erfahren, was es tut.",
+    [TranslationKey.INFO_HINT]: "|Tippe etwas an, um zu erfahren, was es tut.",
     [TranslationKey.INFO_GOAL]: "|Bau auf, bevor die Züge ausgehen. Jedes 🌈 und 🦄 zählt 1 Punkt pro % freigeräumter ☁️.",
     [TranslationKey.INFO_FOG]: "Wolke|Hier kannst du noch nichts sehen. Lauf mit einem Einhorn näher heran.",
     [TranslationKey.INFO_EMPTY]: "Wiese|Freier Platz. Hier kann ein Regenbogen entstehen.",

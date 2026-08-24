@@ -183,12 +183,14 @@ $sidebar-width: clamp(11rem, 30vw, 24rem);
   grid-area: 3 / 1;
   display: flex;
   align-items: center;
-  gap: 0.8rem; // turn count and score need to read as two separate numbers
+  gap: 0.5rem; // tight enough that the 🔍 and its two steps read as one group of three
   width: 100%;
   max-width: $panel-width;
 
-  > button {
-    margin-left: auto; // turn count left, the button on the far right
+  // The end-turn button alone — :last-child rather than every button, now that the zoom steps
+  // are in here too and must keep the round icon face the header gave them.
+  > button:last-child {
+    margin-left: auto; // turn count and zoom left, the button on the far right
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
@@ -243,6 +245,16 @@ $sidebar-width: clamp(11rem, 30vw, 24rem);
   @include theme.stackedHeader {
     position: static;
     transform: none;
+    flex-wrap: wrap; // the last resort, if even the smaller counters below outrun the line
+
+    // Four counters, two of them carrying an income, come to ~330px at full size — more than
+    // a 320px phone has, and the scores are the half that grows as a run goes on. So on the
+    // line of its own they are all set a little smaller: ~290px with room for a five-digit
+    // score, which is what the wrap above is there for beyond. Only here — on any screen wide
+    // enough to float the chip over the header there is no shortage of width.
+    .count {
+      font-size: 0.85rem;
+    }
     order: 1; // last, or a full-width item in the middle would make three lines of two
     flex-basis: 100%;
     justify-content: center; // it owns the line, so it centres on the window, not on a remnant
@@ -407,10 +419,11 @@ $win-hop-height: 2rem;
       background: rgba(theme.$main-color, 0.3);
     }
 
-    // The price tag on a tub's fields, written into --p by the board — see render().
-    // It sits along the bottom edge rather than in the middle, so it labels the field
-    // without covering whatever is lying on it.
-    .buying &::after {
+    // What this tile costs, written into --p by the tile itself — see render(). Every lit
+    // tile carries one, a tub's fields and a unicorn's steps alike. It sits along the bottom
+    // edge rather than in the middle, so it labels the tile without covering whatever is
+    // lying on it.
+    &::after {
       content: var(--p);
       position: absolute;
       inset: auto 0 0;
@@ -418,10 +431,15 @@ $win-hop-height: 2rem;
       // rather than numerals — so the text font comes first here and the sweet falls
       // through to the emoji one.
       font-family: theme.$font-family, "Noto Color Emoji";
-      font-size: 0.45em; // em of the tile's glyph size, so the tag follows the zoom
+      // Small and quiet on purpose: with every lit tile carrying one, a price is an annotation
+      // on the offer rather than part of it, and eight of them at reading size were louder
+      // than the board they were annotating. Still em of the tile's glyph, so it follows the
+      // zoom, and the tertiary tone sits back from the ring's own colour without going so far
+      // that the digit stops reading over the tint.
+      font-size: 0.4em;
       line-height: 1;
       text-align: center;
-      color: theme.$main-color-secondary;
+      color: theme.$text-tertiary;
     }
   }
 
@@ -432,6 +450,12 @@ $win-hop-height: 2rem;
   &.free {
     background: rgba(theme.$success-color-light, 0.18);
     box-shadow: inset 0 0 0 2px rgba(theme.$success-color-light, 0.6);
+
+    // Nothing to pay, so nothing to write: the green ring is the whole of what a free step
+    // has to say, and a "0" on eight tiles would be eight things to read instead.
+    &::after {
+      content: none;
+    }
 
     @include theme.hover {
       background: rgba(theme.$success-color-light, 0.38);
@@ -548,7 +572,7 @@ $win-hop-height: 2rem;
     max-width: 100%;
     flex-wrap: wrap; // four controls in a narrow column need a second line to fall back on
 
-    > button {
+    > button:last-child {
       font-size: 1em;
     }
   }

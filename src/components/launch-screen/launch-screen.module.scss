@@ -93,9 +93,10 @@ $stripe-gap: 0.4rem;
   font-weight: bold;
 }
 
-// The same breakpoint the board's own layout switches on — see $wide-screen in
-// game-map.module.scss, and the note there on why these are px rather than rem.
-@media (min-width: 900px) {
+// The same condition the board's own layout switches on — a window with room to put things
+// beside each other. See theme.sidePanels: a short landscape frame counts as one of those, and
+// on a stripe of that shape there is plenty of width for label and button side by side.
+@include theme.sidePanels {
   // A wide stripe has room for both, so the button comes out of the flow and the label
   // centres on the whole stripe — which means it sits in exactly the same place on every
   // stripe, picked or not. That is the point: nothing about the row moves as the pick does.

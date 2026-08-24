@@ -46,13 +46,12 @@ $small-scale: 0.7;
 $unicorn-scale: 1.2;
 $level-scale: 0.15;
 
-// Where the board stops and the panels begin, once a screen is wide enough to have the
-// room beside it. In px rather than rem on purpose: a media query's rem is the browser's
-// initial font size, not the one globals.scss sets, so px is the honest unit here.
-$wide-screen: 900px;
-// The panel column on such a screen. Capped against the viewport as well, so a short wide
-// window does not hand the panels a third of the room the board wants.
-$sidebar-width: min(24rem, 30vw);
+// The panel column, once the window has the room beside the board for one — see
+// theme.sidePanels for when that is. Capped against the viewport as well, so a short wide
+// window does not hand the panels a third of the room the board wants, and floored, because
+// that layout is now reached on narrow windows too (a landscape phone, a small Poki frame)
+// and 30vw of those is a column too thin to read a description in.
+$sidebar-width: clamp(11rem, 30vw, 24rem);
 
 // Map / info panel / turn bar, top to bottom. The info row is always there — that is
 // what keeps it from ever covering the board or shifting it when the selection changes.
@@ -509,14 +508,17 @@ $win-hop-height: 2rem;
   }
 }
 
-// On a wide screen the panels leave the space under the board and take a column of their
-// own beside it. Two things come of that: the map row gets the full window height back,
-// which is what the biggest board wants on a laptop, and the trip from a tile to the panel
-// explaining it stops crossing the whole screen. Layout only — every element keeps its
-// place in the DOM, so nothing in the component knows this happens.
+// Once anything can sit beside the board, the panels leave the space under it and take a
+// column of their own. Three things come of that: the map row gets the full window height
+// back, which is what the biggest board wants on a laptop *and* what a short landscape window
+// needs to show a board at all; the trip from a tile to the panel explaining it stops crossing
+// the whole screen; and the info panel's height stops being height the board cannot have.
+// Layout only — every element keeps its place in the DOM, so nothing in the component knows
+// this happens. It does change what "fits" means, and applyZoom is already told: the same
+// resize that flips the query re-measures the map row.
 // It has to come last in the file: these selectors are no more specific than the ones they
 // override, so it is source order alone that lets them win.
-@media (min-width: $wide-screen) {
+@include theme.sidePanels {
   .host {
     grid-template-columns: minmax(0, 1fr) $sidebar-width;
     grid-template-rows: 1fr min-content;
@@ -528,13 +530,22 @@ $win-hop-height: 2rem;
 
   // Centred down the column rather than pinned to its top — the middle of the board's edge
   // is the shortest trip from wherever on the board the player just tapped.
+  // The column is what bounds it now, not $panel-width: that cap is measured against the
+  // *viewport* (92vw / 55vh), which on a short window is narrower than the column it is
+  // sitting in and would leave a gutter for no reason. And it may not grow past the row it
+  // was given — on a 400px-tall window the reserved $info-height plus a long description can
+  // outrun it, and .host clips rather than scrolls.
   .info {
     grid-area: 1 / 2;
     align-self: center;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: auto;
   }
 
   .turnBar {
     grid-area: 2 / 2;
+    max-width: 100%;
     flex-wrap: wrap; // four controls in a narrow column need a second line to fall back on
 
     > button {

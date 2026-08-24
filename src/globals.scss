@@ -15,7 +15,11 @@ body {
 html {
   font-size: 18px;
 
-  @media (min-width: 600px) {
+  // The bigger scale wants room in both directions, not just across. Nearly everything the
+  // game reserves height for is in rem — the header, the info panel, the turn bar — so a short
+  // landscape window (a Poki desktop frame can be 850x420) was paying phone-sized height costs
+  // at desktop-sized text and had nothing left over for the board.
+  @media (min-width: 600px) and (min-height: 600px) {
     font-size: 22px;
   }
 }

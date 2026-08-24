@@ -76,12 +76,45 @@ $tile-color-1: $tile-color-1-dark;
 $tile-color-2: $tile-color-2-dark;
 $tile-color-alpha: $tile-color-1-dark-alpha;
 
-// Below this width the header gives up on one line: the title's words step aside, and the
-// run's counters drop to a line of their own under the title row. Shared rather than written
-// twice, because the header is what stacks and the chip that lands in the second line belongs
-// to the game — the two have to agree on where the change happens.
-@mixin stackedHeader {
+// Where the board stops carrying the panels under it and takes them beside it instead. In px
+// rather than rem on purpose: a media query's rem is the browser's initial font size, not the
+// one globals.scss sets, so px is the honest unit here.
+$wide-screen: 900px;
+
+// The one layout decision the whole game shares: does anything sit *beside* the board, or does
+// everything stack under it? Width alone got this wrong, and the case it got wrong is a real
+// one — a Poki desktop embed hands the game an inner frame that can be 850x420. That is not a
+// phone, but it is narrower than $wide-screen, so it used to stack a two-line header, a 7rem
+// info panel and a turn bar into 420px of height and leave the board about sixty pixels.
+//
+// So the second clause: a window with more room across than down puts the panels across,
+// whatever its width. The board is square, so what it can show is the *shorter* side of the
+// area it gets — and stacking spends a fixed ~250px of height on chrome, which a short window
+// cannot afford at any width. Portrait phones and tablets are nowhere near 1/1 and keep the
+// stacked layout they were designed for.
+@mixin sidePanels {
+  @media (min-width: $wide-screen), (min-aspect-ratio: 1 / 1) {
+    @content;
+  }
+}
+
+// Below this width the header's title text steps aside, leaving the emoji: the end elements
+// carry live counters and the chip is centred on the whole header, so there is not room for
+// words as well. Width only — this costs no height and is wanted on a short window too.
+@mixin narrowHeader {
   @media (max-width: 999px) {
+    @content;
+  }
+}
+
+// The narrower case *and* room to spare downwards: the header gives up on one line entirely
+// and the run's counters drop to a line of their own under the title row. Shared rather than
+// written twice, because the header is what stacks and the chip that lands in the second line
+// belongs to the game — the two have to agree on where the change happens. Deliberately the
+// complement of sidePanels: a second header line is height spent, and a window that had the
+// height to spare is exactly the one that is stacking everything else as well.
+@mixin stackedHeader {
+  @media (max-width: 999px) and (max-aspect-ratio: 1 / 1) {
     @content;
   }
 }

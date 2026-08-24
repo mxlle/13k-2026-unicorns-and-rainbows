@@ -37,15 +37,31 @@
   white-space: nowrap;
 }
 
-// The narrow header, in one block: a row of controls plus an end element carrying live
-// counters does not fit a phone's width, so the header takes two lines instead of shrinking
-// what is on them. The header is min-content in the page's grid, so the line it gains is
-// taken off the row below and the board's own sizing measures the difference by itself —
-// nothing has to be told the header got taller.
+// The narrow header, in two blocks — because there are two independent things a small window
+// can ask of it, and a Poki embed at 850x420 asks for one without the other.
+//
+// First, at any height: the words of the title step aside, leaving the emoji. The end elements
+// carry live counters that change width and the run's chip is centred on the whole header, so
+// past this width there is no room for words as well — and the title is what a player needs
+// least once a run is on.
 // Gathered here rather than nested in the rules above for the same reason the game map
-// gathers its wide-screen layout at the end of its own stylesheet: five media blocks
-// scattered through a file cost more than one, and none of these selectors is more specific
-// than the rule it overrides, so it is source order alone that lets them win.
+// gathers its side-panel layout at the end of its own stylesheet: five media blocks scattered
+// through a file cost more than one, and none of these selectors is more specific than the
+// rule it overrides, so it is source order alone that lets them win.
+@include theme.narrowHeader {
+  .titleText {
+    display: none;
+  }
+}
+
+// Second, and only when the window has the height to spend on it: a row of controls plus an
+// end element carrying live counters does not fit a phone's width, so the header takes two
+// lines instead of shrinking what is on them. The header is min-content in the page's grid, so
+// the line it gains is taken off the row below and the board's own sizing measures the
+// difference by itself — nothing has to be told the header got taller.
+// A short landscape window is precisely the one that cannot pay for that line, and with the
+// title's words already gone above it does not need to: emoji, centred chip and controls fit
+// one line at any width the game is playable at.
 @include theme.stackedHeader {
   .host {
     flex-wrap: wrap;
@@ -56,11 +72,6 @@
   // this keeps the title at one edge and the controls grouped at the other.
   .title {
     margin-right: auto;
-  }
-
-  // The words are the first thing to go: the emoji carries the header alone.
-  .titleText {
-    display: none;
   }
 
   // Dissolved, so that what it holds becomes items of the header's own row and can wrap

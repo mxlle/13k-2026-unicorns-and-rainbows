@@ -12,14 +12,31 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.NEW_GAME]: "New game",
   [TranslationKey.PLAY]: "Play now",
   // PLACEHOLDER wording — "Name|Description", split at the pipe by the info panel.
-  // Plain, short words: many players will not be native speakers. The 🦄⛲🌈 pattern
-  // carries the line-up rule without language, and repeats, so it costs almost nothing.
+  // Plain, short words: many players will not be native speakers.
+  //
+  // The unicorn is introduced twice over, and this is the half a player reads first: what it is
+  // for, and the two taps that move it. Walking is the only thing the opening position can do —
+  // every board opens with a 3x3 of bare meadow and clouds past it — so the line-up rule below
+  // would be a rule about a thing that is not on the board yet. "clears ☁️" is the same fact the
+  // score is made of, said where the walking is: see INFO_GOAL for the arithmetic.
+  //
+  // The currency but not the number, which is the house rule the sites and the tub already
+  // follow: every lit tile is wearing its own −1💧 at the moment this is read, so the figure
+  // would be the most redundant thing in the file *and* a hand-copy of MOVE_COST to keep in
+  // step. What the tag cannot say is what a 💧 is for — it renders at 0.4em, quiet on purpose —
+  // so naming the currency is what ties the sentence to the purse in the turn bar, and answers
+  // the question a stuck player actually has: not what a step costs, but why the walking stopped.
+  [TranslationKey.INFO_UNICORN]: "Unicorn|Your explorer. Tap a lit tile — walking costs 💧 and clears ☁️.",
+  // ...and this is the half that arrives with the first fountain the player finds. The 🦄⛲🌈
+  // pattern carries the line-up rule without language, and repeats, so it costs almost nothing.
   // The ✨ the panel puts after the name is the only place a level is stated, so this is where it
   // has to be explained: what earns one, and that it is worth having. "worth more" rather than a
   // number because a grown rainbow pays more of whichever currency it is on — see INFO_RAINBOW.
   // The 3 repeats GROWTH_PER_LEVEL by hand, the way the tub's line repeats BASE_INCOME: change
   // them together.
-  [TranslationKey.INFO_UNICORN]: "Unicorn|It shines. Line it up like this: 🦄⛲🌈. Each ✨ (3 turns shining) makes its 🌈 worth more.",
+  // Its length is load-bearing: it is the longest description in the file, and $info-height is
+  // the room reserved for exactly it. Re-measure that if this line grows.
+  [TranslationKey.INFO_UNICORN_SHINE]: "It shines. Line it up like this: 🦄⛲🌈. Each ✨ (3 turns shining) makes its 🌈 worth more.",
   // Both halves of the earning rule in one line, because a rainbow is where the choice is made:
   // the same tile pays a different currency depending on what is standing next to it. The
   // beams say it in colour — blue for the purse, red for the jar — and this says it in words.

@@ -41,4 +41,10 @@ export const TranslationKey = defineEnum({
   // board with no opponent on it: the turns ran out, and that is all there is to say.
   WON_RACE: 23,
   LOST_RACE: 24,
+  // The unicorn's second half, swapped in for INFO_UNICORN's description once the player has
+  // actually found a fountain — no name of its own, the way INFO_BATHTUB_SELL has none. A swap
+  // rather than an append: the two sentences together outrun the height the info panel reserves
+  // for its longest description (see $info-height in game-map.module.scss), and this is that
+  // longest description.
+  INFO_UNICORN_SHINE: 25,
 });

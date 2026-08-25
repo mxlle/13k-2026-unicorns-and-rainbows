@@ -918,6 +918,23 @@ export function GameMapComponent(
       // reading as the light it casts, which is drawn one line per level. Either side's — the
       // rival's own progress is a thing worth being able to look up.
       if (SIDE_UNICORN.includes(objectType)) infoName.textContent += ` ${LEVEL_EMOJI.repeat(getUnicornLevel(map.tiles[index!]))}`;
+      // The unicorn's own description is the one that changes with the run. INFO_UNICORN is what
+      // it is for and how to walk it, which is all the opening position can act on: every board
+      // starts as a 3x3 of bare meadow with clouds past it, and the fountain the line-up rule is
+      // about is under one of them. Once the player has found a fountain, the rule becomes
+      // readable and takes the line over.
+      //
+      // A swap and not an append, unlike the tub's second job: the two halves together outrun
+      // $info-height, the room the panel reserves for its longest description — which is the
+      // shine line itself. Either half alone fits, so the reserved height still holds.
+      //
+      // The player's own unicorn only. SIDE_UNICORN above is deliberately both sides, but the
+      // rival's is described by INFO_RIVAL, and overwriting that would explain the player's
+      // piece on the opponent's tile. The sparkles can never turn up on a unicorn of the
+      // player's without this line: a beam needs the fountain one step away (see
+      // updateRainbows), and a unicorn always reveals its own 3x3.
+      if (objectType === SIDE_UNICORN[PLAYER] && map.tiles.some((t) => t.object === GameObjectType.FOUNTAIN && isSeen(t, PLAYER)))
+        infoText.textContent = getTranslation(TranslationKey.INFO_UNICORN_SHINE);
     } else if (index === undefined) setInfo(TranslationKey.INFO_HINT, HINT_EMOJI);
     else if (isSeen(map.tiles[index], PLAYER)) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
     else setInfo(TranslationKey.INFO_FOG, FOG_EMOJI);

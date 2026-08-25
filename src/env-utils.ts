@@ -45,8 +45,17 @@ export const HAS_TEXT_PLACEHOLDERS = false;
 // the .env* files). Each flag is a compile-time constant, so a disabled
 // language's translation map is tree-shaken out entirely (0 bytes).
 // To add one, e.g. French: add LANG_FR_ENABLED to the .env* files, a HAS_FRENCH
-// flag here, a src/translations/fr.ts, and one branch in i18n.ts.
+// flag here (and to HAS_SECONDARY_LANGUAGE below), a src/translations/fr.ts, and
+// one branch in i18n.ts.
 export const HAS_GERMAN = import.meta.env.LANG_DE_ENABLED === "true";
+// Latin American Spanish, for the poki audience: a large share of the players there are South
+// American. Off in js13k, where English is the whole of what fits.
+export const HAS_SPANISH = import.meta.env.LANG_ES_ENABLED === "true";
+// Whether *any* secondary language ships. What it buys is one `if` around the language sniff in
+// i18n.ts: `navigator.language` is a property read terser cannot prove side-effect-free, so a
+// sniff whose every reader has been compiled away would otherwise be kept and performed on
+// every single lookup. Add a language above and this picks it up.
+export const HAS_SECONDARY_LANGUAGE = HAS_GERMAN || HAS_SPANISH;
 
 export const GAME_TITLE = "Unicorns and Rainbows";
 // The header shows the emoji at every size and the words only when there is room for them.

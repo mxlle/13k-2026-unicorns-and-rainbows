@@ -33,8 +33,10 @@ $candy-color: #fb6a3c;
 $water-color-dark: #2b4cff;
 $candy-color-dark: #8c300f;
 $light-color-dark: #8a7444;
-// The rainbow: the page background wash and the highlight button share it, and both
-// cycle it with the same `rainbow` hue-rotate keyframes, so they stay in step.
+// The rainbow: the highlight button and the page background wash share it. The wash cycles it
+// with the `rainbow` hue-rotate keyframes and lives in globals.nice2have.scss, so
+// $rainbow-animation has one reader and only the friends-&-family build has it at all; the
+// button holds the gradient still and ships everywhere.
 $rainbow-gradient: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3);
 $rainbow-animation: rainbow 10s ease infinite;
 $font-family: sans-serif;

@@ -114,9 +114,13 @@ export default defineConfig(({ mode, command }) => {
           order: "post" as const,
           handler: (html: string) => html.replaceAll(" crossorigin", ""),
         },
-        // rolldown emits the CSS of dynamic imports even when the import itself
-        // is eliminated as dead code — drop the nice2have stylesheet (it sits
-        // behind compile-time-false flags in js13k mode and is never referenced)
+      },
+      // rolldown emits the CSS of dynamic imports even when the import itself is eliminated as
+      // dead code, so the nice2have stylesheet would still be written to dist as an orphan
+      // nobody links to. Neither of these two modes can reach it (HAS_VISUAL_NICE_TO_HAVES is a
+      // compile-time false in both), so drop it.
+      (js13k || poki) && {
+        name: "drop-unreachable-styles",
         generateBundle(_options: unknown, bundle: Record<string, any>) {
           for (const [fileName, output] of Object.entries(bundle)) {
             if (output.type === "asset" && output.originalFileNames?.some((n: string) => n.includes("nice2have"))) {

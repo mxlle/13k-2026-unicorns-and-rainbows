@@ -1,15 +1,37 @@
-// Styles that only ship in the non-js13k builds (loaded conditionally in index.ts).
-// Put polish here that isn't worth bytes in the competition zip.
+// Styles that ship only in the friends-&-family build (loaded conditionally in index.ts).
+// Out of the competition build for bytes, and out of the poki build because both of the things
+// in here are things those two platforms cannot have: js13k and poki both forbid external
+// requests, and a Poki playtest is screen-recorded while it is played, which is exactly the
+// workload a full-viewport hue-rotate repainting every frame is worst for.
+@use "theme" as *;
 
-// webfont for consistent emoji rendering — must NOT be in the js13k build:
-// external requests break the competition's offline rule (and cost bytes)
+// webfont for consistent emoji rendering — must NOT be in the js13k or poki build:
+// external requests break the competition's offline rule (and cost bytes), and poki
+// does not allow them either
 @import url("https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap");
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation: none !important;
-    transition: none !important;
+// The rainbow wash over the page. The body's own dark gradient is in globals.scss and ships
+// everywhere; this is only the colour on top of it, and the one animation that runs whether
+// anything happened or not.
+body::before {
+  content: "";
+  pointer-events: none;
+  opacity: 0.12;
+  inset: 0;
+  position: absolute;
+  background: $rainbow-gradient;
+
+  animation: $rainbow-animation;
+}
+
+@keyframes rainbow {
+  to {
+    filter: hue-rotate(360deg);
   }
+}
+
+// Keeps the game above the wash. Belongs with it: without the ::before there is nothing to
+// stack over.
+body > * {
+  z-index: 1;
 }

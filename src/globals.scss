@@ -43,27 +43,6 @@ body {
   overflow: hidden; // to hide dialogs
 }
 
-body::before {
-  content: "";
-  pointer-events: none;
-  opacity: 0.12;
-  inset: 0;
-  position: absolute;
-  background: $rainbow-gradient;
-
-  animation: $rainbow-animation;
-}
-
-@keyframes rainbow {
-  to {
-    filter: hue-rotate(360deg);
-  }
-}
-
-body > * {
-  z-index: 1;
-}
-
 button {
   font-family: inherit;
   font-size: 1em;
@@ -146,5 +125,18 @@ button.#{$ICON_BTN} {
 @keyframes pulse {
   50% {
     transform: scale(1.12);
+  }
+}
+
+// In every build, not just the friends-&-family one: the hint pulse and the win hop ship
+// everywhere, so this is the only place the preference can be honoured everywhere too. The
+// pseudo-element selectors are for the rainbow wash, which is only in some builds — `!important`
+// beats it whichever order the two stylesheets end up in.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

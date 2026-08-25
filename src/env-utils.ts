@@ -4,7 +4,12 @@ const IS_JS13K = import.meta.env.IS_JS13K === "true";
 
 // Feature flags — everything behind a `!IS_JS13K` flag is tree-shaken out of
 // the competition build. Add flags here instead of sprinkling mode checks.
-export const HAS_VISUAL_NICE_TO_HAVES = !IS_JS13K;
+// globals.nice2have.scss: the emoji webfont and the animated rainbow wash. Off in poki mode as
+// well as in the competition build — neither platform allows external requests, and a Poki
+// playtest is screen-recorded while it is played, which a full-viewport hue-rotate repainting
+// every frame is the worst thing on the page for. The static dark background and the
+// reduced-motion override are in globals.scss and ship everywhere.
+export const HAS_VISUAL_NICE_TO_HAVES = !IS_JS13K && !IS_POKI_ENABLED;
 export const HAS_GAMEPLAY_NICE_TO_HAVES = !IS_JS13K;
 export const HAS_ADVANCED_DEBUGGING = !IS_JS13K;
 // Tools for looking at the game rather than playing it. Tied to the dev server rather than to

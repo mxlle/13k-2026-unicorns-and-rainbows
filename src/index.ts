@@ -26,11 +26,11 @@ function init() {
   isInitialized = true;
 
   const [gameArea, startNewGame, headerControls] = GameMapComponent(() => showLaunchScreen(true));
-  const launchScreen = LaunchScreenComponent((size) => {
+  const [launchScreen, updateLaunchScreen] = LaunchScreenComponent((level, random) => {
     // Shown before the run starts, or applyZoom would be measuring a hidden map row and
     // every board would open at the wrong step.
     showLaunchScreen(false);
-    startNewGame(size);
+    startNewGame(level, random);
   });
 
   // The launch screen and the board take turns in the same row under the header, so whichever
@@ -39,6 +39,10 @@ function init() {
   // before one is being played. The zoom steps need no hiding of their own; they are in the
   // turn bar, which is part of the board's own component.
   function showLaunchScreen(show: boolean) {
+    // Re-read on the way in: a run just walked away from has written its score to storage, and
+    // the stripe it belongs to is what says so. The screen holds nothing of its own about a
+    // level, so showing it and bringing it up to date are the same act.
+    if (show) updateLaunchScreen!();
     gameArea.classList.toggle(CssClass.HIDDEN, show);
     headerControls.classList.toggle(CssClass.HIDDEN, show);
     launchScreen.classList.toggle(CssClass.HIDDEN, !show);

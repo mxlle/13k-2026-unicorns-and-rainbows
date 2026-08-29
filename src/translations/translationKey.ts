@@ -16,7 +16,10 @@ export const TranslationKey = defineEnum({
   INFO_HINT: 7, // shown in the info panel while nothing is selected — no name, hence the leading "|"
   INFO_FOG: 8,
   INFO_EMPTY: 9,
-  NEW_GAME: 10,
+  // Back to the launch screen from a finished run. It used to be NEW_GAME ("New game"), which
+  // stopped being the truth the moment a second button beside it started a new game for real —
+  // this one picks a level, and now says so.
+  LEVELS: 10,
   INFO_GOAL: 11, // what the run is about, in place of INFO_HINT on the opening turn — no name either
   INFO_TREE: 12,
   INFO_DONUT: 13,
@@ -47,4 +50,8 @@ export const TranslationKey = defineEnum({
   // for its longest description (see $info-height in game-map.module.scss), and this is that
   // longest description.
   INFO_UNICORN_SHINE: 25,
+  // The board just played, again from the top — offered beside the way out when a run ends.
+  // It is the same map and not another deal of it: a run is a plan, and the second go at a plan
+  // is the whole of what there is to learn from the first.
+  RETRY: 26,
 });

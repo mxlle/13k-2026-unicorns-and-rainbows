@@ -5,9 +5,12 @@ import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../..
 import { MAP_SIZES } from "../../game/game-map";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
-import { GAME_EMOJI } from "../../env-utils";
+import { GAME_EMOJI, HAS_GAMEPLAY_NICE_TO_HAVES } from "../../env-utils";
+import { getBestScore, getPercent } from "../../game/levels";
+import { ComponentDefinition } from "../../types";
 
 const MAP_EMOJI = "🗺️"; // labels the board a stripe plays on
+const DICE_EMOJI = "🎲"; // the other board: this level's size, dealt fresh (see createDiceButton)
 
 /**
  * The hue the bottom stripe takes, in degrees; the top one takes 0, which is red. Bottom to
@@ -34,20 +37,27 @@ const WARM_BIAS = 1.4;
  * committing to it are the same gesture leaves nowhere to put that. It also means the board a
  * run is about to be played on is stated before it starts.
  *
- * Long-term this is where the seven levels live, each stripe filling in as its level is
- * scored on — which is why there is one stripe per entry rather than a row of buttons over a
- * painted rainbow. Today every stripe is the same board generator at a different size.
+ * A stripe is a level: one fixed board, the same for every player, and the stars earned on it
+ * (see game/levels.ts). Once it has been finished the stripe also offers the 🎲 — the same
+ * size dealt from a fresh seed, which scores nothing and is there to be played for its own
+ * sake. Which is why the offer is two buttons and not one: the level is the thing with a
+ * record attached, and the random board is the thing to do once the record is set.
  *
  * The screen always opens with something picked, and the pick climbs: a new player finds the
  * bottom stripe ready to play, and finishing a run leaves the one above it ready instead. So
  * the ladder is walked by pressing the same button over and over, and picking a stripe is
  * something a player does only to break step — to replay one, or to skip ahead.
  */
-export function LaunchScreenComponent(onPlay: (size: number) => void): HTMLElement {
+export function LaunchScreenComponent(onPlay: (level: number, random?: boolean) => void): ComponentDefinition {
   // The rung being offered, as an index rather than a size: the whole behaviour is "the next
   // one along", which is a thing only a position in the ladder can say.
   let pickedIndex = 0;
   const stripes: HTMLElement[] = [];
+  // One per stripe, filled in by update(): how far the level's best score got towards its
+  // target, as a percentage. Held as their own elements because they and the stripe's own fill
+  // are the only parts of a stripe that change after it is built — everything else about one is
+  // true for as long as the game runs.
+  const scoreLabels: HTMLElement[] = [];
 
   // One button, moved into whichever stripe is picked, rather than one per stripe kept
   // hidden: it is the same offer wherever it lands, and there is only ever one of it.
@@ -60,6 +70,40 @@ export function LaunchScreenComponent(onPlay: (size: number) => void): HTMLEleme
     createElement({ tag: "span", cssClass: CssClass.EMOJI, text: GAME_EMOJI }),
     ` ${getTranslation(TranslationKey.PLAY)}`,
   ]);
+
+  /**
+   * The other board: this level's size dealt from a fresh seed, offered only on a stripe that
+   * has been finished — it is a thing to do *with* a level, and a level nobody has played yet
+   * has nothing to do it with. It scores nothing and earns no stars; see game/levels.ts.
+   *
+   * The click has to be stopped: the whole picked stripe starts its own board, and without this
+   * a tap on the die would be a tap on the stripe as well, which starts a run and then replaces
+   * it. The die and no word, because a stripe on a phone has no room for one — and the die is
+   * as close to a word as a glyph gets for this.
+   *
+   * Built by a function rather than inline, the trick the board's own component uses twice
+   * (createFogButton, createRivalScore): with the flag folded to false this is an uncalled
+   * declaration and goes out with the tree-shaking, where a `const` would still run its
+   * createButton in every build.
+   */
+  function createDiceButton(): HTMLElement {
+    return createButton({
+      cssClass: [CssClass.ICON_BTN, CssClass.EMOJI, styles.play],
+      onClick: (event) => {
+        event.stopPropagation();
+        onPlay(pickedIndex, true);
+      },
+      text: DICE_EMOJI,
+    });
+  }
+
+  const diceButton = HAS_GAMEPLAY_NICE_TO_HAVES ? createDiceButton() : undefined;
+
+  // Both offers in one box, moved into the picked stripe together. A wrapper rather than two
+  // buttons moved side by side because on a wide screen the offer is lifted out of the flow and
+  // pinned to the end of the stripe (see .actions) — two absolutely positioned buttons would be
+  // pinned to the same place.
+  const actions = createElement({ cssClass: styles.actions }, [playButton, ...(diceButton ? [diceButton] : [])]);
 
   const host = createElement(
     { cssClass: styles.host },
@@ -84,6 +128,9 @@ export function LaunchScreenComponent(onPlay: (size: number) => void): HTMLEleme
       const width = `${size}`;
       const left = width.padStart(2, "\u00a0");
       const right = width.padEnd(2, "\u00a0");
+      // What the level has been played to, filled in by update() — see there for why it is
+      // empty at this point and why nothing here ever reads storage.
+      scoreLabels[index] = createElement({ tag: "span" });
       // A tap on a stripe that is not the picked one picks it; a tap anywhere on the picked
       // one starts the run. Two taps to play a level the player was not already being offered,
       // one to take the offer — and the whole stripe is that offer's target rather than just
@@ -95,11 +142,15 @@ export function LaunchScreenComponent(onPlay: (size: number) => void): HTMLEleme
           // Wrapped so the emoji and the dimensions are one flex item; loose, they would be two,
           // and the label's gap would open up in the middle of the board's own name.
           createElement({ tag: "span" }, [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: MAP_EMOJI }), ` ${left}×${right}`]),
+          // Inside the label rather than beside it, so the whole of what a stripe *says* is one
+          // thing that centres and gives way as one — the offer is what sits apart from it.
+          scoreLabels[index],
         ]),
       ]);
 
-      // The one thing that differs per stripe. Everything else about how a stripe is drawn —
-      // its solidity included — is in the stylesheet, reading this.
+      // The stripe's hue, which is the one thing about it that is settled for good — how full it
+      // is, the other per-stripe value, is set by update() and moves. Everything else about how
+      // a stripe is drawn is in the stylesheet, reading these two.
       stripe.style.setProperty("--h", `${VIOLET_HUE * ((MAP_SIZES.length - 1 - index) / (MAP_SIZES.length - 1)) ** WARM_BIAS}deg`);
       stripes.push(stripe);
 
@@ -114,19 +165,46 @@ export function LaunchScreenComponent(onPlay: (size: number) => void): HTMLEleme
    * stays put: there is nothing above it to climb to.
    */
   function start() {
-    const size = MAP_SIZES[pickedIndex]; // read before the pick moves on
+    const level = pickedIndex; // read before the pick moves on
     const next = Math.min(pickedIndex + 1, MAP_SIZES.length - 1);
     pick(next);
     // What is stored is the rung now on offer rather than the one just played, so closing the
     // tab and coming back lands in the same place as walking back from the run does.
     setLocalStorageItem(LocalStorageKey.SIZE, `${MAP_SIZES[next]}`);
-    onPlay(size);
+    onPlay(level);
   }
 
   function pick(index: number) {
     stripes[pickedIndex].classList.remove(styles.picked);
     stripes[(pickedIndex = index)].classList.add(styles.picked);
-    stripes[index].append(playButton); // moves it out of wherever it was — an element is in one place
+    stripes[index].append(actions); // moves it out of wherever it was — an element is in one place
+    update();
+  }
+
+  /**
+   * Every stripe's score, re-read from storage — and with it whether the picked level has the
+   * other board to offer. Called on every pick and again every time the screen is shown, which
+   * is how a run's result reaches the stripe it was earned on: the run is over by then and its
+   * score is in storage, so there is nothing to hand back here, only something to re-read.
+   *
+   * A level's share of its target is written twice over: as the number, and as how far along the
+   * stripe the solid colour reaches (--p, see the stylesheet). The fill is capped where the
+   * number is not — a stripe cannot be more than full, and a player who beats the bot should
+   * still get to watch the figure climb.
+   *
+   * A level never finished shows nothing at all rather than "0%": an empty stripe already says
+   * it, and a column of zeroes reads as seven failures rather than seven levels to come.
+   */
+  function update() {
+    scoreLabels.forEach((scoreLabel, index) => {
+      const best = getBestScore(index);
+      const percent = best && getPercent(index, best);
+      scoreLabel.textContent = percent ? `${percent}%` : "";
+      stripes[index].style.setProperty("--p", `${Math.min(percent, 100)}%`);
+    });
+    // A level nobody has finished has no random board on offer: the die is what you do with a
+    // level once you have played it, and offering it first would make the level itself optional.
+    if (HAS_GAMEPLAY_NICE_TO_HAVES) diceButton!.classList.toggle(CssClass.HIDDEN, !getBestScore(pickedIndex));
   }
 
   // Where the screen opens. A stored board that this build no longer offers finds no index, and
@@ -134,5 +212,5 @@ export function LaunchScreenComponent(onPlay: (size: number) => void): HTMLEleme
   // bottom of the ladder, which is what the floor at 0 says in one expression.
   pick(Math.max(0, MAP_SIZES.indexOf(Number(getLocalStorageItem(LocalStorageKey.SIZE)))));
 
-  return host;
+  return [host, update];
 }

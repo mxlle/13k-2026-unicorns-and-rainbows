@@ -1,20 +1,20 @@
 @use "../../theme";
 
-// PLACEHOLDER: how solid a stripe is before anything has been earned on it. The plan is for
-// this to climb with the level's score, at which point it becomes a custom property the
-// component sets per stripe and this value is its floor — the stripes read as a rainbow
-// being filled in rather than one that is simply there.
-// It is not as pale as it sounds: the page behind it is nearly black, so a third of the way
-// is already dim, and much below this the band stops reading as a rainbow at all.
-$solidity: 0.45;
-// What a stripe goes to under the pointer — far enough above $solidity to read as a
-// response, not so far that hovering looks like the level has been earned.
-$hover-solidity: 0.6;
-// The picked stripe. It has to sit above $hover-solidity or a stripe would go dimmer the
-// moment it was chosen. NOTE that this shares a channel with the score-driven solidity that
-// is coming: when that lands, the pick will need a look of its own — its ring, a brightness,
-// something that is not "how full is this stripe" — or the two will read as the same thing.
-$picked-solidity: 0.85;
+// A stripe is the level's own progress bar: solid as far as the best score got towards the
+// target, the pale floor the rest of the way (--p is where the one becomes the other; see the
+// component). So the band fills in as the ladder is climbed rather than simply being there,
+// and a screen of levels is read at a glance without a figure being compared to anything.
+//
+// PLACEHOLDER pair. The floor is not as pale as it sounds — the page behind it is nearly
+// black, so this already reads as a coloured band — but it has to stay far enough under the
+// earned colour that the boundary between them is unmistakable at a glance.
+$empty-solidity: 0.18;
+$earned-solidity: 0.8;
+// The pointer and the pick, which are now the one thing a stripe says that is *not* how full it
+// is — so both are brightness rather than solidity, and neither can be mistaken for progress.
+// The pick is the smaller lift of the two because it also has a ring; hover has only this.
+$hover-lift: 1.25;
+$picked-lift: 1.12;
 
 // The gap between stripes, and the same value again as the breathing room around the whole
 // band so the outer stripes are not pressed against the window edge. Small on purpose: the
@@ -34,10 +34,10 @@ $stripe-gap: 0.4rem;
 }
 
 // One band per board, sharing the height equally however many there are. A flex row rather
-// than a centred box: the picked stripe grows a button at its end, and the label has to make
+// than a centred box: the picked stripe grows its offer at the end, and the label has to make
 // room for it rather than sit underneath it.
 .stripe {
-  position: relative; // on a wide screen the play button pins itself to the end of this
+  position: relative; // on a wide screen the offer pins itself to the end of this
   flex: 1;
   display: flex;
   align-items: center;
@@ -49,24 +49,34 @@ $stripe-gap: 0.4rem;
   // radius is invisible, and it is the corners doing the work of saying "these are seven
   // separate things you pick between".
   border-radius: 1rem;
-  // --h is the only per-stripe value; see the component. The alpha is what makes the rainbow
-  // pale to begin with, and it is on the background rather than the element so the label
-  // keeps its own contrast over it.
+  // --h is the stripe's hue and --p how full it is; both are set per stripe by the component,
+  // and --p is why the fill is a gradient rather than a second element laid over the first —
+  // one property moves the boundary, and nothing has to be sized against the stripe's width.
+  // Two hard stops at the same position, so the edge is a clean line rather than a fade: this
+  // is a reading of a number, and a soft edge would make it look like an approximate one.
+  // The alpha is what makes the rainbow pale, and it is on the background rather than on the
+  // element so the label keeps its own contrast over it.
   // Legacy comma syntax, and it has to stay that way: lightningcss mis-parses the modern
   // `hsl(h s l / a)` form when the hue is a var() it cannot resolve — it reads the slash as a
   // division and folds the alpha into the lightness, which comes out white.
-  background: hsla(var(--h), 95%, 60%, $solidity);
-  transition: background-color 0.2s;
+  --p: 0%; // a level never played is an empty bar, whatever the component has got round to
+  background: linear-gradient(
+    90deg,
+    hsla(var(--h), 95%, 60%, $earned-solidity) var(--p),
+    hsla(var(--h), 95%, 60%, $empty-solidity) var(--p)
+  );
+  transition: filter 0.2s;
 
   @include theme.hover {
-    background: hsla(var(--h), 95%, 60%, $hover-solidity);
+    filter: brightness($hover-lift);
   }
 }
 
 // The picked stripe: written as two classes so it beats the single-class :hover rule above
-// on specificity, whatever the source order ends up being.
+// on specificity, whatever the source order ends up being. The ring is what actually says
+// "picked"; the lift is there so the answer to a tap is felt before it is read.
 .stripe.picked {
-  background: hsla(var(--h), 95%, 60%, $picked-solidity);
+  filter: brightness($picked-lift);
   box-shadow: inset 0 0 0 2px theme.$text-primary;
 }
 
@@ -104,17 +114,26 @@ $stripe-gap: 0.4rem;
     margin-left: auto;
   }
 
-  .play {
+  .actions {
     position: absolute;
     right: 1rem;
   }
+}
+
+// Both offers, side by side at the end of the picked stripe: the level's own board, and — once
+// that has been finished — the same size dealt again. One box rather than two loose buttons
+// because on a wide stripe the offer comes out of the flow as one thing (see above).
+.actions {
+  flex-shrink: 0; // the label gives way first; the offer never wraps or shrinks
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 // The offer, at the end of the picked stripe. Dark rather than tinted, because it has to
 // read on any hue the stripe under it happens to be — which the game's own button
 // backgrounds, all pale washes of white, would not.
 .play {
-  flex-shrink: 0; // the label gives way first; the offer never wraps or shrinks
   white-space: nowrap;
   background: theme.$dialog-bg;
 

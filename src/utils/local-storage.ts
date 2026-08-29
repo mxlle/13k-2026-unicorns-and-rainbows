@@ -9,7 +9,7 @@ const LOCAL_STORAGE_PREFIX = "mxlle";
 export type LocalStorageKey = defineEnum<typeof LocalStorageKey>;
 export const LocalStorageKey = defineEnum({
   MUTED: "m",
-  LEVEL: "l",
+  SCORES: "l", // the best score on each level's own board, comma-joined and indexed by level
   SIZE: "s1", // the board the launch screen is offering next — one rung above the last one played
 });
 

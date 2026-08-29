@@ -92,8 +92,17 @@ jobs:
 
       - run: npm ci
 
-      - name: Build js13k zip
+      # Reported, not enforced: this is the size without the Roadroller crunch, and knowing it
+      # is knowing how much of the budget is being carried by an eval. It is over the limit on
+      # purpose — see the note on the enforced step below.
+      - name: Report un-packed js13k size
         run: npm run build-js13k
+
+      # What actually ships. Roadroller is worth ~1.25 kB and the entry does not fit without it,
+      # so it is the packed zip that has to be under 13 kB — gating on the un-packed one would
+      # fail every push while measuring a file nobody submits.
+      - name: Build js13k zip (Roadroller)
+        run: npm run build-js13k-roadroller
 
       - name: Enforce 13 kB limit
         run: node scripts/package.js --report-only --check

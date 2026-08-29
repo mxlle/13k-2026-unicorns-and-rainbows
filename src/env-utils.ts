@@ -10,6 +10,10 @@ const IS_JS13K = import.meta.env.IS_JS13K === "true";
 // every frame is the worst thing on the page for. The static dark background and the
 // reduced-motion override are in globals.scss and ship everywhere.
 export const HAS_VISUAL_NICE_TO_HAVES = !IS_JS13K && !IS_POKI_ENABLED;
+// The random board: the 🎲 on a finished level's stripe, which deals its size again from a
+// fresh seed. Replay value rather than game — it scores nothing and earns nothing — so it is
+// the first thing to be worth its bytes outside the competition build and not in it. The poki
+// build gets it too: that audience plays for as long as there is something to play.
 export const HAS_GAMEPLAY_NICE_TO_HAVES = !IS_JS13K;
 export const HAS_ADVANCED_DEBUGGING = !IS_JS13K;
 // Tools for looking at the game rather than playing it. Tied to the dev server rather than to

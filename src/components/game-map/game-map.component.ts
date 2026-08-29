@@ -2,7 +2,7 @@ import styles from "./game-map.module.scss";
 import { createButton, createElement, createElements } from "../../utils/html-utils";
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
-import { HAS_DEV_TOOLS, HAS_OPPONENT } from "../../env-utils";
+import { HAS_DEV_TOOLS, HAS_GAMEPLAY_NICE_TO_HAVES, HAS_OPPONENT } from "../../env-utils";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
@@ -38,6 +38,7 @@ import {
   isRunOver,
   isSeen,
   MAP_SIZE,
+  MAP_SIZES,
   moveCharacter,
   MOVE_COST,
   nextTurn,
@@ -50,6 +51,7 @@ import {
   updateRainbows,
 } from "../../game/game-map";
 import { ChestLoot, GameObjectType, OBJECT_CONFIG, PLAYER, RIVAL, SIDE_BATHTUB, SIDE_UNICORN } from "../../game/game-objects";
+import { getPercent, LEVEL_SEEDS, setBestScore } from "../../game/levels";
 import {
   applyBotAction,
   BOT_STRATEGIES,
@@ -90,6 +92,12 @@ const CANDY_EMOJI = "🍬";
 // unicorns found. Exploration is not in here — it is what each of the two is worth rather
 // than a third of them, so the panel gives it a line of its own at the top.
 const SCORE_EMOJIS = [OBJECT_CONFIG[GameObjectType.RAINBOW].emoji, OBJECT_CONFIG[GameObjectType.UNICORN].emoji];
+// The same board again, on the button that starts it over.
+const RETRY_EMOJI = "🔁";
+// The level's target, in the row that says how near the run came to it. A target rather than a
+// second ⭐: the score above it is already the star's own number, and this row is what that
+// number was being measured against.
+const TARGET_EMOJI = "🎯";
 const WIN_EMOJI = "🎉";
 // The ending that is no longer a celebration. Only reachable on a board with an opponent on
 // it — without one there is nobody to come second to, and WIN_EMOJI is the only ending there is.
@@ -195,13 +203,24 @@ function flyGlyph(emoji: string, [x, y]: number[], keyframe: Keyframe, options: 
 // The usual [host, update] tuple plus the controls that belong in the header — the status
 // chip and the zoom steps. They are part of the run, so the game owns them; only their place
 // in the DOM is elsewhere.
-// `onExit` is the way back out to the launch screen, which is where a board is chosen: this
-// component is handed one to play and never picks its own.
+// `onExit` is the way back out to the launch screen, which is where a level is chosen: this
+// component is handed one to play and never picks its own. The one board it deals for itself is
+// the random one behind the 🎲, and that is the same level again rather than a different one.
 export function GameMapComponent(
   onExit: () => void,
-): [hostElement: HTMLElement, startNewGame: (size: number, seed?: number) => void, headerControls: HTMLElement] {
+): [hostElement: HTMLElement, startNewGame: (level: number, random?: boolean) => void, headerControls: HTMLElement] {
   let map: GameMap;
   let isRunning = false;
+  // Which rung of the ladder is being played, and whether it is being played on its own board.
+  // Both are settled when the run starts and read again when it ends: the level says which
+  // record a score belongs to and which target it is measured against, and the flag says
+  // whether it counts at all — a random deal is the same size, not the same level.
+  let level = 0;
+  let isRandom = false;
+  // The board on the screen, as the number it was built from. Kept because 🔁 is "this map
+  // again" rather than "this level again": on a random deal (see startNewGame) those are two
+  // different boards, and it is the one just played that a second go is worth anything on.
+  let seed = 0;
   // Two-tap navigation: tap an object to select it, then — if it is a character that
   // can afford a step — tap one of its highlighted neighbours to move there.
   let selected: Position | undefined;
@@ -311,6 +330,14 @@ export function GameMapComponent(
   // once it is over. Which board to play next is that screen's question, not this bar's —
   // there are seven of them now, and they are the stripes of the rainbow over there.
   const endTurnButton = createButton({ onClick: () => (isRunning ? finishTurn() : onExit()) });
+  // The board just played, from the top: the same map, the same opening, the same seed. What
+  // ends a run is a plan running out of turns, and the second go at a plan is where the first
+  // one is worth anything — so this sits beside the way out and is offered before it.
+  // Hidden while the run is on, which is what makes it a thing you do *after* a level.
+  const retryButton = createButton({ cssClass: CssClass.SECONDARY, onClick: () => startRun(seed) }, [
+    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: RETRY_EMOJI }),
+    ` ${getTranslation(TranslationKey.RETRY)}`,
+  ]);
   // How far through the turns, next to the button that spends them. It is the one number that
   // stayed down here when the scores went up to the chip: the clock and the thing that moves
   // the clock on belong together, and the turn bar is otherwise all controls.
@@ -571,6 +598,7 @@ export function GameMapComponent(
     zoomOutButton,
     zoomInButton,
     turnDisplay,
+    retryButton,
     endTurnButton,
   ]);
   const hostElement = createElement({ cssClass: styles.host }, [mapArea, infoPanel, turnBar]);
@@ -817,8 +845,10 @@ export function GameMapComponent(
     // It is disabled either way (see isLocked), so this changes what it says, not what it does —
     // and it says it where the player last pressed, which is where they are looking.
     if (HAS_OPPONENT && isRivalTurn) endTurnButton.replaceChildren(rivalTurnGlyph!);
-    else endTurnButton.textContent = getTranslation(isOver ? TranslationKey.NEW_GAME : TranslationKey.END_TURN);
+    else endTurnButton.textContent = getTranslation(isOver ? TranslationKey.LEVELS : TranslationKey.END_TURN);
     endTurnButton.disabled = isLocked(); // no second turn until this one is paid out and the rival has moved
+    // Only once the run is over. During it the bar is what you do with the turn you have.
+    retryButton.classList.toggle(CssClass.HIDDEN, !isOver);
     // Ending a turn is one step among many; starting the next run is the whole screen.
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
@@ -969,6 +999,13 @@ export function GameMapComponent(
     // "here is the rate, here is what each of yours earns at it, here is the sum". Nothing is
     // taken off anything, so every point in the total plainly belongs to something built.
     const rate = getExploration(map, PLAYER);
+    // What the run was worth as a level: its score as a share of the level's target, which is
+    // the same figure the stripe on the launch screen fills to. Only once the run is over,
+    // because it is a result and not a rate — the rows above are what the board is worth this
+    // instant, and this is what the instant it ends means. And nothing at all on a random
+    // board: its size is a level's, but its map is nobody's, and a score on it has no target to
+    // be a share of (see setBestScore).
+    const targetLine = isRunning || isRandom ? [] : [line(TARGET_EMOJI, ` ${getPercent(level, getScore(map, PLAYER))}%`)];
     // The rival's total gets a row of its own under the player's, and only its total: it is
     // playing off its own clouds, so its working is arithmetic over a board the player has
     // never seen and would explain nothing. What the row is for is the gap.
@@ -982,6 +1019,7 @@ export function GameMapComponent(
             ...getScoreParts(map, PLAYER).map((count, index) => line(SCORE_EMOJIS[index], ` ${count} × ${rate} = ${count * rate}`)),
             line(SCORE_EMOJI, ` ${getScore(map, PLAYER)}`),
             ...rivalLine,
+            ...targetLine,
           ]
         : []),
     );
@@ -1383,7 +1421,12 @@ export function GameMapComponent(
       HAS_OPPONENT && HAS_RIVAL ? (isWon ? TranslationKey.WON_RACE : TranslationKey.LOST_RACE) : TranslationKey.WON,
       isWon ? WIN_EMOJI : LOSE_EMOJI,
     );
-    infoText.textContent += ` ${getScore(map, PLAYER)}`; // the text ends ready for the number
+    const score = getScore(map, PLAYER);
+    // The level's record, and only from its own board: the stars stand for the one map every
+    // player is dealt, so a random deal cannot hand them out. Written before the panel is drawn
+    // rather than after, because the launch screen reads its stripes back out of this.
+    if (!isRandom) setBestScore(level, score);
+    infoText.textContent += ` ${score}`; // the text ends ready for the number
     showsScore = false; // the result owns the panel now; there is nothing left to toggle
     renderScoreBoard(true); // the total above, its working below — and the rival's total under that
     render();
@@ -1391,11 +1434,26 @@ export function GameMapComponent(
     pubSubService.publish(PubSubEvent.GAME_END, { isWon });
   }
 
-  // The board to play comes from the launch screen. Passing a seed as well replays exactly
-  // that map; leaving it out deals a new one — replaying the map just played needs no
-  // snapshot, only remembering the number it was built from.
-  function startNewGame(size: number, seed = createSeed()) {
-    map = createGameMap(seed, size); // sets MAP_SIZE and HAS_RIVAL, so everything below reads the new board
+  // The level to play comes from the launch screen, as a rung rather than a board: the size and
+  // the seed both hang off it (see game/levels.ts), and so does the record the run will be
+  // written into. `random` swaps that seed for a fresh one — the same board size dealt again,
+  // which scores nothing and is offered once the level's own board has been finished.
+  function startNewGame(playedLevel: number, random = false) {
+    level = playedLevel;
+    isRandom = random;
+    // The flag first, so that a build without the random board folds the whole branch away and
+    // takes createSeed out with it — the level's own seed is then the only board there is.
+    startRun(HAS_GAMEPLAY_NICE_TO_HAVES && random ? createSeed() : LEVEL_SEEDS[level]);
+  }
+
+  /**
+   * Opens a board. Split from startNewGame because 🔁 comes back through here on its own: which
+   * level is being played and whether it counts are settled up there and stay settled, and this
+   * is only the map being dealt again.
+   */
+  function startRun(newSeed: number) {
+    seed = newSeed;
+    map = createGameMap(seed, MAP_SIZES[level]); // sets MAP_SIZE and HAS_RIVAL, so everything below reads the new board
     // The bot rolls on a generator of its own — see bot.ts — and it is seeded from the map
     // so that the same board played by the same bot plays out the same way twice. It has to
     // be reset for the opponent as well as for the dev tools now: the memory it keeps between

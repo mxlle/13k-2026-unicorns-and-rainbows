@@ -22,6 +22,12 @@ $picked-lift: 1.12;
 // unrelated bars.
 $stripe-gap: 0.4rem;
 
+// Capped on both axes and centred in whatever is left, rather than filling the window. A
+// level selector reads worst at exactly the size that gives it the most room: stretched over a
+// desktop monitor, seven stripes become seven very long, very thin bands with a number at one
+// end and a button at the other, and the ladder stops being one object the eye takes in at
+// once. The 100% width and height are what the caps bite against, and the auto margin is what
+// centres the block once they have.
 .host {
   // The easiest board is the first in MAP_SIZES and belongs at the bottom, so the column is
   // reversed rather than the list — the order the game thinks in stays the order it is written in.
@@ -42,7 +48,6 @@ $stripe-gap: 0.4rem;
 // than a centred box: the picked stripe grows its offer at the end, and the label has to make
 // room for it rather than sit underneath it.
 .stripe {
-  position: relative; // on a wide screen the offer pins itself to the end of this
   flex: 1;
   display: flex;
   align-items: center;
@@ -85,10 +90,11 @@ $stripe-gap: 0.4rem;
   box-shadow: inset 0 0 0 2px theme.$text-primary;
 }
 
-// Left on a phone, and left whether the stripe is picked or not: there the button takes most
-// of the row, so a centred label would have to jump aside for it every time the pick moved.
-// The shadow is what keeps white text readable across the whole band: a picked stripe is
-// nearly solid, and at the yellow end of the rainbow that is a very light background.
+// Left on every screen, and left whether the stripe is picked or not: the level number is what
+// the eye runs down, and a column of them only reads as a column if every row starts it in the
+// same place. The auto margin is what pushes the offer to the other end.
+// The shadow is what keeps white text readable across the whole band: a stripe played to its
+// target is nearly solid, and at the yellow end of the rainbow that is a very light background.
 .label {
   margin-right: auto;
   white-space: nowrap;
@@ -119,9 +125,10 @@ $stripe-gap: 0.4rem;
   font-weight: bold;
 }
 
-// The same condition the board's own layout switches on — a window with room to put things
-// beside each other. See theme.sidePanels: a short landscape frame counts as one of those, and
-// on a stripe of that shape there is plenty of width for label and button side by side.
+// The same condition the board's own layout switches on — a window with room to spare. See
+// theme.sidePanels: a short landscape frame counts as one of those. Nothing is laid out
+// differently here any more; the offer sits at the end of the stripe at every size. What the
+// room buys is the two emoji back, and a wider gap between the parts of the label.
 @include theme.sidePanels {
   // Room for the emoji again, and for the label to breathe.
   .optional {
@@ -135,7 +142,7 @@ $stripe-gap: 0.4rem;
 
 // Both offers, side by side at the end of the picked stripe: the level's own board, and — once
 // that has been finished — the same size dealt again. One box rather than two loose buttons
-// because on a wide stripe the offer comes out of the flow as one thing (see above).
+// because the pick moves it from stripe to stripe, and one element moves in one append.
 .actions {
   flex-shrink: 0; // the label gives way first; the offer never wraps or shrinks
   display: flex;

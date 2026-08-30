@@ -37,8 +37,10 @@ const WARM_BIAS = 1.4;
  * committing to it are the same gesture leaves nowhere to put that. It also means the board a
  * run is about to be played on is stated before it starts.
  *
- * A stripe is a level: one fixed board, the same for every player, and the stars earned on it
- * (see game/levels.ts). Once it has been finished the stripe also offers the 🎲 — the same
+ * A stripe is a level: one fixed board, the same for every player, and how near its best run
+ * came to that level's target — written twice over, as a percentage and as how far along the
+ * stripe the solid colour reaches (see game/levels.ts). Once it has been finished it also
+ * offers the 🎲 — the same
  * size dealt from a fresh seed, which scores nothing and is there to be played for its own
  * sake. Which is why the offer is two buttons and not one: the level is the thing with a
  * record attached, and the random board is the thing to do once the record is set.
@@ -80,7 +82,7 @@ export function LaunchScreenComponent(onPlay: (level: number, random?: boolean) 
   /**
    * The other board: this level's size dealt from a fresh seed, offered only on a stripe that
    * has been finished — it is a thing to do *with* a level, and a level nobody has played yet
-   * has nothing to do it with. It scores nothing and earns no stars; see game/levels.ts.
+   * has nothing to do it with. It scores nothing and fills no stripe; see game/levels.ts.
    *
    * The click has to be stopped: the whole picked stripe starts its own board, and without this
    * a tap on the die would be a tap on the stripe as well, which starts a run and then replaces
@@ -106,28 +108,27 @@ export function LaunchScreenComponent(onPlay: (level: number, random?: boolean) 
   const diceButton = HAS_GAMEPLAY_NICE_TO_HAVES ? createDiceButton() : undefined;
 
   // Both offers in one box, moved into the picked stripe together. A wrapper rather than two
-  // buttons moved side by side because on a wide screen the offer is lifted out of the flow and
-  // pinned to the end of the stripe (see .actions) — two absolutely positioned buttons would be
-  // pinned to the same place.
+  // loose buttons because it is the pick that moves them: appending one element puts both into
+  // the new stripe and takes both out of the old one, an element being in one place at a time.
   const actions = createElement({ cssClass: styles.actions }, [playButton, ...(diceButton ? [diceButton] : [])]);
 
   const host = createElement(
     { cssClass: styles.host },
     MAP_SIZES.map((size, index) => {
-      // The label is wrapped rather than dropped straight into the stripe: it has to centre
-      // and give way as one thing when the play button lands beside it, and a bare text node
-      // would be a flex item of its own.
+      // The label is wrapped rather than dropped straight into the stripe: it has to give way
+      // as one thing when the offer lands beside it, and a bare text node would be a flex item
+      // of its own.
       // What is in it is the rung's number first and biggest — that is what a level selector
       // is a list of, and it is the one thing that will still be true once the stripes stop
       // being seven sizes of the same generator. The board comes second and smaller, as the
       // detail about the level rather than its name, and states both axes because "9" alone
       // reads as an amount of something rather than as how big the map is.
       // The ladder runs 5 to 25, so the dimensions are three characters wide on the bottom
-      // three rungs and five on the rest — and on a wide screen, where the label is centred,
-      // that difference walks the level number sideways as the eye goes down the column.
-      // Padding the short ones out to the same width is what holds it still; the page is set
-      // in a monospace face, so one character is one exact amount of space and this comes out
-      // straight rather than nearly straight.
+      // three rungs and five on the rest. Unpadded, the × — and with it the score that follows
+      // it — would sit at two different places down the column. Padding the short ones out to
+      // the same width is what lines them up; the page is set in a monospace face, so one
+      // character is one exact amount of space and this comes out straight rather than nearly
+      // straight.
       // The padding goes on the outside of the pair rather than in front of each half, so
       // "5×5" stays tight around its × and it is the slack that is centred. No-break spaces
       // because ordinary ones at the edges of a text node collapse away to nothing.
@@ -154,7 +155,7 @@ export function LaunchScreenComponent(onPlay: (level: number, random?: boolean) 
             `${left}×${right}`,
           ]),
           // Inside the label rather than beside it, so the whole of what a stripe *says* is one
-          // thing that centres and gives way as one — the offer is what sits apart from it.
+          // thing that gives way as one — the offer is what sits apart from it.
           scoreLabels[index],
         ]),
       ]);

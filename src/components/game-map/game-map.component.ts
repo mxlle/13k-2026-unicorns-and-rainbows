@@ -1434,9 +1434,9 @@ export function GameMapComponent(
       isWon ? WIN_EMOJI : LOSE_EMOJI,
     );
     const score = getScore(map, PLAYER);
-    // The level's record, and only from its own board: the stars stand for the one map every
-    // player is dealt, so a random deal cannot hand them out. Written before the panel is drawn
-    // rather than after, because the launch screen reads its stripes back out of this.
+    // The level's record, and only from its own board: a level's percentage stands for the one
+    // map every player is dealt, so a random deal cannot fill a stripe. Written before the panel
+    // is drawn rather than after, because the launch screen reads its stripes back out of this.
     if (!isRandom) setBestScore(level, score);
     infoText.textContent += ` ${score}`; // the text ends ready for the number
     showsScore = false; // the result owns the panel now; there is nothing left to toggle

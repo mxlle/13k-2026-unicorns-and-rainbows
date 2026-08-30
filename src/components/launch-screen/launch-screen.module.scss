@@ -100,6 +100,7 @@ $stripe-gap: 0.4rem;
   white-space: nowrap;
   text-shadow: 0 1px 3px #000;
   display: flex;
+  align-items: center;
   // Tight by default, opened up where there is room (see the side-panels block below). This is
   // the phone's value: the whole row — number, board, score, and the two buttons at the end of
   // it — has about a hundred pixels less to live in than it wants, and two gaps is the first

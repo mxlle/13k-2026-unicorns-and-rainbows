@@ -18,7 +18,7 @@ import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../ut
  * unicorns, no cloud left — and half the seeds have no way to reach it: the second unicorn is
  * in the present, and a present without one in it caps the board at 176 whatever anybody does.
  * Level 1 is where the whole loop is taught, so it is a board where the loop can actually be
- * completed, and its bot score (384) is a target with something in it rather than a formality.
+ * completed, which is what makes its ceiling a target worth setting (see LEVEL_TARGETS).
  *
  * **These are tied to the generation code.** Everything in createGameMap comes off the one
  * seeded generator in the order it is rolled, so adding, removing or reordering a roll builds
@@ -28,21 +28,38 @@ import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../ut
 export const LEVEL_SEEDS = [10, 12, 8, 14, 11, 35, 16];
 
 /**
- * What 100% is worth on each level: the score the `mixed` bot came out at on that exact seed.
- * So full marks is "play the board as well as the game's own opponent does" — a bar that means
- * the same thing on every rung and can be re-derived whenever the economy moves, from the same
- * bot, the same seed and the same command.
+ * What 100% is worth on each level: the best run played on that board. These started out as the
+ * `mixed` bot's own scores and are now Almut's, which is a change of meaning as much as of
+ * number — full marks is "as well as this board has ever been played" rather than "as well as
+ * the game's opponent plays it", and the bar moves when somebody plays better.
+ *
+ * Level 1 is the exception and always will be: 400 is the board's ceiling — two rainbows, two
+ * unicorns, no cloud left (see LEVEL_SEEDS) — so its 100% is perfection rather than a best.
+ *
+ * Where the bot now sits, which is the honest measure of how hard these are: 96% on the
+ * tutorial, then 80 / 76 / 66 / 68 / 61 / 78. So from the 13x13 up, matching the bot is worth
+ * about two thirds of a level, and the 21x21 is the steepest board on the ladder.
+ *
+ * **Updating one after a better run:** multiply the old target by the percentage the run came
+ * out at. It pins exactly, and not by luck — the panel rounds the percentage to a whole number,
+ * so a reading of p% puts the score inside a band half a percent wide either way, and getPercent
+ * rounds by the same half percent. For any p at or above 100 the whole band comes back out as
+ * 100%, whatever the score inside it actually was.
+ *
+ * The bot scores these replaced, for when the economy moves and the ladder has to be re-read:
+ * 384, 960, 1092, 1512, 2565, 4180, 5952 — same seeds, `npm run bot -- --size=N --seed=S`.
  */
-export const LEVEL_TARGETS = [400, 960, 1092, 1512, 2565, 4180, 5952];
+export const LEVEL_TARGETS = [400, 1200, 1441, 2283, 3796, 6897, 7619];
 
 /**
  * A score as its share of the level's target, as a whole percent. It is what fills the level's
  * stripe on the launch screen and what closes the score panel at the end of a run.
  *
- * Not capped. 100% is the bot's own result and a fine place to stop, but a board played better
- * than that is the one number a player has to chase once the ladder has been climbed, and a
- * percentage that stops at full would quietly throw it away. The *bar* is capped — a stripe
- * cannot be more than full — which is the launch screen's business rather than this one's.
+ * Not capped. 100% is the best run there has been and a fine place to stop, but a board played
+ * better than that is the one number a player has to chase once the ladder has been climbed,
+ * and a percentage that stops at full would quietly throw it away — it is also how the targets
+ * above get updated. The *bar* is capped — a stripe cannot be more than full — which is the
+ * launch screen's business rather than this one's.
  */
 export function getPercent(level: number, score: number): number {
   return ((score * 100) / LEVEL_TARGETS[level] + 0.5) | 0;

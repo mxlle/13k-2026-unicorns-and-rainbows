@@ -88,11 +88,25 @@ $stripe-gap: 0.4rem;
   margin-right: auto;
   white-space: nowrap;
   text-shadow: 0 1px 3px #000;
-  // The two halves sit on one line and on one baseline, so the small half hangs off the big
+  // The three parts sit on one line and on one baseline, so the small ones hang off the big
   // number rather than floating in the middle of its height.
   display: flex;
   align-items: baseline;
-  gap: 1rem;
+  // Tight by default, opened up where there is room (see the side-panels block below). This is
+  // the phone's value: the whole row — number, board, score, and the two buttons at the end of
+  // it — has about a hundred pixels less to live in than it wants, and two gaps is the first
+  // place to find some of them without anything having to be dropped.
+  gap: 0.6rem;
+}
+
+// The two emoji in the stripe — the 🗺️ in front of the board's dimensions and the 🦄 on the
+// play button — which are what a narrow stripe drops. They are the only things on the row that
+// carry no information the row does not already carry in words: the dimensions are the board,
+// the word is the offer, and the level number and the score have nothing to spare.
+// Written mobile-first — hidden here and restored below — because the crowded row is the
+// default case and the roomy one is the exception.
+.optional {
+  display: none;
 }
 
 // The rung's number, and the biggest thing on the screen. Nothing here pins its width: the
@@ -117,6 +131,15 @@ $stripe-gap: 0.4rem;
   .actions {
     position: absolute;
     right: 1rem;
+  }
+
+  // Room for the emoji again, and for the label to breathe.
+  .optional {
+    display: inline;
+  }
+
+  .label {
+    gap: 1rem;
   }
 }
 

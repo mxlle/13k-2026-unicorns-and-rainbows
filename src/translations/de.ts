@@ -10,7 +10,7 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.END_TURN]: "Zug beenden",
     [TranslationKey.LEVELS]: "Levels",
     [TranslationKey.RETRY]: "Nochmal",
-    [TranslationKey.PLAY]: "Jetzt spielen",
+    [TranslationKey.PLAY]: "Spielen",
     [TranslationKey.INFO_UNICORN]: "Einhorn|Dein Entdecker. Tippe ein helles Feld an — laufen kostet 💧 und vertreibt ☁️.",
     [TranslationKey.INFO_UNICORN_SHINE]: "Es leuchtet. Stell es so auf: 🦄⛲🌈. Jedes ✨ (3 Züge leuchten) macht seinen 🌈 wertvoller.",
     [TranslationKey.INFO_RAINBOW]: "Regenbogen|Er zählt, solange er leuchtet. Neben einem 🍭 macht er 🍬, sonst 💧.",

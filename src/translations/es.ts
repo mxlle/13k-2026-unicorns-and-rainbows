@@ -12,7 +12,7 @@ export function getEsTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.END_TURN]: "Terminar turno",
     [TranslationKey.LEVELS]: "Niveles",
     [TranslationKey.RETRY]: "Reintentar",
-    [TranslationKey.PLAY]: "Jugar ahora",
+    [TranslationKey.PLAY]: "Jugar",
     [TranslationKey.INFO_UNICORN]: "Unicornio|Tu explorador. Toca una casilla iluminada — caminar cuesta 💧 y despeja ☁️.",
     [TranslationKey.INFO_UNICORN_SHINE]: "Brilla. Alinéalo así: 🦄⛲🌈. Cada ✨ (3 turnos brillando) hace que su 🌈 valga más.",
     [TranslationKey.INFO_RAINBOW]: "Arcoíris|Suma puntos mientras brilla. Junto a un 🍭 hace 🍬, si no 💧.",

@@ -51,7 +51,7 @@ import {
   updateRainbows,
 } from "../../game/game-map";
 import { ChestLoot, GameObjectType, OBJECT_CONFIG, PLAYER, RIVAL, SIDE_BATHTUB, SIDE_UNICORN } from "../../game/game-objects";
-import { getPercent, LEVEL_SEEDS, setBestScore } from "../../game/levels";
+import { getPercent, LEVEL_SEEDS, LEVEL_TARGETS, setBestScore } from "../../game/levels";
 import {
   applyBotAction,
   BOT_STRATEGIES,
@@ -332,9 +332,14 @@ export function GameMapComponent(
   const endTurnButton = createButton({ onClick: () => (isRunning ? finishTurn() : onExit()) });
   // The board just played, from the top: the same map, the same opening, the same seed. What
   // ends a run is a plan running out of turns, and the second go at a plan is where the first
-  // one is worth anything — so this sits beside the way out and is offered before it.
-  // Hidden while the run is on, which is what makes it a thing you do *after* a level.
-  const retryButton = createButton({ cssClass: CssClass.SECONDARY, onClick: () => startRun(seed) }, [
+  // one is worth anything.
+  //
+  // It lives in the result panel, on a line of its own under the score's working, rather than
+  // in the turn bar beside the way out. The bar is a row of things that cannot wrap — the zoom
+  // steps, the clock, the button — and a fourth control in it pushed the way out off the edge
+  // of a narrow phone. The panel is the one part of the screen that is already growing to fit
+  // what a finished run has to say, so a button that only exists after a run belongs in it.
+  const retryButton = createButton({ cssClass: [CssClass.SECONDARY, styles.retry], onClick: () => startRun(seed) }, [
     createElement({ tag: "span", cssClass: CssClass.EMOJI, text: RETRY_EMOJI }),
     ` ${getTranslation(TranslationKey.RETRY)}`,
   ]);
@@ -598,7 +603,6 @@ export function GameMapComponent(
     zoomOutButton,
     zoomInButton,
     turnDisplay,
-    retryButton,
     endTurnButton,
   ]);
   const hostElement = createElement({ cssClass: styles.host }, [mapArea, infoPanel, turnBar]);
@@ -847,8 +851,6 @@ export function GameMapComponent(
     if (HAS_OPPONENT && isRivalTurn) endTurnButton.replaceChildren(rivalTurnGlyph!);
     else endTurnButton.textContent = getTranslation(isOver ? TranslationKey.LEVELS : TranslationKey.END_TURN);
     endTurnButton.disabled = isLocked(); // no second turn until this one is paid out and the rival has moved
-    // Only once the run is over. During it the bar is what you do with the turn you have.
-    retryButton.classList.toggle(CssClass.HIDDEN, !isOver);
     // Ending a turn is one step among many; starting the next run is the whole screen.
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
@@ -1005,7 +1007,16 @@ export function GameMapComponent(
     // instant, and this is what the instant it ends means. And nothing at all on a random
     // board: its size is a level's, but its map is nobody's, and a score on it has no target to
     // be a share of (see setBestScore).
-    const targetLine = isRunning || isRandom ? [] : [line(TARGET_EMOJI, ` ${getPercent(level, getScore(map, PLAYER))}%`)];
+    // The target in brackets after the share of it, because the share alone is a number with
+    // nothing behind it: "87%" says how the run went, "87% (6897)" also says what finishing the
+    // job would take — and the score two rows above is in the same units as the figure in the
+    // brackets, so the two can be read against each other.
+    const targetLine =
+      isRunning || isRandom ? [] : [line(TARGET_EMOJI, ` ${getPercent(level, getScore(map, PLAYER))}% (${LEVEL_TARGETS[level]})`)];
+    // The way back into the board just played, last and under everything the result has to say.
+    // Only once there is a result: mid-run this panel is the score's working, and there is
+    // nothing to go back to.
+    const retryLine = isRunning ? [] : [retryButton];
     // The rival's total gets a row of its own under the player's, and only its total: it is
     // playing off its own clouds, so its working is arithmetic over a board the player has
     // never seen and would explain nothing. What the row is for is the gap.
@@ -1020,6 +1031,7 @@ export function GameMapComponent(
             line(SCORE_EMOJI, ` ${getScore(map, PLAYER)}`),
             ...rivalLine,
             ...targetLine,
+            ...retryLine,
           ]
         : []),
     );

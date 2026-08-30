@@ -361,6 +361,16 @@ $win-hop-height: 2rem;
   white-space: nowrap; // never breaks between what is being built and its price
 }
 
+// The way back into the board just played, on a line of its own at the foot of the result.
+// Centred rather than stretched: the rows above it are lines of text centred in the panel, and
+// a button pulled out to the full width of the panel would read as the panel's own footer
+// rather than as one more thing the result has to offer. The gap is what keeps it from looking
+// like a sixth row of the working.
+.retry {
+  justify-self: center;
+  margin-top: 0.4rem;
+}
+
 .infoName {
   margin: 0 0.4em; // the only separator between emoji, name and description
   font-size: 1rem;

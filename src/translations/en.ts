@@ -11,7 +11,7 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.END_TURN]: "End turn",
   [TranslationKey.LEVELS]: "Levels",
   [TranslationKey.RETRY]: "Retry",
-  [TranslationKey.PLAY]: "Play now",
+  [TranslationKey.PLAY]: "Play",
   // PLACEHOLDER wording — "Name|Description", split at the pipe by the info panel.
   // Plain, short words: many players will not be native speakers.
   //

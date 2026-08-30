@@ -1383,7 +1383,11 @@ export function GameMapComponent(
    */
   function markRivalAction(position?: Position) {
     rivalMark?.classList.remove(styles.acting);
-    rivalMark = position && tileElements[getIndex(position)];
+    // Only where the player can actually see it happen: under the clouds the ring would be the
+    // one thing on the board that reports the rival's position for free, which is the exact
+    // thing the fog is there to withhold. showsBeam is the same test the light is held to, so
+    // the dev-tools x-ray shows the ring for the same reason it shows everything else.
+    rivalMark = position && showsBeam(position) ? tileElements[getIndex(position)] : undefined;
     rivalMark?.classList.add(styles.acting);
   }
 

@@ -1,6 +1,7 @@
-// Optional extra crunch step for the js13k build: packs the bundled JS with
-// Roadroller and inlines it into index.html. Often saves 1-2 kB, but the
-// output is eval-based — ALWAYS test the resulting dist in a browser.
+// The crunch step of the competition build: packs the bundled JS with Roadroller
+// and inlines it into index.html. Worth ~1.25 kB, and the entry does not fit under
+// 13 kB without it — so this is what ships, not an optional extra. The output is
+// eval-based, so ALWAYS click through the resulting dist in a browser.
 // Usage: npm run build-js13k-roadroller
 import { readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";

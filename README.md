@@ -13,9 +13,12 @@ Requires Node.js ^20.19 or >=22.12.
 
 ```sh
 npm install
-npm start            # dev server
-npm run build-js13k  # competition zip + size report
+npm start                       # dev server
+npm run build-js13k-roadroller  # competition zip + size report
 ```
+
+The competition zip is the Roadroller-packed one — the entry no longer fits without that crunch.
+`npm run build-js13k` builds the same thing un-packed: faster and readable, but over the limit.
 
 ## Documentation
 

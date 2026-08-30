@@ -32,8 +32,13 @@ implementation support**. Creative decisions stay on Almut's side.
 
 - `npm start` — dev server (unminified, readable class names)
 - `npm run build` — "friends & family" build (all nice-to-haves, PWA manifest)
-- `npm run build-js13k` — competition build → `dist.zip` + size report
-- `npm run build-js13k-roadroller` — same + Roadroller-crunched JS inlined into the HTML (test in browser afterwards, it is eval-based!)
+- `npm run build-js13k-roadroller` — **the competition build**: the js13k build plus the
+  Roadroller crunch, inlined into the HTML → `dist.zip` + size report. This is the zip that
+  gets submitted and the only size that counts. It is eval-based, so click through the result
+  in a browser after anything that could break at startup
+- `npm run build-js13k` — the same build *without* the crunch. Faster, and readable in
+  `dist/index.html`, but it does not fit on its own any more — its number is the un-packed
+  size, i.e. how much of the budget Roadroller is currently carrying
 - `npm run build-poki` — Poki platform build (Poki SDK, no property mangling)
 - `npm run size` — re-report last `dist.zip` size without rebuilding
 - `npm run bot` — headless balancing runs: the bot plays every board with every strategy
@@ -48,12 +53,18 @@ implementation support**. Creative decisions stay on Almut's side.
 
 CI (`.github/workflows/build.yml`) runs typecheck, **`prettier --check`** (so unformatted code
 fails the build — run `npm run prettier`), the invariant lint, the friends-&-family build with a
-deploy to GitHub Pages, and a js13k build that **enforces the 13 kB limit**.
+deploy to GitHub Pages, and both js13k builds: the un-packed one is *reported* (it is over the
+limit on purpose), and the Roadroller one **enforces the 13 kB limit**.
 
-After **every** change while working on the js13k build, run `npm run build-js13k` and check the
-reported size. `scripts/package.js` prints a per-file breakdown, the diff to the previous build
-(tracked in `.size-history.json`, gitignored — competition builds only via `--track`, so poki
-builds don't pollute the diffs), and bytes left.
+After **every** change while working on the js13k build, run `npm run build-js13k-roadroller`
+and check the reported size — that is the zip that has to be under 13 kB.
+`scripts/package.js` prints a per-file breakdown, the diff to the previous build (tracked in
+`.size-history.json`, gitignored — competition builds only via `--track`, so poki builds don't
+pollute the diffs), and bytes left.
+
+**Both js13k scripts `--track` into the same history**, and they differ by ~1.25 kB, so
+alternating between them makes the "diff to previous build" line meaningless. Pick one and stay
+on it for a measuring session; when you do switch, throw the first diff away and read the second.
 
 `dist-analyzation/stats.html` draws a treemap of the bundle, but **do not trust its numbers**:
 under rolldown it reports modules that were tree-shaken away as though they shipped — the js13k
@@ -248,8 +259,9 @@ The unusual parts of this codebase exist to make minification maximally effectiv
 
 ## Byte-golfing guidelines
 
-- Measure, don't guess: `npm run build-js13k` after each change; the zip size is the only truth.
-  Minified+zipped size correlates poorly with source size — repetitive code compresses well.
+- Measure, don't guess: `npm run build-js13k-roadroller` after each change; the packed zip size
+  is the only truth. Minified+zipped size correlates poorly with source size — repetitive code
+  compresses well.
 - Prefer data-driven code (lookup tables keyed by enums) over branching; the map transformer and
   zip compression both love it.
 - **One non-literal value costs a whole map its compaction.** The AST transformer only rewrites a
@@ -300,13 +312,18 @@ The unusual parts of this codebase exist to make minification maximally effectiv
   `$'`, "$`" and `$1` in a replacement *string* are substitution patterns, and terser mangles
   identifiers to `$`, so a string replacement corrupts the bundle silently.
 - ECT zip recompression runs automatically in package.js (via the `ect-bin` npm package, so it
-  also works on CI) and is worth ~4%. Roadroller (`build-js13k-roadroller`) is the emergency
-  reserve for the last kilobyte — don't design around it. Measured at **-1348 bytes** with no
-  cost at startup (time-to-launch-screen over five runs: median 396 ms either way), and the
-  packed build plays correctly — but it is eval, so the risk is a browser or judging-host
-  policy taking 10% of the budget away on submission day. Build to fit *without* it and let it
-  be the margin that finishes features, not budget already spent. Run it and click through the
-  result regularly, so a break surfaces early.
+  also works on CI) and is worth ~4%. **Roadroller is no longer the reserve — it is the build.**
+  It was the emergency margin until the entry outgrew 13 kB without it; measured at
+  **-1264 bytes** (13,580 un-packed → 12,316 packed) with no cost at startup
+  (time-to-launch-screen over five runs: median 396 ms either way). Two things follow from
+  depending on it:
+  - It is `eval`. A browser or judging-host CSP that forbids eval takes the whole entry, not
+    10% of the budget, so **click through the packed build regularly** — a break has to surface
+    early, not on submission day. The un-packed number CI still reports is the size of that
+    exposure: while it stays above 13 kB, there is no un-packed fallback to submit.
+  - Its ratio is not stable. Roadroller models the bundle, so what it saves moves with what is
+    in it — a change can cost more packed than un-packed, or less. Read the packed delta,
+    never the un-packed one scaled by a remembered ratio.
 - HTML attributes count too: js13k strips `crossorigin`. The single-letter bundle names
   (`a.js`, `a.css`) now mostly matter as a fallback — `scripts/inline.js` folds both into
   `index.html` and deletes them, so the zip normally holds one entry whose name is fixed.

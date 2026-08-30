@@ -29,8 +29,13 @@ $stripe-gap: 0.4rem;
   flex-direction: column-reverse;
   gap: $stripe-gap;
   padding: $stripe-gap;
+  margin: auto;
   min-height: 0;
   overflow: hidden;
+  max-width: 960px;
+  max-height: 800px;
+  height: 100%;
+  width: 100%;
 }
 
 // One band per board, sharing the height equally however many there are. A flex row rather
@@ -88,10 +93,7 @@ $stripe-gap: 0.4rem;
   margin-right: auto;
   white-space: nowrap;
   text-shadow: 0 1px 3px #000;
-  // The three parts sit on one line and on one baseline, so the small ones hang off the big
-  // number rather than floating in the middle of its height.
   display: flex;
-  align-items: baseline;
   // Tight by default, opened up where there is room (see the side-panels block below). This is
   // the phone's value: the whole row — number, board, score, and the two buttons at the end of
   // it — has about a hundred pixels less to live in than it wants, and two gaps is the first
@@ -121,18 +123,6 @@ $stripe-gap: 0.4rem;
 // beside each other. See theme.sidePanels: a short landscape frame counts as one of those, and
 // on a stripe of that shape there is plenty of width for label and button side by side.
 @include theme.sidePanels {
-  // A wide stripe has room for both, so the button comes out of the flow and the label
-  // centres on the whole stripe — which means it sits in exactly the same place on every
-  // stripe, picked or not. That is the point: nothing about the row moves as the pick does.
-  .label {
-    margin-left: auto;
-  }
-
-  .actions {
-    position: absolute;
-    right: 1rem;
-  }
-
   // Room for the emoji again, and for the label to breathe.
   .optional {
     display: inline;

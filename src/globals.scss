@@ -113,7 +113,9 @@ button.#{$ICON_BTN} {
 }
 
 .#{$EMOJI} {
-  font-family: "Noto Color Emoji", sans-serif;
+  // temp disabled to test emojis in all browsers
+  // font-family: "Noto Color Emoji", sans-serif;
+  font-family: sans-serif;
 }
 
 // Nudges the player towards the next step — put it on whatever is the obvious

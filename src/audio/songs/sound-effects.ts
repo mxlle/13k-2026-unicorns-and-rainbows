@@ -1,5 +1,5 @@
 // The game's sound effects, in the SoundBox format the music uses. Sine-only (CPlayerSimple-safe).
-// Three instruments carry all of them: a bell, a whistle and a thump. Each effect is a tiny song
+// Four instruments carry all of them: a bell, a whistle, a thump and a hi-hat. Each effect is a tiny song
 // of its own so it can have its own tempo (rowLen), which is what makes a run of bell notes a
 // sparkle in one sound and a swoosh in another. Instruments cost bytes; notes are nearly free.
 //
@@ -7,8 +7,9 @@
 // rate (see sound-control-box.ts), which is what makes it the dark cousin.
 //
 // The first three are indexed by what they announce: DROPS 0 and CANDY 1 match the currency
-// indices (and so ChestLoot), UNICORN 2 matches ChestLoot.UNICORN — so a chest's loot value and a
-// payout's currency are both already the sound to play. Keep SoundEffect in step.
+// indices (and so ChestLoot) and are the same counting sound, UNICORN 2 matches ChestLoot.UNICORN —
+// so a chest's loot value and a payout's currency are both already the sound to play. Keep
+// SoundEffect in step.
 
 // Bright bell: osc2 an octave up, instant attack, exponential decay, a little echo.
 const bell = [0, 120, 128, 0, 0, 80, 140, 6, 0, 0, 3, 8, 50, 25, 0, 0, 0, 0, 0, 0, 2, 255, 0, 0, 50, 30, 3, 90, 2];
@@ -17,24 +18,21 @@ const bell = [0, 120, 128, 0, 0, 80, 140, 6, 0, 0, 3, 8, 50, 25, 0, 0, 0, 0, 0, 
 // short release a little drop at the end — a "wheee".
 const whistle = [0, 130, 128, 30, 0, 60, 152, 8, 30, 0, 60, 14, 40, 6, 0, 0, 0, 0, 0, 0, 2, 255, 0, 0, 50, 30, 3, 60, 2];
 
+// Hi-hat: pure noise through a highpass, a fast exponential decay of about 40 ms, no tone at all.
+const hihat = [0, 0, 128, 0, 0, 0, 128, 0, 0, 70, 2, 3, 22, 30, 0, 0, 0, 0, 0, 0, 1, 170, 0, 0, 64, 0, 0, 0, 0];
+
 // Thump: a low sine whose pitch falls with its envelope, over in a tenth of a second — a kick
 // at a low note, a "plop" at a higher one.
 const thump = [0, 200, 128, 60, 0, 0, 128, 0, 0, 0, 2, 8, 40, 60, 0, 0, 0, 0, 0, 0, 2, 60, 0, 0, 42, 0, 0, 0, 0];
 
-// 0 — drops landing in the purse: a falling plink, E6 to B5 (water).
-export const dropsSound = {
-  songData: [{ i: bell, p: [1], c: [{ n: [164, 159] }] }],
-  rowLen: 2756,
-  patternLen: 10,
-  endPattern: 0,
-  numChannels: 1,
-};
-
-// 1 — sweets landing in the jar: a rising blip, B5 to E6 (the old coin sound).
-export const candySound = {
-  songData: [{ i: bell, p: [1], c: [{ n: [158, 163] }] }],
-  rowLen: 2756,
-  patternLen: 10,
+// 0 and 1 — money being counted into the purse or the jar, drops and sweets alike: three hi-hat
+// ticks a tenth of a second apart. Toneless on purpose — it plays every turn, and a tune that
+// plays every turn is the one the player tires of. Noise ignores the note number; it only has
+// to be non-zero.
+export const countSound = {
+  songData: [{ i: hihat, p: [1], c: [{ n: [1, 1, 1] }] }],
+  rowLen: 4400,
+  patternLen: 4,
   endPattern: 0,
   numChannels: 1,
 };

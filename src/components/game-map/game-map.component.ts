@@ -1392,8 +1392,7 @@ export function GameMapComponent(
     const stagger = Math.min(FLY_STAGGER, FLY_SPREAD / count);
 
     for (let i = 0; i < count; i++) flyToCounter(loot, from, to, i * stagger);
-    // Heard as the first glyph lands, exactly as a payout of the same currency is.
-    setTimeout(() => playSoundEffect(loot), FLY_DURATION);
+    playSoundEffect(loot); // counted in as it flies, exactly as a payout of the same currency is
   }
 
   /**
@@ -1458,9 +1457,9 @@ export function GameMapComponent(
 
       // The delay is what lets the sweets wait on their trees while the drops are collected.
       group.forEach((index, i) => flyToCounter(currency, centre(tileElements[index]), [toX, toY], start + i * stagger));
-      // Once per currency as its first glyph lands, not once per glyph: thirty plinks would be
-      // a rattle. The currency index is the sound's — see SoundEffect.
-      setTimeout(() => playSoundEffect(currency as SoundEffect), start + FLY_DURATION);
+      // Once per currency as its glyphs set off, not once per glyph: the riffle runs while they
+      // fly and the counter pops when they land. The currency index is the sound's — see SoundEffect.
+      setTimeout(() => playSoundEffect(currency as SoundEffect), start);
 
       end = start + (group.length - 1) * stagger + FLY_DURATION;
       start = end + CURRENCY_GAP; // the next currency waits for this one to be in the purse

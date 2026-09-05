@@ -685,11 +685,13 @@ export function GameMapComponent(
     }
     const selectedIndex = selected && getIndex(selected);
     const targetIndices = targets.map(getIndex);
-    // A step onto a flower costs nothing, and the purse is the only place that would
-    // otherwise say so — after the fact. These get a highlight of their own instead.
-    // A tub's fields are never free — they cost candy — so they keep the plain target ring
-    // even when the flower under one of them would have made the step itself free.
-    const freeIndices = isTubSelected ? [] : targets.filter((target) => !getMoveCost(map, target, PLAYER)).map(getIndex);
+    // A step off a flower costs nothing, and the purse is the only place that would otherwise
+    // say so — after the fact. These get a highlight of their own instead. One question about
+    // where the selection is standing rather than one per lit tile, which is what the flower
+    // becoming a springboard turned it into: all eight steps out of one are free, or none are.
+    // Nothing has to be said about a tub either — nobody stands on one, so it is never on a
+    // flower, and its fields keep the plain target ring on their own.
+    const freeIndices = selected && !getMoveCost(map, selected, PLAYER) ? targetIndices : [];
     // The far donuts, which are lit like steps and priced like nothing else — see move()
     const portalIndices = portalTargets.map(getIndex);
     // What every lit tile costs, written on the tile. The tub's fields have always carried
@@ -706,6 +708,7 @@ export function GameMapComponent(
     // something it takes: every one of these is money leaving the purse. The same − the zoom
     // step out wears, so the two are one character rather than two lookalikes.
     const priceTag = isTubSelected ? `−${getUnicornPrice(map, PLAYER)}${CANDY_EMOJI}` : `−${MOVE_COST}${DROP_EMOJI}`;
+
     const jumpTag = `−${PORTAL_COST}${DROP_EMOJI}`;
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
     // Which tiles are actually turning light into a rainbow this turn. Read off the beams the
@@ -1105,10 +1108,11 @@ export function GameMapComponent(
     // The player's own again: the rival's tub is scenery to them, priced against a jar that
     // is not theirs, and getSpawnTargets would answer for the rival if it were asked.
     isTubSelected = isSeen(tile, PLAYER) && tile!.object === GameObjectType.BATHTUB;
-    // Steps only light up for a character that can afford them, and affordability is now
-    // per target rather than per character: with an empty purse a step onto a flower is
-    // still on, and it is exactly then that it matters most. Scenery, a blocked-in
-    // character and one that can afford none of its steps all end up with no targets,
+    // Steps only light up for a character that can afford them, and one price covers all eight:
+    // what a step costs is decided by the tile being left, so a unicorn on a flower walks
+    // anywhere for nothing — including with an empty purse, which is exactly when it matters
+    // most — and one anywhere else pays the same drop whichever way it goes. Scenery, a
+    // blocked-in character and one that cannot afford to move at all end up with no targets,
     // which is what render() draws as the neutral selection. A tub with too little candy
     // lands there too — the fields light up only once the trade can actually be made.
     // Only a character can take the portal, and only from the donut it is standing on. The
@@ -1116,7 +1120,7 @@ export function GameMapComponent(
     // donut somebody is already standing on, is not lit, because it cannot be taken.
     portalTargets = isCharacter ? getPortalTargets(map, position!, PLAYER).filter((target) => canUsePortal(map, target, PLAYER)) : [];
     targets = isCharacter
-      ? [...getMoveTargets(map, position!).filter((target) => getMoveCost(map, target, PLAYER) <= map.drops[PLAYER]), ...portalTargets]
+      ? [...(getMoveCost(map, position!, PLAYER) <= map.drops[PLAYER] ? getMoveTargets(map, position!) : []), ...portalTargets]
       : isTubSelected
         ? getSpawnTargets(map, position!)
         : [];
@@ -1144,7 +1148,7 @@ export function GameMapComponent(
   }
 
   /** One step at whatever that step costs, or — at the portal's price — a jump straight to the far donut. */
-  function move(target: Position, cost = getMoveCost(map, target, PLAYER)) {
+  function move(target: Position, cost = getMoveCost(map, selected!, PLAYER)) {
     map.drops[PLAYER] -= cost;
     moveCharacter(map, selected!, target);
     // Stepping on is the whole of opening one, so this runs on every step and comes back

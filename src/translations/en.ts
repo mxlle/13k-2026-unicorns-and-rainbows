@@ -67,8 +67,11 @@ export const enTranslations: Record<TranslationKey, string> = {
   // player has to do at exactly the moment they are counting drops. The number repeats
   // PORTAL_COST by hand, the same way the tub's line repeats BASE_INCOME: change them together.
   [TranslationKey.INFO_DONUT]: "Donut|A portal. Tap another 🍩 to jump there for 2 💧.",
-  // Says both halves of the trade: the free step, and the rainbow spot it takes up.
-  [TranslationKey.INFO_FLOWER]: "Flower|Stepping on it is free. But no rainbow can appear here.",
+  // Says both halves of the trade: what standing on one buys, and the rainbow spot it takes up.
+  // "Every step" rather than "your next step" because it is a property of the tile and not a
+  // charge that gets used up — a unicorn that ends its turn on a flower still walks off it for
+  // nothing next turn, and two flowers side by side are a free path.
+  [TranslationKey.INFO_FLOWER]: "Flower|Standing on one makes every step off it free. No rainbow can appear here.",
   // Says what it is for without saying what is in it: the three outcomes, and the one action.
   [TranslationKey.INFO_CHEST]: "Present|Step on it to open. Inside is 💧, 🍬 or a new 🦄.",
   // The three build sites. No price in the text: the button carries it, and it is the button

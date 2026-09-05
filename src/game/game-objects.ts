@@ -146,8 +146,8 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
     glows: false,
     info: TranslationKey.INFO_TREE_SITE,
   },
-  // Walk-through like the donut, and the only tile that is free to step onto. It still
-  // owns the ground layer, so the free path it offers costs a rainbow spot in return.
+  // Walk-through like the donut, and the only tile a step *off* costs nothing (see getMoveCost).
+  // It still owns the ground layer, so the reach it offers costs a rainbow spot in return.
   [GameObjectType.FLOWER]: {
     emoji: "🌺",
     blocksMove: false,

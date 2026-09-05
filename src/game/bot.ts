@@ -475,7 +475,8 @@ export function applyBotAction(map: GameMap, action: BotAction, side: Side) {
   if (action.kind === BotActionKind.BUILD) return build(map, action.from!, side);
   if (action.kind === BotActionKind.BUY) return buyUnicorn(map, action.to!, side);
 
-  map.drops[side] -= action.kind === BotActionKind.PORTAL ? PORTAL_COST : getMoveCost(map, action.to!, side);
+  // Off the tile it is leaving, and so necessarily before moveCharacter empties it.
+  map.drops[side] -= action.kind === BotActionKind.PORTAL ? PORTAL_COST : getMoveCost(map, action.from!, side);
   moveCharacter(map, action.from!, action.to!);
   openChest(map, action.to!, side); // before the fog and the light: a present can hold a unicorn
   revealAround(map, action.to!, side);
@@ -525,9 +526,12 @@ function getLegalActions(map: GameMap, side: Side): BotAction[] {
   const actions: BotAction[] = [{ kind: BotActionKind.END_TURN, value: 0, label: "end turn" }];
 
   getUnicorns(map, side).forEach((from) => {
-    getMoveTargets(map, from)
-      .filter((to) => getMoveCost(map, to, side) <= map.drops[side])
-      .forEach((to) => actions.push({ kind: BotActionKind.MOVE, from, to, value: 0, label: `step to ${say(to)}` }));
+    // One price for all eight of them: what a step costs is decided by the tile being left, so
+    // a unicorn on a flower can take any of its steps and one with an empty purse can take none.
+    if (getMoveCost(map, from, side) <= map.drops[side])
+      getMoveTargets(map, from).forEach((to) =>
+        actions.push({ kind: BotActionKind.MOVE, from, to, value: 0, label: `step to ${say(to)}` }),
+      );
 
     // One action per far donut: a board with four of them offers three jumps from any one.
     getPortalTargets(map, from, side)
@@ -710,7 +714,11 @@ function getReach(map: GameMap, start: Position, side: Side) {
       viaPortal[index] = current === startIndex ? isPortal : viaPortal[current];
     };
 
-    getMoveTargets(map, position).forEach((target) => step(target, getMoveCost(map, target, side), false));
+    // Every edge out of this tile costs the same — the price of leaving it — so a flower is a
+    // node the search leaves for nothing rather than one it enters cheaply.
+    const walkCost = getMoveCost(map, position, side);
+
+    getMoveTargets(map, position).forEach((target) => step(target, walkCost, false));
 
     // Every donut is an edge like any other, so a goal on the far side of the board comes out
     // cheap the moment the bot is standing on one — which is exactly what they are for. With
@@ -953,6 +961,9 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
     let best: BotAction | undefined;
     let planned: BotAction | undefined;
     let ties = 0; // how many candidates share `best`'s value, for pickTie
+    // The first step of every route out of here leaves the same tile, so it costs the same
+    // whatever the goal — a jump is the only candidate priced differently.
+    const walkCost = getMoveCost(map, from, side);
 
     map.tiles.forEach((_, index) => {
       // Not the tile it is on, not one it has already stood on this turn, nothing out of reach.
@@ -960,17 +971,17 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
 
       const to = getPosition(first[index]);
       const isPortal = viaPortal[index];
-      const stepCost = isPortal ? PORTAL_COST : getMoveCost(map, to, side);
+      const stepCost = isPortal ? PORTAL_COST : walkCost;
 
       // The step has to be one the interface would actually offer: paid for, and — for a
       // jump — with nobody standing on the far donut.
       if (stepCost > map.drops[side] || (isPortal && !canUsePortal(map, to, side))) return;
       // And the walk has to be one the purse can actually finish. A goal further off than
       // there are drops to reach it is not a plan, it is a wish — and it was the source of
-      // the bot's silliest habit: with an empty purse the only affordable step is a free one
-      // over a flower, so it would shuffle on and off the flower "on its way" to something it
-      // could not have reached in a hundred turns. Anything out of reach is simply not
-      // considered; next turn the board pays out and it may well be in reach then.
+      // the bot's silliest habit: with an empty purse it would take the one step it could
+      // still afford "on its way" to something it could not have reached in a hundred turns.
+      // Anything out of reach is simply not considered; next turn the board pays out and it
+      // may well be in reach then.
       if (cost[index] > map.drops[side]) return;
       // Drops that are spoken for by a building are not available for walking — but only the
       // ones that are actually needed. What this used to say was "while anything is being
@@ -978,7 +989,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
       // it could already afford the water for and was only waiting on sweets for: it had
       // forty drops, could not spend one of them, and shuffled on and off the flower next to
       // it until the turn ended. A step is fine as long as it leaves the building's water in
-      // the purse; a free one over a flower is fine regardless.
+      // the purse; a free one off a flower is fine regardless.
       if (stepCost && map.drops[side] - stepCost < reserve) return;
 
       const value = getGoalGain(getPosition(index), from) * DISTANCE_DISCOUNT ** cost[index] - leaving;

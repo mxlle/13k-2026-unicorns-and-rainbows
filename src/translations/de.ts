@@ -23,7 +23,7 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_EMPTY]: "Wiese|Freier Platz. Hier kann ein Regenbogen entstehen.",
     [TranslationKey.INFO_TREE]: "Lollibaum|Er macht aus dem 💧 jedes 🌈 daneben 🍬. Hier kann kein Regenbogen entstehen.",
     [TranslationKey.INFO_DONUT]: "Donut|Ein Portal. Tippe einen anderen 🍩 an, um für 2 💧 dorthin zu springen.",
-    [TranslationKey.INFO_FLOWER]: "Blume|Ein Schritt darauf ist gratis. Aber hier kann kein Regenbogen entstehen.",
+    [TranslationKey.INFO_FLOWER]: "Blume|Wer darauf steht, geht jeden Schritt gratis weiter. Hier kann kein Regenbogen entstehen.",
     [TranslationKey.INFO_CHEST]: "Geschenk|Betritt es zum Öffnen. Darin ist 💧, 🍬 oder ein neues 🦄.",
     [TranslationKey.INFO_TUB_SITE]: "Leere Wanne|Ein Einhorn daneben kann sie füllen.",
     [TranslationKey.INFO_FOUNTAIN_SITE]: "Geröll|Ein Einhorn daneben kann den Brunnen wieder aufbauen.",

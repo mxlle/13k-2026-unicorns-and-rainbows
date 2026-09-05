@@ -39,7 +39,7 @@ export const MAP_SIZES = [5, 7, 9, 13, 17, 21, 25];
 export let MAP_SIZE = MAP_SIZES[0];
 export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are none in the open any more
 export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every fountain
-export let FLOWER_COUNT = 0; // free stepping stones scattered over the meadow
+export let FLOWER_COUNT = 0; // springboards scattered over the meadow — see getMoveCost
 export let CHEST_COUNT = 0; // what the fog is worth walking into
 // What one of them holds. Derived from the board like the counts above rather than fixed, so a
 // present stays worth the walk on a board where the walk is twenty tiles — see setMapSize.
@@ -1008,18 +1008,22 @@ export function canUsePortal(map: GameMap, target: Position, side: Side): boolea
 }
 
 /**
- * What stepping onto `to` costs. A flower is free — the one way to move without paying,
- * which is what turns a scattering of them into something worth routing through.
+ * What a step off `from` costs. A character standing on a flower steps anywhere it likes for
+ * nothing; everybody else pays a drop. The cost is a property of where the walk *starts*, which
+ * is the whole of what a flower is: reaching one costs the usual drop, and what it buys is the
+ * next step in any of eight directions. So a flower is a springboard rather than a cheap tile —
+ * worth walking to for where it lets you go, and worth nothing at all to stand on at the whistle.
+ *
  * A single special case rather than a cost column in OBJECT_CONFIG: one branch is cheaper
  * than a field repeated across every row, and only one kind of tile differs.
  *
- * Only a flower the player can actually see is free, and that is a fog rule rather than a
- * pricing one: a free step is offered, highlighted and counted as a way out of an empty
- * purse, so a discount on a tile still under a cloud would announce what is hiding there.
- * Stepping blindly costs the usual drop; from then on the flower is known, and free.
+ * The fog rule stays, even though a character has by definition seen the tile it is standing on:
+ * the bot's route search prices steps off tiles it has not reached yet (see getPath), and a
+ * discount taken on a flower its side has not found would be a route planned on knowledge that
+ * side does not have.
  */
-export function getMoveCost(map: GameMap, to: Position, side: Side): number {
-  const tile = getTile(map, to)!;
+export function getMoveCost(map: GameMap, from: Position, side: Side): number {
+  const tile = getTile(map, from)!;
 
   return isSeen(tile, side) && tile.object === GameObjectType.FLOWER ? 0 : MOVE_COST;
 }
@@ -1048,8 +1052,10 @@ export function canAct(map: GameMap, side: Side): boolean {
     // One tile is at most one of these three: somebody's unicorn is standing on it, or a tub of
     // this side's is built on it, or it is ground that might be a site. Ordered by how often
     // the answer is yes, so the common case is the first test rather than the last.
+    // What a step costs is a question about the tile the unicorn is on, not about the tile it is
+    // going to, so it is asked once and the targets only have to exist.
     return tile.living === SIDE_UNICORN[side]
-      ? getMoveTargets(map, position).some((target) => getMoveCost(map, target, side) <= map.drops[side]) ||
+      ? (getMoveCost(map, position, side) <= map.drops[side] && !!getMoveTargets(map, position).length) ||
           getPortalTargets(map, position, side).some((target) => canUsePortal(map, target, side))
       : tile.object === SIDE_BATHTUB[side]
         ? // getSpawnTargets comes back empty unless the jar can pay, so this is the price and the

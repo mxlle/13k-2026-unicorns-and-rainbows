@@ -11,4 +11,5 @@ export const CssClass = defineEnum({
   HIDDEN: "global__hidden",
   EMOJI: "global__emoji",
   HINT: "global__hint", // pulses whatever the player should do next
+  GAME_ICON: "global__game-icon", // the game's own mark — GAME_EMOJI, in the game's own colour
 });

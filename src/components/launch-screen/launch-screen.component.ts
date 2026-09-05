@@ -68,14 +68,14 @@ export function LaunchScreenComponent(onPlay: (level: number, random?: boolean) 
   // It carries no handler of its own: it only ever sits inside the picked stripe, and a click
   // on the picked stripe is already the thing this button offers (see the stripe below). So
   // the click bubbles into that one handler instead of there being two ways to start a run.
-  // The 🦄 is in a span of its own so a narrow stripe can put it aside and keep the word: four
+  // The mark is in a span of its own so a narrow stripe can put it aside and keep the word: four
   // things were competing for one phone-width row and the die at the end of it was being cut
   // off. The word is what stays, because it is the one that says what the tap does — the emoji
   // is decoration here, unlike in the header, where it is the game's own identity.
   // The space rides with the emoji rather than sitting in front of the word, so that hiding the
   // one takes the other with it and the button is not left with a space to open on.
   const playButton = createButton({ cssClass: [CssClass.HINT, styles.play] }, [
-    createElement({ tag: "span", cssClass: [CssClass.EMOJI, styles.optional], text: `${GAME_EMOJI} ` }),
+    createElement({ tag: "span", cssClass: [CssClass.EMOJI, CssClass.GAME_ICON, styles.optional], text: `${GAME_EMOJI} ` }),
     getTranslation(TranslationKey.PLAY),
   ]);
 

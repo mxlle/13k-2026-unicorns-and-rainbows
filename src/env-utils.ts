@@ -61,6 +61,11 @@ export const HAS_SPANISH = import.meta.env.LANG_ES_ENABLED === "true";
 // every single lookup. Add a language above and this picks it up.
 export const HAS_SECONDARY_LANGUAGE = HAS_GERMAN || HAS_SPANISH;
 
-export const GAME_TITLE = "Unicorns and Rainbows";
+export const GAME_TITLE = "Empire of Sugar";
 // The header shows the emoji at every size and the words only when there is room for them.
-export const GAME_EMOJI = "🦄";
+// The fountain rather than the unicorn, and that is what the title is about: a unicorn is the
+// piece you push, a fountain is a thing you *hold* — the centre of the light rule, the one
+// building both sides race for, and the only glyph here that reads as a monument. It is drawn
+// pink wherever it stands for the game (see CssClass.GAME_ICON); the fountains on the board keep
+// their own colour.
+export const GAME_EMOJI = "⛲";

@@ -122,6 +122,20 @@ button.#{$ICON_BTN} {
   animation: pulse 1.4s infinite;
 }
 
+// PLACEHOLDER: how far the game's mark is turned from the emoji font's own fountain. 90° takes
+// the water round from blue to magenta and leaves the basin alone — the stone carries no
+// saturation, so what comes out is pink water in a grey bowl rather than a pink blob. Turn it up
+// for a deeper berry, down towards violet.
+$game-icon-hue: 90deg;
+
+// The game's mark, wherever it stands for the game rather than for a thing on the board: the
+// header's identity and the play button that opens a run. The fountains on the *board* are
+// deliberately left alone — colour there carries meaning (a free step, water beams against candy
+// beams, a tree that is earning), and a pink fountain would be the first one that carries none.
+.#{$GAME_ICON} {
+  filter: hue-rotate($game-icon-hue);
+}
+
 @keyframes pulse {
   50% {
     transform: scale(1.12);

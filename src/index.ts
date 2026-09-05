@@ -50,7 +50,7 @@ function init() {
 
   // the run's counters sit in the header rather than over the board, so they can never cover
   // a tile; the chip takes itself out of the flow and centres — see its styles
-  document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [headerControls, MuteButton()]), gameArea, launchScreen);
+  document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [headerControls, MuteButton()], CssClass.GAME_ICON), gameArea, launchScreen);
 
   showLaunchScreen(true);
 

@@ -742,10 +742,11 @@ function getFreeNeighbours(map: GameMap, { x, y }: Position): Position[] {
  * Uncovers the vision square around a position, for one side. Revealed tiles stay revealed,
  * and each side's clouds are lifted only by its own walking.
  *
- * The recursion is the one place the two sides touch: a character found under the fog opens
- * its own vision *for the side that found it*. So walking into the opponent's herd shows the
- * player the ground around it — which is right, since that ground is exactly what a unicorn
- * standing there can be seen to be doing something with — and gives the opponent nothing.
+ * The recursion is what makes a herd one pair of eyes: a unicorn of the *same* side found
+ * under the fog opens its own vision too, so a newcomer put down out of sight still sees
+ * what it is standing in. A character of the other side is a thing that has been spotted and
+ * nothing more — walking up to the opponent shows you the opponent, not the board around it,
+ * or its herd would be handing you the exploration multiplier it walked out to earn.
  */
 export function revealAround(map: GameMap, { x, y }: Position, side: Side) {
   const bit = 1 << side;
@@ -757,9 +758,9 @@ export function revealAround(map: GameMap, { x, y }: Position, side: Side) {
 
       if (tile && !(tile.seen & bit)) {
         tile.seen |= bit;
-        // a character coming out of the fog opens its own vision right away — and may
+        // one of our own coming out of the fog opens its own vision right away — and may
         // in turn uncover the next one (the recursion ends, tiles only ever un-fog once)
-        if (tile.living !== undefined) revealAround(map, position, side);
+        if (tile.living !== undefined && getSide(tile.living) === side) revealAround(map, position, side);
       }
     }
   }

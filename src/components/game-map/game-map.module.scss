@@ -52,6 +52,22 @@ $level-scale: 0.15;
 // that layout is now reached on narrow windows too (a landscape phone, a small Poki frame)
 // and 30vw of those is a column too thin to read a description in.
 $sidebar-width: clamp(11rem, 30vw, 24rem);
+// How wide the board's column is allowed to get once the panels sit beside it. Past this the
+// track is only gutter: the board is square and applyZoom sizes it off the *shorter* side of
+// the map row, so on a window wider than it is tall it is the height that bounds the board and
+// every extra pixel of column pushes the panel explaining a tile further from the tile.
+//
+// Capping the track is what keeps this out of a loop. Shrinking .host to fit instead — an auto
+// inline margin, say — makes the host take its width from the board while the board is still
+// taking its size from a measurement of the host, and the first render settles wherever that
+// pair happens to meet, which is somewhere very small. Nothing here may be content-derived, so
+// the cap comes off the viewport.
+//
+// The subtraction is the header above .host plus .host's own padding — the height the board
+// does not get. It is a comfort setting, not a correctness one: too small only costs a slightly
+// smaller board, too large only leaves a wider gutter. dvh rather than vh because sidePanels is
+// reached in landscape too, where a phone's chrome makes the two differ.
+$board-column-max: calc(100dvh - 5rem);
 
 // Map / info panel / turn bar, top to bottom. The info row is always there — that is
 // what keeps it from ever covering the board or shifting it when the selection changes.
@@ -562,8 +578,12 @@ $win-hop-height: 2rem;
 // override, so it is source order alone that lets them win.
 @include theme.sidePanels {
   .host {
-    grid-template-columns: minmax(0, 1fr) $sidebar-width;
+    grid-template-columns: minmax(0, $board-column-max) $sidebar-width;
     grid-template-rows: 1fr min-content;
+    // The two columns as a group, once they no longer fill the window. minmax's floor of 0 is
+    // what lets the pair still shrink to fit a window too narrow for the cap, so this only ever
+    // has free space to centre on the screens the cap actually bites on.
+    justify-content: center;
   }
 
   .mapArea {

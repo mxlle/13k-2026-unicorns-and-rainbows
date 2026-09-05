@@ -26,7 +26,7 @@ export const TranslationKey = defineEnum({
   // 14 was JUMP, the portal's own button in the info panel. The far donuts are tiles to tap
   // now, so the button went and the numbers below closed up behind it — they have to stay
   // contiguous for the enum-keyed translation maps to compact into arrays (see vite.config.ts).
-  INFO_FLOWER: 14,
+  INFO_CUSTARD: 14,
   INFO_CHEST: 15,
   INFO_TUB_SITE: 16,
   INFO_FOUNTAIN_SITE: 17,

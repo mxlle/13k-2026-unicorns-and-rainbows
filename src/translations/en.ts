@@ -67,11 +67,21 @@ export const enTranslations: Record<TranslationKey, string> = {
   // player has to do at exactly the moment they are counting drops. The number repeats
   // PORTAL_COST by hand, the same way the tub's line repeats BASE_INCOME: change them together.
   [TranslationKey.INFO_DONUT]: "Donut|A portal. Tap another 🍩 to jump there for 2 💧.",
-  // Says both halves of the trade: what standing on one buys, and the rainbow spot it takes up.
+  // Named for the thing and not the mechanic, which is the rule the rest of the panel follows —
+  // the donut is a "Donut" and its description is what says "portal". "Bouncy" is doing the work
+  // the old name used to have to do without: it is the one word that makes the sentence after it
+  // obvious rather than arbitrary.
   // "Every step" rather than "your next step" because it is a property of the tile and not a
-  // charge that gets used up — a unicorn that ends its turn on a flower still walks off it for
-  // nothing next turn, and two flowers side by side are a free path.
-  [TranslationKey.INFO_FLOWER]: "Flower|Standing on one makes every step off it free. No rainbow can appear here.",
+  // charge that gets used up — a unicorn that ends its turn on a custard still walks off it for
+  // nothing next turn, and two custards side by side are a free path.
+  //
+  // It no longer says that a rainbow cannot land here, though a rainbow still needs bare ground
+  // and this is not it. The board generator keeps custards off the ring around every fountain
+  // and off the ring around every rubble pile (see crowdsFountain), and a rainbow only ever
+  // lands on that ring — so the two cannot meet on any board as dealt, and a rule that never
+  // fires is a line of the panel spent on nothing. The lollipop tree's identical sentence stays:
+  // trees *are* grown beside fountains, so for them it is the whole point.
+  [TranslationKey.INFO_CUSTARD]: "Custard|Bouncy. Every step off it is free.",
   // Says what it is for without saying what is in it: the three outcomes, and the one action.
   [TranslationKey.INFO_CHEST]: "Present|Step on it to open. Inside is 💧, 🍬 or a new 🦄.",
   // The three build sites. No price in the text: the button carries it, and it is the button

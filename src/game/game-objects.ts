@@ -9,7 +9,7 @@ export const GameObjectType = defineEnum({
   BATHTUB: 3,
   TREE: 4,
   DONUT: 5,
-  FLOWER: 6,
+  CUSTARD: 6,
   CHEST: 7,
   // The three build sites. They must stay consecutive: the build table is indexed by "site
   // type less the first site", which is what makes it a three-entry array instead of a lookup
@@ -148,11 +148,11 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   },
   // Walk-through like the donut, and the only tile a step *off* costs nothing (see getMoveCost).
   // It still owns the ground layer, so the reach it offers costs a rainbow spot in return.
-  [GameObjectType.FLOWER]: {
-    emoji: "🌺",
+  [GameObjectType.CUSTARD]: {
+    emoji: "🍮",
     blocksMove: false,
     glows: false,
-    info: TranslationKey.INFO_FLOWER,
+    info: TranslationKey.INFO_CUSTARD,
   },
   // The opponent's three. They are the player's three in every respect that the rules read —
   // the dark unicorn glows and blocks exactly as a unicorn does, the dark rainbow lies on the

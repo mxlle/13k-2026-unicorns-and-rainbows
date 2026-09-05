@@ -39,7 +39,7 @@ export const MAP_SIZES = [5, 7, 9, 13, 17, 21, 25];
 export let MAP_SIZE = MAP_SIZES[0];
 export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are none in the open any more
 export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every fountain
-export let FLOWER_COUNT = 0; // springboards scattered over the meadow — see getMoveCost
+export let CUSTARD_COUNT = 0; // springboards scattered over the meadow — see getMoveCost
 export let CHEST_COUNT = 0; // what the fog is worth walking into
 // What one of them holds. Derived from the board like the counts above rather than fixed, so a
 // present stays worth the walk on a board where the walk is twenty tiles — see setMapSize.
@@ -56,7 +56,7 @@ export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
  * are the levels, so the ladder is written in widths rather than in level numbers — MAP_SIZES
  * can gain or lose entries without a single number here moving.
  *
- * What this leaves on the smallest board is the tutorial: a unicorn, a scatter of flowers, one
+ * What this leaves on the smallest board is the tutorial: a unicorn, a scatter of custards, one
  * fountain to line it up against, one present, and the bathtub that pays for the walking. Four
  * rules, and every one of them is still true on the 25x25.
  */
@@ -137,7 +137,7 @@ function setMapSize(size: number) {
   isTutorial = size === MAP_SIZES[0];
   FOUNTAIN_COUNT = (tiles / 27 + 0.5) | 0;
   TREE_COUNT = size < TREE_SIZE ? 0 : FOUNTAIN_COUNT;
-  FLOWER_COUNT = (tiles / 12 + 0.5) | 0;
+  CUSTARD_COUNT = (tiles / 12 + 0.5) | 0;
   // Rarer than anything else on the board. Floored at one, because the smallest board rounds
   // down to none and its single present is the whole point of it.
   CHEST_COUNT = (tiles / CHEST_DENSITY + 0.5) | 0 || 1;
@@ -485,7 +485,7 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // Twice TREE_COUNT: one tree already grew beside every fountain, and the spacing is
   // worked out from how many end up on the board, not from how many this loop places.
   for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, TREE_COUNT * 2);
-  for (let i = 0; i < FLOWER_COUNT; i++) placeObject(map, GameObjectType.FLOWER, FLOWER_COUNT);
+  for (let i = 0; i < CUSTARD_COUNT; i++) placeObject(map, GameObjectType.CUSTARD, CUSTARD_COUNT);
 
   // Chests and build sites last, and they can only land under the fog like everything else —
   // which is the rule that makes them a reward for exploring rather than a handout in the
@@ -1008,10 +1008,10 @@ export function canUsePortal(map: GameMap, target: Position, side: Side): boolea
 }
 
 /**
- * What a step off `from` costs. A character standing on a flower steps anywhere it likes for
+ * What a step off `from` costs. A character standing on a custard steps anywhere it likes for
  * nothing; everybody else pays a drop. The cost is a property of where the walk *starts*, which
- * is the whole of what a flower is: reaching one costs the usual drop, and what it buys is the
- * next step in any of eight directions. So a flower is a springboard rather than a cheap tile —
+ * is the whole of what a custard is: reaching one costs the usual drop, and what it buys is the
+ * next step in any of eight directions. So a custard is a springboard rather than a cheap tile —
  * worth walking to for where it lets you go, and worth nothing at all to stand on at the whistle.
  *
  * A single special case rather than a cost column in OBJECT_CONFIG: one branch is cheaper
@@ -1019,18 +1019,18 @@ export function canUsePortal(map: GameMap, target: Position, side: Side): boolea
  *
  * The fog rule stays, even though a character has by definition seen the tile it is standing on:
  * the bot's route search prices steps off tiles it has not reached yet (see getPath), and a
- * discount taken on a flower its side has not found would be a route planned on knowledge that
+ * discount taken on a custard its side has not found would be a route planned on knowledge that
  * side does not have.
  */
 export function getMoveCost(map: GameMap, from: Position, side: Side): number {
   const tile = getTile(map, from)!;
 
-  return isSeen(tile, side) && tile.object === GameObjectType.FLOWER ? 0 : MOVE_COST;
+  return isSeen(tile, side) && tile.object === GameObjectType.CUSTARD ? 0 : MOVE_COST;
 }
 
 /**
  * Whether there is anything at all this side could still do this turn — a step it can pay for
- * (a free one over a flower counts), a jump, a unicorn it can buy, or a site it can raise.
+ * (a free one off a custard counts), a jump, a unicorn it can buy, or a site it can raise.
  * The whole of what a tap can do, asked of the whole board at once, which is why it is here
  * rather than in the interface: it is the same four offers select() lights up, and the two
  * would go out of step if they were written twice.
@@ -1353,7 +1353,7 @@ export function getUnicornPrice(map: GameMap, side: Side): number {
 
 /**
  * The fields a bathtub may put a new unicorn on: the neighbours a character could step onto,
- * which is exactly the right rule — a fountain or another unicorn is in the way, a flower or
+ * which is exactly the right rule — a fountain or another unicorn is in the way, a custard or
  * a donut is not, and a rainbow lying there simply goes out under the newcomer. The list is
  * empty unless the jar can actually pay, so the board only ever lights fields that can be
  * taken up — the same rule under which a character's steps light up only if it can pay for

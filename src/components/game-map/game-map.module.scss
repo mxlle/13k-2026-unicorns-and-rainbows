@@ -31,12 +31,12 @@ $beam-width: 0.08em;
 // around it and the character still reads as the thing on top.
 // PLACEHOLDER: what the ground under a character shrinks to. It is no longer a ring peeking
 // out from behind the character — the character keeps its full size and the ground goes to
-// the corner as a label, so a unicorn on a flower still reads as a unicorn first.
+// the corner as a label, so a unicorn on a custard still reads as a unicorn first.
 $badge-scale: 0.4;
 // PLACEHOLDER glyph sizes — legibility, not meaning. A meadow full of objects all drawn at
 // the same size hides the two things a player is actually looking for, so the actors (the
-// unicorns, and the tub they come out of) are drawn up and the flowers, which are ground
-// cover, are drawn down.
+// unicorns, and the tub they come out of) are drawn up and the custards, which are underfoot,
+// are drawn down.
 $big-scale: 1.3;
 $small-scale: 0.7;
 // PLACEHOLDER: how big a unicorn is drawn, and what one level of growing up adds to it. A
@@ -479,7 +479,7 @@ $win-hop-height: 2rem;
 
   // A step that costs no drop, in the success colour rather than the main one. It comes
   // after .target on purpose — both are set on a free step, and this one wins. Giving it
-  // a colour of its own is what lets a run of flowers read as a free path at a glance,
+  // a colour of its own is what lets a run of custards read as a free path at a glance,
   // instead of the player finding out from the purse after taking the step.
   &.free {
     background: rgba(theme.$success-color-light, 0.18);
@@ -511,8 +511,21 @@ $win-hop-height: 2rem;
       --g: #{$big-scale};
     }
 
+    // Ground cover, drawn down — and, today, the springboards and nothing else, which is what
+    // lets the colour below be written against this class rather than against a second one
+    // toggled per tile per render. If anything else ever wants .small, the colour needs a class
+    // of its own.
+    //
+    // No two springboards on a board are quite the same colour: --h is where the tile is (see
+    // buildBoard), so the hue walks along the diagonals and a scattering of them comes out as a
+    // scattering of flavours. A property of the position and not of the run, so it is stamped
+    // once when the board is built and never touched again — the same custard is the same
+    // colour all game, which is what makes it a landmark rather than a light show.
+    // Nothing else on this layer filters at the same time: .dark is for the rival's things and
+    // a springboard is neutral, .tree and .earning are the lollipop tree's.
     &.small {
       --g: #{$small-scale};
+      filter: hue-rotate(var(--h, 0deg));
     }
 
     // The herd. Every living thing there is is a unicorn, so this is the only glyph the layer

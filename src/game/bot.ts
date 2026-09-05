@@ -527,7 +527,7 @@ function getLegalActions(map: GameMap, side: Side): BotAction[] {
 
   getUnicorns(map, side).forEach((from) => {
     // One price for all eight of them: what a step costs is decided by the tile being left, so
-    // a unicorn on a flower can take any of its steps and one with an empty purse can take none.
+    // a unicorn on a custard can take any of its steps and one with an empty purse can take none.
     if (getMoveCost(map, from, side) <= map.drops[side])
       getMoveTargets(map, from).forEach((to) =>
         actions.push({ kind: BotActionKind.MOVE, from, to, value: 0, label: `step to ${say(to)}` }),
@@ -671,7 +671,7 @@ function countFeeding(map: GameMap, { x, y }: Position, side: Side): number {
 /**
  * What it costs to reach every tile on the board from `start`, counted in water drops —
  * which is the honest unit, since drops are what steps are paid in and what the board pays
- * out. A flower is a free edge, the portal is an edge of its own worth PORTAL_COST, and
+ * out. A custard is a free edge, the portal is an edge of its own worth PORTAL_COST, and
  * everything else costs a drop.
  *
  * `first` is what makes the result actionable: for every tile it holds the very first step
@@ -714,7 +714,7 @@ function getReach(map: GameMap, start: Position, side: Side) {
       viaPortal[index] = current === startIndex ? isPortal : viaPortal[current];
     };
 
-    // Every edge out of this tile costs the same — the price of leaving it — so a flower is a
+    // Every edge out of this tile costs the same — the price of leaving it — so a custard is a
     // node the search leaves for nothing rather than one it enters cheaply.
     const walkCost = getMoveCost(map, position, side);
 
@@ -987,9 +987,9 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
       // ones that are actually needed. What this used to say was "while anything is being
       // saved for, no step may cost anything", which froze a unicorn standing beside a site
       // it could already afford the water for and was only waiting on sweets for: it had
-      // forty drops, could not spend one of them, and shuffled on and off the flower next to
+      // forty drops, could not spend one of them, and shuffled on and off the custard next to
       // it until the turn ended. A step is fine as long as it leaves the building's water in
-      // the purse; a free one off a flower is fine regardless.
+      // the purse; a free one off a custard is fine regardless.
       if (stepCost && map.drops[side] - stepCost < reserve) return;
 
       const value = getGoalGain(getPosition(index), from) * DISTANCE_DISCOUNT ** cost[index] - leaving;

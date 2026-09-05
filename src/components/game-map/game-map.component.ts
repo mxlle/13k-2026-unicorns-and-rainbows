@@ -118,6 +118,12 @@ const ZOOM_STEPS = [1, 1.5, 2.2, 3];
 // for a finger to hit. It picks the opening zoom step; see applyZoom.
 const COMFORT_TILE = 32;
 const MIN_TILE = 8; // a floor for the maths below, in case the map row is measured before it has a size
+// PLACEHOLDER: how far the springboard's hue turns from one diagonal of the board to the next
+// (see .small). A full circle every twelve of them, which on any board in the ladder is enough
+// for two neighbouring custards to be plainly different flavours without the board reading as a
+// gradient — they are scattered about a tile in twelve, so what is seen is the variety and never
+// the sweep it is cut from.
+const HUE_STEP = 30;
 // PLACEHOLDER payout-flight timings. FLY_SPREAD is the window all departures share rather
 // than a gap apiece: a big board can be paying out thirty times at once, and one emoji every
 // FLY_STAGGER would take longer to watch than the turn took to play.
@@ -146,7 +152,7 @@ const SPEND_COLOR = "#e06d80";
 // read a stylesheet, so keep it in step with theme.scss's $success-color-light by hand.
 const GAIN_COLOR = "#44aa77";
 // PLACEHOLDER spend-feedback timings. One drop rises off the tile per drop paid, so a portal
-// jump throws two and a free step over a flower throws none — the same "one glyph, one unit"
+// jump throws two and a free step off a custard throws none — the same "one glyph, one unit"
 // the payout speaks in. The rise is in em, so it scales with the glyph rather than the zoom.
 const SPEND_DURATION = 700;
 const SPEND_STAGGER = 120;
@@ -305,9 +311,16 @@ export function GameMapComponent(
     // an actor is what the player is looking for. Set once here rather than per render,
     // because nothing about it depends on what is on the tile.
     livingGlyphs = createElements({ tag: "span", cssClass: styles.character }, MAP_SIZE * MAP_SIZE);
-    tileElements = groundGlyphs.map((ground, index) =>
-      createElement({ cssClass: [styles.tile, CssClass.EMOJI] }, [ground, livingGlyphs[index]]),
-    );
+    tileElements = groundGlyphs.map((ground, index) => {
+      // Where the tile is, as a hue for the stylesheet to colour a springboard by — see .small.
+      // In degrees, which is the unit the launch screen's own --h is already in, so the name
+      // means one thing across the game. Written here and never again: a tile's position is the
+      // one thing about it that cannot change without the board being rebuilt.
+      const { x, y } = getPosition(index);
+      ground.style.setProperty("--h", `${(x + y) * HUE_STEP}deg`);
+
+      return createElement({ cssClass: [styles.tile, CssClass.EMOJI] }, [ground, livingGlyphs[index]]);
+    });
     // beam layer first: the tiles are positioned too, so they paint over it and an emoji
     // is never hidden by the light passing through it
     board.replaceChildren(beamLayer, ...tileElements);
@@ -685,12 +698,12 @@ export function GameMapComponent(
     }
     const selectedIndex = selected && getIndex(selected);
     const targetIndices = targets.map(getIndex);
-    // A step off a flower costs nothing, and the purse is the only place that would otherwise
+    // A step off a custard costs nothing, and the purse is the only place that would otherwise
     // say so — after the fact. These get a highlight of their own instead. One question about
-    // where the selection is standing rather than one per lit tile, which is what the flower
+    // where the selection is standing rather than one per lit tile, which is what the custard
     // becoming a springboard turned it into: all eight steps out of one are free, or none are.
     // Nothing has to be said about a tub either — nobody stands on one, so it is never on a
-    // flower, and its fields keep the plain target ring on their own.
+    // custard, and its fields keep the plain target ring on their own.
     const freeIndices = selected && !getMoveCost(map, selected, PLAYER) ? targetIndices : [];
     // The far donuts, which are lit like steps and priced like nothing else — see move()
     const portalIndices = portalTargets.map(getIndex);
@@ -776,11 +789,11 @@ export function GameMapComponent(
       // a site is drawn back from the things that are actually there — see .site
       ground.classList.toggle(styles.site, isVisible && !!getBuild(tile.object));
       // Size as a way of sorting the meadow: a tub is where unicorns come from and is drawn
-      // up with them, the flowers are ground cover and are drawn down. Guarded on isVisible for
+      // up with them, the custards are underfoot and are drawn down. Guarded on isVisible for
       // the same reason .tree is — an unrevealed tile is a cloud, not the thing under it.
       // Either side's tub, since both are the same piece of furniture at the same size.
       ground.classList.toggle(styles.big, isTub);
-      ground.classList.toggle(styles.small, isVisible && tile.object === GameObjectType.FLOWER);
+      ground.classList.toggle(styles.small, isVisible && tile.object === GameObjectType.CUSTARD);
       // which trees are paying into the player's jar this turn — read off the same list the
       // income itself is counted from, so the glow can never promise candy that never comes.
       // The player's own light only: a tree earning off the rival's rainbow is earning for the
@@ -1109,7 +1122,7 @@ export function GameMapComponent(
     // is not theirs, and getSpawnTargets would answer for the rival if it were asked.
     isTubSelected = isSeen(tile, PLAYER) && tile!.object === GameObjectType.BATHTUB;
     // Steps only light up for a character that can afford them, and one price covers all eight:
-    // what a step costs is decided by the tile being left, so a unicorn on a flower walks
+    // what a step costs is decided by the tile being left, so a unicorn on a custard walks
     // anywhere for nothing — including with an empty purse, which is exactly when it matters
     // most — and one anywhere else pays the same drop whichever way it goes. Scenery, a
     // blocked-in character and one that cannot afford to move at all end up with no targets,
@@ -1241,7 +1254,7 @@ export function GameMapComponent(
    * rises off the tile it was paid on and fades, per unit paid. Counting in glyphs rather
    * than printing a number is what makes a higher price legible without explaining it — the
    * portal throws two drops, a unicorn one sweet per head of the herd — and it is the language the payout
-   * speaks in. A free step over a flower pays nothing and so shows nothing, which says "free"
+   * speaks in. A free step off a custard pays nothing and so shows nothing, which says "free"
    * by itself.
    */
   function showSpending(position: Position, cost: number, currency = 0) {

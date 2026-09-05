@@ -23,6 +23,7 @@ import {
   getExploration,
   getFeedingRainbows,
   getUnicornLevel,
+  getUnicornProgress,
   getMoveCost,
   getMoveTargets,
   getPortalTargets,
@@ -82,6 +83,10 @@ const HINT_EMOJI = "👆";
 // How grown a unicorn is, one of these per level, after its name in the info panel. Sparkles
 // rather than stars: ⭐ is the score's own glyph and would read as points.
 const LEVEL_EMOJI = "✨";
+// PLACEHOLDER glyph: one of these per turn already spent shining towards the next ✨, after the
+// sparkles — so a level-up can be seen coming. Deliberately small and plain next to the sparkle:
+// it is the pending half of the same count, not a second kind of reward.
+const GROWTH_MARK = "·";
 // Not the seedling: that is the lollipop-tree build site now, and two different things in the
 // info panel must not wear the same glyph.
 const EMPTY_EMOJI = "🌾";
@@ -1026,11 +1031,15 @@ export function GameMapComponent(
       // The rival's tub sells to the rival, so the offer is not described on it at all.
       if (objectType === GameObjectType.BATHTUB && TREE_COUNT)
         infoText.textContent += ` ${getTranslation(TranslationKey.INFO_BATHTUB_SELL)}`;
-      // How grown a unicorn is, one sparkle per level, after its name. A count rather than a
-      // number and with no word for "level" in it: it needs no translating, and it is the same
-      // reading as the light it casts, which is drawn one line per level. Either side's — the
-      // rival's own progress is a thing worth being able to look up.
-      if (SIDE_UNICORN.includes(objectType)) infoName.textContent += ` ${LEVEL_EMOJI.repeat(getUnicornLevel(map.tiles[index!]))}`;
+      // How grown a unicorn is, one sparkle per level, after its name, then one mark per shining
+      // turn already put in towards the next. A count rather than a number and with no word for
+      // "level" in it: it needs no translating, and it is the same reading as the light it casts,
+      // which is drawn one line per level. Either side's — the rival's own progress is a thing
+      // worth being able to look up.
+      if (SIDE_UNICORN.includes(objectType)) {
+        const tile = map.tiles[index!];
+        infoName.textContent += ` ${LEVEL_EMOJI.repeat(getUnicornLevel(tile))}${GROWTH_MARK.repeat(getUnicornProgress(tile))}`;
+      }
       // The unicorn's own description is the one that changes with the run. INFO_UNICORN is what
       // it is for and how to walk it, which is all the opening position can act on: every board
       // starts as a 3x3 of bare meadow with clouds past it, and the fountain the line-up rule is

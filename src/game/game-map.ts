@@ -288,8 +288,9 @@ export interface Tile {
    * with nobody on it read as.
    *
    * One counter rather than a level and a progress pair: the level is this divided by
-   * GROWTH_PER_LEVEL (see getUnicornLevel), and a turn spent dark takes the remainder off — so
-   * a level once reached is kept, and only the progress towards the next one is lost.
+   * GROWTH_PER_LEVEL (see getUnicornLevel) and the remainder is how far along the next one is
+   * (see getUnicornProgress). A turn spent dark leaves it alone — growth pauses, it never runs
+   * backwards.
    */
   growth?: number;
   /**
@@ -315,6 +316,18 @@ export interface Tile {
  */
 export function getUnicornLevel(tile: Tile): number {
   return 1 + ((tile.growth! / GROWTH_PER_LEVEL) | 0);
+}
+
+/**
+ * How many of the GROWTH_PER_LEVEL shining turns towards the next level this unicorn has put in,
+ * 0 to GROWTH_PER_LEVEL - 1 — the rest of the counter getUnicornLevel divides off. For the info
+ * panel, which shows it so that a level-up can be seen coming rather than only arriving. MAX_GROWTH
+ * is a whole number of levels, so a fully grown unicorn reads 0 here and nothing is shown pending.
+ *
+ * `% NaN` is NaN and `|| 0` catches it, so the undefined growth of a newcomer reads as 0.
+ */
+export function getUnicornProgress(tile: Tile): number {
+  return tile.growth! % GROWTH_PER_LEVEL || 0;
 }
 
 /**
@@ -1311,19 +1324,18 @@ export function nextTurn(map: GameMap) {
  * all turn is exactly what grows. A unicorn under its own side's fog casts no light at all, so
  * it cannot grow either, for the same reason it cannot earn.
  *
- * A dark turn costs the progress towards the next level and nothing more (`% GROWTH_PER_LEVEL`
- * off the counter): a level once reached is the unicorn's for good, so it can be sent off across
- * the board without growing back down on the way, while one that spends the rest of the run
- * walking simply stops climbing.
+ * A dark turn costs nothing: the counter simply does not move, so a unicorn can be sent off
+ * across the board and pick up where it left off, and one that spends the rest of the run walking
+ * simply stops climbing. It used to lose the progress towards the next level as well, which was a
+ * punishment the player had no way of seeing — the rule is now the one the info panel states, a
+ * level being so many turns spent shining, in total.
  */
 function growUnicorns(map: GameMap) {
   const shining = new Set(map.beams.filter((beam) => beam.isLit).map(getIndex));
 
   map.tiles.forEach((tile, index) => {
-    if (tile.living === undefined) return; // only living things grow, and every one of them is a unicorn
-    const growth = tile.growth || 0;
-
-    tile.growth = shining.has(index) ? Math.min(growth + 1, MAX_GROWTH) : growth - (growth % GROWTH_PER_LEVEL);
+    // only living things grow, and every one of them is a unicorn
+    if (tile.living !== undefined && shining.has(index)) tile.growth = Math.min((tile.growth || 0) + 1, MAX_GROWTH);
   });
 
   // Both incomes are counted off the levels, so one gained just now leaves them out of date —

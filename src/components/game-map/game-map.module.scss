@@ -39,6 +39,11 @@ $badge-scale: 0.4;
 // are drawn down.
 $big-scale: 1.3;
 $small-scale: 0.8;
+// PLACEHOLDER: the clouds, drawn up. They are the one glyph that is not a thing standing on the
+// board but the absence of one, so at tile size a ☁️ left a rim of bare tile at every corner and
+// read as a lid rather than as weather. The board's glyphs are 0.62 of a tile, so even at this
+// they come to 0.87 of one and still cannot spill onto the neighbour.
+$fog-scale: 1.4;
 // PLACEHOLDER: how big a unicorn is drawn, and what one level of growing up adds to it. A
 // newcomer sits a little under the flat size the whole herd used to be drawn at, so growing up
 // is a change the eye can read in both directions — a level-3 unicorn stands a quarter taller
@@ -583,6 +588,15 @@ $win-hop-height: 2rem;
       scale: $badge-scale;
       transform-origin: top right; // shrinks into the corner instead of away from it
     }
+  }
+
+  // An unfound tile is a cloud and nothing else. Said about the whole glyph layer rather than
+  // through a class of its own, which needs no toggle and cannot go out of step: every
+  // situational class the ground glyph wears is guarded on the tile being visible, and the
+  // living glyph over it is empty until then, so under fog there is nothing here but the ☁️.
+  // After the sizes above, so that a tie on specificity falls this way.
+  &:not(.revealed) > span {
+    --g: #{$fog-scale};
   }
 }
 

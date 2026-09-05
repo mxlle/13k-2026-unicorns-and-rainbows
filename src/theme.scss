@@ -56,7 +56,17 @@ $bg-alpha-15-dark: rgba($alpha-base-dark, 0.15);
 $bg-alpha-25-dark: rgba($alpha-base-dark, 0.25);
 $bg-primary-dark: #0e120c;
 $bg-secondary-dark: #3d5a3a;
-$tile-color-1-dark: #15312a;
+// The fog, and its only job — a revealed tile is $bg-alpha-05 over the page instead. Sky
+// rather than the meadow green it used to be: an unfound tile is a cloud, not ground, and it
+// should not look like the field it is hiding.
+//
+// Muted rather than a daylight blue, and that is the beams' doing rather than taste. A beam is
+// drawn *under* the tiles and read through them at a quarter strength (see the block above), so
+// a beam crossing into the fog is seen over exactly this colour. Over the old green the water
+// blue separated by hue; over a blue it can only separate by brightness, so the duller and
+// darker this stays, the more of that is left. Raise its saturation and the first thing to go is
+// a water beam reaching a tile nobody has found yet.
+$tile-color-1-dark: #173044;
 $tile-color-1-dark-alpha: rgba($tile-color-1-dark, 0.75);
 $tile-color-2-dark: #1f271c;
 $table-bg-dark: #563232;

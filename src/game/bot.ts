@@ -288,8 +288,23 @@ const CURRENCY_HORIZON = 3;
  * a run: fifty drops behind one unicorn is a fortnight of standing still, and behind twenty it is
  * barely a turn of walking. Without that, a big board's ordinary working balance would read as a
  * glut and the bot would stop valuing water exactly when it needs it most.
+ *
+ * And a function of the board on top of that, like MIXED's economy weight above and for the same
+ * reason — because "faster than the herd can walk it off" is not really a limit on the walking.
+ * Nothing stops a unicorn taking fifty steps in one turn if it has fifty drops; what runs out is
+ * *somewhere worth going*, and how quickly that happens depends entirely on how much board there
+ * is. A 13x13 is walked out early and its water is scarce enough to be worth every drop of what
+ * it costs; a 25x25 goes on paying long after its herd has run out of errands. Swept at 20 seeds
+ * with the flat 4 against 2 and 1: the small boards wanted 4 (the 13x13 lost 15% at 1), the big
+ * ones wanted 1 to 2 (the 21x21 gained 7%), and this line is the two readings joined up. It cuts
+ * what is left in the purse at the whistle from 156 drops to 78 on the 25x25.
+ *
+ * Read as a landscape rather than a fit: the best value per board came out 4, 3, 1, 2 across the
+ * ladder, which is not monotonic, so the peak at either end is noise and only the slope is real.
  */
-const SPENDABLE_PER_UNICORN = 4;
+const SPENDABLE_AT_ZERO = 29; // the width at which the line would reach nothing
+const SPENDABLE_SLOPE = 4; // how many tiles of width it takes to shed one drop per unicorn
+const SPENDABLE_FLOOR = 1; // and what the biggest boards get, where the line would run out
 /**
  * The same idea for the jar: how many unicorns' worth of sweets count as a jar the run can still
  * spend. Below that a sweet is worth CANDY_VALUE; above it, candy is piling up faster than it can
@@ -297,7 +312,7 @@ const SPENDABLE_PER_UNICORN = 4;
  *
  * In unicorn-prices rather than sweets, because a sweet only ever buys one thing and what it
  * costs is the size of the herd: twenty sweets is four unicorns to a herd of five and most of one
- * to a herd of twenty-five. It is exactly the reasoning behind SPENDABLE_PER_UNICORN above, told
+ * to a herd of twenty-five. It is exactly the reasoning behind the SPENDABLE_ line above, told
  * in the currency's own terms.
  */
 const SPENDABLE_UNICORNS = 4;
@@ -781,8 +796,8 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   const thingValue = getExploration(map, side);
   /**
    * What one drop is actually worth to this side right now — DROP_VALUE while the purse is one
-   * the herd can still walk off, and less and less as it piles up past that. See
-   * SPENDABLE_PER_UNICORN.
+   * the herd can still walk off, and less and less as it piles up past that — where "can walk
+   * off" is a number the board decides, see SPENDABLE_AT_ZERO.
    *
    * This is the whole of the fix for a bot that would post its one unicorn on a bare rainbow and
    * stand there for eleven turns with fifty drops in hand. Holding that post is worth every turn
@@ -796,7 +811,8 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    * money here: a value that fell as a unicorn spent its own drops walking would be a value that
    * changes under the deciding unicorn's feet, which is how the pacing bugs start.
    */
-  const dropWorth = DROP_VALUE * Math.min(1, (SPENDABLE_PER_UNICORN * income[side].herd) / Math.max(1, income[side].drops));
+  const spendable = Math.max(SPENDABLE_FLOOR, (SPENDABLE_AT_ZERO - MAP_SIZE) / SPENDABLE_SLOPE);
+  const dropWorth = DROP_VALUE * Math.min(1, (spendable * income[side].herd) / Math.max(1, income[side].drops));
   // What a rainbow is worth to a *newcomer*: it scores, and it pays a drop a turn. A grown
   // unicorn's is worth more, which is what getRainbowsValue takes a level for — this is the
   // level-1 reading, and the one thing that reads it directly is a fountain site, whose light
@@ -875,67 +891,6 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   const isAffordable = (dropCost: number, candyCost: number, turns: number) =>
     income[side].drops + income[side].dropIncome * turns >= dropCost && income[side].candy + income[side].candyIncome * turns >= candyCost;
 
-  const candidates: BotAction[] = [];
-
-  // What the bot is saving up for: the drops of a building it is already standing next to and
-  // can only just not afford. While that is on, its drops are spoken for — see below.
-  let reserve = 0;
-
-  map.tiles.forEach((tile, index) => {
-    if (!isSeen(tile, side)) return;
-    const position = getPosition(index);
-    const build = getBuild(tile.object);
-
-    if (build) {
-      const [built, dropCost, candyCost] = build;
-      const gain = getBuildValue(tile.object!, position); // already weighted — see getBuildValue
-      const value = gain - dropCost * dropPrice - candyCost * candyPrice;
-
-      if (canBuild(map, position, side)) {
-        if (value > 0)
-          candidates.push({
-            kind: BotActionKind.BUILD,
-            from: position,
-            value,
-            label: HAS_BOT_LOGS ? `build ${OBJECT_CONFIG[built].emoji} at ${say(position)}` : "",
-          });
-      } else if (
-        // Not affordable yet, but a unicorn is already in place and the income will cover it
-        // before the bot's patience runs out — so hold on to the drops instead of walking
-        // them away. Only the drops: a building waiting on sweets is not delayed by steps.
-        value > 0 &&
-        dropCost > reserve &&
-        hasUnicornNeighbour(map, position, side) &&
-        isAffordable(dropCost, candyCost, RESERVE_PATIENCE)
-      ) {
-        reserve = dropCost;
-      }
-    }
-
-    if (tile.object === SIDE_BATHTUB[side]) {
-      const price = getUnicornPrice(map, side);
-
-      getSpawnTargets(map, position).forEach((to) => {
-        // Where the newcomer is put matters as much as buying it: a field with fog around it
-        // or a fountain beside it is worth more than the next one along.
-        const gain =
-          unicornWeight * unicornValue +
-          explore * countFog(map, to, side) * TILE_VALUE +
-          economy * getRainbowsValue(getRainbows(map, to, false, side), 1); // a newcomer starts at level 1
-        const value = gain - price * candyPrice;
-
-        if (value > 0)
-          candidates.push({
-            kind: BotActionKind.BUY,
-            from: position,
-            to,
-            value,
-            label: HAS_BOT_LOGS ? `buy a unicorn onto ${say(to)} for ${price}` : "",
-          });
-      });
-    }
-  });
-
   /**
    * What the board gets out of a unicorn *standing* on this tile: the rainbows it casts and
    * the build sites its presence unlocks. `lit` picks which rainbows are meant — the ones
@@ -987,6 +942,97 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
 
     return gain;
   };
+
+  /**
+   * The best thing a unicorn put on `from` could go on to *walk* to, faded by the walk — the
+   * same sum a step is judged by, asked a turn early.
+   *
+   * It is the whole of why a bathtub is worth using at all once the ground beside it is bare.
+   * Without it a purchase was worth the field it lands on and nothing else — its fog, and any
+   * fountain it happens to touch — so a herd that had already lit its own corner priced every
+   * newcomer at the flat worth of a unicorn and stopped buying, whatever was sitting three steps
+   * away with the water in the purse to reach it. Measured on the 25x25: of the goes where the
+   * bot could have bought and did not, 35 of 36 had a fountain field within four steps and the
+   * drops to walk there.
+   *
+   * One route search per free field, which is the cost of asking the question honestly rather
+   * than guessing at a radius. The newcomer's own level is 1, and getUnicornLevel says so for an
+   * empty tile without being told.
+   */
+  const getWalkValue = (from: Position) => {
+    const { cost } = getReach(map, from, side);
+    let best = 0;
+
+    map.tiles.forEach((_, index) => {
+      // Not the field itself: what standing there is worth is already counted by the caller.
+      if (cost[index] && isFinite(cost[index]))
+        best = Math.max(best, getGoalGain(getPosition(index), from) * DISTANCE_DISCOUNT ** cost[index]);
+    });
+
+    return best;
+  };
+
+  const candidates: BotAction[] = [];
+
+  // What the bot is saving up for: the drops of a building it is already standing next to and
+  // can only just not afford. While that is on, its drops are spoken for — see below.
+  let reserve = 0;
+
+  map.tiles.forEach((tile, index) => {
+    if (!isSeen(tile, side)) return;
+    const position = getPosition(index);
+    const build = getBuild(tile.object);
+
+    if (build) {
+      const [built, dropCost, candyCost] = build;
+      const gain = getBuildValue(tile.object!, position); // already weighted — see getBuildValue
+      const value = gain - dropCost * dropPrice - candyCost * candyPrice;
+
+      if (canBuild(map, position, side)) {
+        if (value > 0)
+          candidates.push({
+            kind: BotActionKind.BUILD,
+            from: position,
+            value,
+            label: HAS_BOT_LOGS ? `build ${OBJECT_CONFIG[built].emoji} at ${say(position)}` : "",
+          });
+      } else if (
+        // Not affordable yet, but a unicorn is already in place and the income will cover it
+        // before the bot's patience runs out — so hold on to the drops instead of walking
+        // them away. Only the drops: a building waiting on sweets is not delayed by steps.
+        value > 0 &&
+        dropCost > reserve &&
+        hasUnicornNeighbour(map, position, side) &&
+        isAffordable(dropCost, candyCost, RESERVE_PATIENCE)
+      ) {
+        reserve = dropCost;
+      }
+    }
+
+    if (tile.object === SIDE_BATHTUB[side]) {
+      const price = getUnicornPrice(map, side);
+
+      getSpawnTargets(map, position).forEach((to) => {
+        // Where the newcomer is put matters as much as buying it: a field with fog around it
+        // or a fountain beside it is worth more than the next one along.
+        const gain =
+          unicornWeight * unicornValue +
+          explore * countFog(map, to, side) * TILE_VALUE +
+          economy * getRainbowsValue(getRainbows(map, to, false, side), 1) + // a newcomer starts at level 1
+          getWalkValue(to); // and where it could go next — see getWalkValue
+        const value = gain - price * candyPrice;
+
+        if (value > 0)
+          candidates.push({
+            kind: BotActionKind.BUY,
+            from: position,
+            to,
+            value,
+            label: HAS_BOT_LOGS ? `buy a unicorn onto ${say(to)} for ${price}` : "",
+          });
+      });
+    }
+  });
 
   getUnicorns(map, side).forEach((from) => {
     const { cost, first, viaPortal } = getReach(map, from, side);

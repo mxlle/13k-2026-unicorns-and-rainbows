@@ -38,7 +38,7 @@ $badge-scale: 0.4;
 // unicorns, and the tub they come out of) are drawn up and the custards, which are underfoot,
 // are drawn down.
 $big-scale: 1.3;
-$small-scale: 0.7;
+$small-scale: 0.8;
 // PLACEHOLDER: how big a unicorn is drawn, and what one level of growing up adds to it. A
 // newcomer sits a little under the flat size the whole herd used to be drawn at, so growing up
 // is a change the eye can read in both directions — a level-3 unicorn stands a quarter taller
@@ -542,7 +542,7 @@ $win-hop-height: 2rem;
     // enough to sit back from the one that is working, without looking broken.
     &.tree {
       rotate: 45deg;
-      filter: saturate(0.4);
+      filter: saturate(0.6);
     }
 
     // A build site is a promise rather than a thing, and the size is what says so — small

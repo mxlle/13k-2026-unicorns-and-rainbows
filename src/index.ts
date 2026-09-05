@@ -5,9 +5,9 @@ import { CssClass } from "./utils/css-class";
 import { sleep } from "./utils/promise-utils";
 import { initAudio } from "./audio/music-control";
 import { getLocalStorageItem, LocalStorageKey } from "./utils/local-storage";
-import { GAME_TITLE, HAS_SIMPLE_SOUND_EFFECTS, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
-import { coinSoundSrcUrl, initWinLoseSoundEffects, loseSoundSrcUrl, winSoundSrcUrl } from "./audio/sound-control/sound-control-box";
-import { playSoundSimple } from "./audio/sound-control/sound-control";
+import { GAME_TITLE, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
+import { initSoundEffects, playSoundEffect } from "./audio/sound-control/sound-control-box";
+import { SoundEffect } from "./audio/sound-control/sound-effect";
 import { HeaderComponent } from "./framework/components/header/header.component";
 import { MuteButton } from "./components/mute-button/mute-button";
 import { GameMapComponent } from "./components/game-map/game-map.component";
@@ -62,21 +62,12 @@ function init() {
     }
   });
 
-  if (HAS_SIMPLE_SOUND_EFFECTS) {
-    pubSubService.subscribe(PubSubEvent.STAR_COLLECT, () => {
-      coinSoundSrcUrl && playSoundSimple(coinSoundSrcUrl);
-    });
-  }
-
   pubSubService.subscribe(PubSubEvent.GAME_END, (result) => {
     if (result.isWon) {
       document.body.classList.add(CssClass.WON);
     }
 
-    if (HAS_SIMPLE_SOUND_EFFECTS) {
-      const soundEffect = result.isWon ? winSoundSrcUrl : loseSoundSrcUrl;
-      soundEffect && playSoundSimple(soundEffect);
-    }
+    playSoundEffect(result.isWon ? SoundEffect.WIN : SoundEffect.LOSE);
 
     if (IS_POKI_ENABLED) {
       sleep(300).then(() => pokiSdk?.gameplayStop()); // to avoid issue that stop is called before start
@@ -101,7 +92,7 @@ const initApp = async () => {
   init();
   await sleep(0); // to make it a real promise
   await initAudio(initializeMuted);
-  HAS_SIMPLE_SOUND_EFFECTS && (await initWinLoseSoundEffects());
+  await initSoundEffects();
 };
 
 if (IS_POKI_ENABLED) initPoki(initApp);

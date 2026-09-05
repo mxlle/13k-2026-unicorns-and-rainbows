@@ -52,6 +52,8 @@ import {
 } from "../../game/game-map";
 import { ChestLoot, GameObjectType, OBJECT_CONFIG, PLAYER, RIVAL, SIDE_BATHTUB, SIDE_UNICORN } from "../../game/game-objects";
 import { getPercent, LEVEL_SEEDS, LEVEL_TARGETS, setBestScore } from "../../game/levels";
+import { playSoundEffect } from "../../audio/sound-control/sound-control-box";
+import { SoundEffect } from "../../audio/sound-control/sound-effect";
 import {
   applyBotAction,
   BOT_STRATEGIES,
@@ -1195,6 +1197,10 @@ export function GameMapComponent(
     // empty-handed on all but a few of them. Before the fog and the rainbows: a chest can
     // hold a unicorn, and that unicorn has its own vision and its own light to bring.
     const loot = openChest(map, target, PLAYER);
+    // A jump is a move at the portal's price, and nothing else ever costs that.
+    if (cost === PORTAL_COST) playSoundEffect(SoundEffect.PORTAL);
+    // The present opening; what was inside is heard when it lands, see showLoot.
+    if (loot !== undefined) playSoundEffect(SoundEffect.POP);
 
     const previousRainbowCount = map.rainbowCounts[PLAYER];
     revealAround(map, target, PLAYER);
@@ -1205,7 +1211,7 @@ export function GameMapComponent(
     showSpending(target, cost); // after render(), which is what puts the tile where it is measured
     if (loot !== undefined) showLoot(target, loot);
 
-    if (map.rainbowCounts[PLAYER] > previousRainbowCount) pubSubService.publish(PubSubEvent.STAR_COLLECT);
+    if (map.rainbowCounts[PLAYER] > previousRainbowCount) playSoundEffect(SoundEffect.RAINBOW);
   }
 
   /**
@@ -1242,7 +1248,7 @@ export function GameMapComponent(
     showSpending(site, drops);
     showSpending(site, candy, 1);
 
-    pubSubService.publish(PubSubEvent.STAR_COLLECT);
+    playSoundEffect(SoundEffect.BUILD);
   }
 
   /** Trades the jar of candy for a unicorn on one of the tub's fields, then hands the board back. */
@@ -1256,7 +1262,7 @@ export function GameMapComponent(
     // currency that paid it.
     showSpending(target, price, 1);
 
-    pubSubService.publish(PubSubEvent.STAR_COLLECT);
+    playSoundEffect(SoundEffect.UNICORN);
   }
 
   /**
@@ -1333,7 +1339,10 @@ export function GameMapComponent(
    * A unicorn is its own announcement: it is standing on the board, so nothing flies for it.
    */
   function showLoot(position: Position, loot: ChestLoot) {
-    if (loot === ChestLoot.UNICORN) return;
+    if (loot === ChestLoot.UNICORN) {
+      playSoundEffect(SoundEffect.UNICORN);
+      return;
+    }
 
     // A loot value doubles as its currency index — see the ChestLoot comment in game-objects.
     const from = centre(tileElements[getIndex(position)]);
@@ -1342,6 +1351,8 @@ export function GameMapComponent(
     const stagger = Math.min(FLY_STAGGER, FLY_SPREAD / count);
 
     for (let i = 0; i < count; i++) flyToCounter(loot, from, to, i * stagger);
+    // Heard as the first glyph lands, exactly as a payout of the same currency is.
+    setTimeout(() => playSoundEffect(loot), FLY_DURATION);
   }
 
   /**
@@ -1406,6 +1417,9 @@ export function GameMapComponent(
 
       // The delay is what lets the sweets wait on their trees while the drops are collected.
       group.forEach((index, i) => flyToCounter(currency, centre(tileElements[index]), [toX, toY], start + i * stagger));
+      // Once per currency as its first glyph lands, not once per glyph: thirty plinks would be
+      // a rattle. The currency index is the sound's — see SoundEffect.
+      setTimeout(() => playSoundEffect(currency as SoundEffect), start + FLY_DURATION);
 
       end = start + (group.length - 1) * stagger + FLY_DURATION;
       start = end + CURRENCY_GAP; // the next currency waits for this one to be in the purse
@@ -1497,10 +1511,25 @@ export function GameMapComponent(
         return;
       }
 
+      const previousRainbowCount = map.rainbowCounts[RIVAL];
       applyBotAction(map, action, RIVAL);
       // Where it just acted: the tile it stepped onto, or the one it stood on to build. After the
       // action rather than before, so the ring lands where the unicorn now is.
       markRivalAction(action.to ?? action.from);
+      // Its big moments are heard too — a build, a new unicorn, a rainbow lit — in the darker
+      // voice, and only where the ring shows: the fog withholds the sound for the same reason it
+      // withholds the ring. Not its steps: sixty milliseconds apart they would be a rattle.
+      if (rivalMark) {
+        const effect =
+          action.kind === BotActionKind.BUILD
+            ? SoundEffect.BUILD
+            : action.kind === BotActionKind.BUY
+              ? SoundEffect.UNICORN
+              : map.rainbowCounts[RIVAL] > previousRainbowCount
+                ? SoundEffect.RAINBOW
+                : undefined;
+        if (effect !== undefined) playSoundEffect(effect, true);
+      }
       // Re-selected rather than only redrawn: the rival may have walked onto the very tile
       // this selection was offering as a step, and a highlight that outlives what it was
       // offering is worse than none. The board is locked either way, so nothing can be acted

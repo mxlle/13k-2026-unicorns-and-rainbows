@@ -13,6 +13,7 @@ import { PubSubEvent } from "./src/utils/pub-sub-service";
 import { LocalStorageKey } from "./src/utils/local-storage";
 import { mapEntries, memoize } from "./src/utils/utils";
 import { ChestLoot, GameObjectType } from "./src/game/game-objects";
+import { SoundEffect } from "./src/audio/sound-control/sound-effect";
 
 // Placeholder favicon: swap the emoji for your game's (see the kickoff checklist
 // in CLAUDE.md). Percent-encoded so the data URI stays valid as an HTML attribute
@@ -100,6 +101,7 @@ export default defineConfig(({ mode, command }) => {
             LocalStorageKey,
             GameObjectType,
             ChestLoot,
+            SoundEffect,
           }),
           ...mapEntries(CssClass, ([, name]) => [name, getCssIdentifier(name)]),
         }),

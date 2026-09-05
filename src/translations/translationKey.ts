@@ -61,4 +61,9 @@ export const TranslationKey = defineEnum({
   // ends the run. A key of its own rather than a ternary: the maps only compact when every
   // value in them is a literal (see vite.config.ts).
   INFO_STUCK_LAST: 28,
+  // The label on the unicorn's ladder under its description: "Rank: 1 . . 2 . . 3", see
+  // renderGrowth. "Rank" rather than "level" because LEVELS above is already the boards, and
+  // one word must not name two different ladders. The one place the word is said — the
+  // description itself only leans on it.
+  RANK: 29,
 });

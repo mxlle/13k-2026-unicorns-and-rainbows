@@ -12,7 +12,8 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.RETRY]: "Nochmal",
     [TranslationKey.PLAY]: "Spielen",
     [TranslationKey.INFO_UNICORN]: "Einhorn|Dein Entdecker. Tippe ein helles Feld an — laufen kostet 💧 und vertreibt ☁️.",
-    [TranslationKey.INFO_UNICORN_SHINE]: "Es leuchtet. Stell es so auf: 🦄⛲🌈. Jedes ✨ (3 Züge leuchten) macht seinen 🌈 wertvoller.",
+    [TranslationKey.INFO_UNICORN_SHINE]:
+      "Es leuchtet. Stell es so auf: 🦄⛲🌈. Leuchten erhöht seinen Rang, und jeder Rang macht seinen 🌈 wertvoller.",
     [TranslationKey.INFO_RAINBOW]: "Regenbogen|Er zählt, solange er leuchtet. Neben einem 🍭 macht er 🍬, sonst 💧.",
     [TranslationKey.INFO_FOUNTAIN]: "Brunnen|Auf der anderen Seite kommt ein Regenbogen heraus: 🦄⛲🌈",
     [TranslationKey.INFO_BATHTUB]: "Badewanne|Sie macht 2 💧 pro Zug.",
@@ -35,5 +36,6 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_STUCK_LAST]: "Letzter Zug verbraucht|Nichts mehr zu tun. Beende den Zug, um das Spiel zu beenden.",
     [TranslationKey.WON_RACE]: "Du gewinnst!|Dein Endstand:",
     [TranslationKey.LOST_RACE]: "Dein Rivale gewinnt!|Dein Endstand:",
+    [TranslationKey.RANK]: "Rang",
   };
 }

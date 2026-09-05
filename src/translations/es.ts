@@ -14,7 +14,7 @@ export function getEsTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.RETRY]: "Reintentar",
     [TranslationKey.PLAY]: "Jugar",
     [TranslationKey.INFO_UNICORN]: "Unicornio|Tu explorador. Toca una casilla iluminada — caminar cuesta 💧 y despeja ☁️.",
-    [TranslationKey.INFO_UNICORN_SHINE]: "Brilla. Alinéalo así: 🦄⛲🌈. Cada ✨ (3 turnos brillando) hace que su 🌈 valga más.",
+    [TranslationKey.INFO_UNICORN_SHINE]: "Brilla. Alinéalo así: 🦄⛲🌈. Brillar sube su rango, y cada rango hace que su 🌈 valga más.",
     [TranslationKey.INFO_RAINBOW]: "Arcoíris|Suma puntos mientras brilla. Junto a un 🍭 hace 🍬, si no 💧.",
     [TranslationKey.INFO_FOUNTAIN]: "Fuente|Del otro lado sale un arcoíris: 🦄⛲🌈",
     [TranslationKey.INFO_BATHTUB]: "Bañera|Hace 2 💧 por turno.",
@@ -39,5 +39,6 @@ export function getEsTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_STUCK_LAST]: "Último turno agotado|No queda nada por hacer. Termina el turno para terminar la partida.",
     [TranslationKey.WON_RACE]: "¡Ganaste!|Tu puntaje final:",
     [TranslationKey.LOST_RACE]: "¡Ganó tu rival!|Tu puntaje final:",
+    [TranslationKey.RANK]: "Rango",
   };
 }

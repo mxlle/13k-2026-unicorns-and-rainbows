@@ -30,14 +30,14 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_UNICORN]: "Unicorn|Your explorer. Tap a lit tile — walking costs 💧 and clears ☁️.",
   // ...and this is the half that arrives with the first fountain the player finds. The 🦄⛲🌈
   // pattern carries the line-up rule without language, and repeats, so it costs almost nothing.
-  // The ✨ the panel puts after the name is the only place a level is stated, so this is where it
-  // has to be explained: what earns one, and that it is worth having. "worth more" rather than a
-  // number because a grown rainbow pays more of whichever currency it is on — see INFO_RAINBOW.
-  // The 3 repeats GROWTH_PER_LEVEL by hand, the way the tub's line repeats BASE_INCOME: change
-  // them together.
+  // The ladder under it (RANK, see renderGrowth) shows how many turns a rank takes and how far
+  // this unicorn has come, so the sentence only has to say what earns one and that it is worth
+  // having. "worth more" rather than a number because a grown rainbow pays more of whichever
+  // currency it is on — see INFO_RAINBOW.
   // Its length is load-bearing: it is the longest description in the file, and $info-height is
-  // the room reserved for exactly it. Re-measure that if this line grows.
-  [TranslationKey.INFO_UNICORN_SHINE]: "It shines. Line it up like this: 🦄⛲🌈. Each ✨ (3 turns shining) makes its 🌈 worth more.",
+  // the room reserved for exactly it plus the ladder. Re-measure that if this line grows.
+  [TranslationKey.INFO_UNICORN_SHINE]:
+    "It shines. Line it up like this: 🦄⛲🌈. Shining raises its rank, and each rank makes its 🌈 worth more.",
   // Both halves of the earning rule in one line, because a rainbow is where the choice is made:
   // the same tile pays a different currency depending on what is standing next to it. The
   // beams say it in colour — blue for the purse, red for the jar — and this says it in words.
@@ -116,4 +116,5 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_STUCK_LAST]: "Last turn spent|Nothing left to do. End the turn to finish the run.",
   [TranslationKey.WON_RACE]: "You win!|Your final score:",
   [TranslationKey.LOST_RACE]: "Your rival wins!|Your final score:",
+  [TranslationKey.RANK]: "Rank",
 };

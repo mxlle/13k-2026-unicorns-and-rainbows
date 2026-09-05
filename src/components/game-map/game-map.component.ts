@@ -16,6 +16,7 @@ import {
   createGameMap,
   createSeed,
   GameMap,
+  Tile,
   getIndex,
   endTurn,
   getBuild,
@@ -23,7 +24,9 @@ import {
   getExploration,
   getFeedingRainbows,
   getUnicornLevel,
-  getUnicornProgress,
+  getGrowth,
+  GROWTH_PER_LEVEL,
+  MAX_GROWTH,
   getMoveCost,
   getMoveTargets,
   getPortalTargets,
@@ -80,13 +83,10 @@ const SCORE_EMOJI = "⭐";
 const ZOOM_EMOJI = "🔍";
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
-// How grown a unicorn is, one of these per level, after its name in the info panel. Sparkles
-// rather than stars: ⭐ is the score's own glyph and would read as points.
-const LEVEL_EMOJI = "✨";
-// PLACEHOLDER glyph: one of these per turn already spent shining towards the next ✨, after the
-// sparkles — so a level-up can be seen coming. Deliberately small and plain next to the sparkle:
-// it is the pending half of the same count, not a second kind of reward.
-const GROWTH_MARK = "·";
+// PLACEHOLDER glyph for one turn's step on the unicorn's ladder, between the rank numbers:
+// "Rank: 1 • • 2 • • 3", see renderGrowth. A bullet rather than a middle dot or a full stop:
+// big enough to read as a rung, and not as punctuation.
+const GROWTH_MARK = "•";
 // Not the seedling: that is the lollipop-tree build site now, and two different things in the
 // info panel must not wear the same glyph.
 const EMPTY_EMOJI = "🌾";
@@ -479,7 +479,14 @@ export function GameMapComponent(
   // The end-of-run breakdown, one line per scoring category, stacked under the result line.
   // Empty while the run is on, and CSS hides it then, so it takes no room until it has any.
   const scoreBoard = createElement({ cssClass: styles.scoreBoard });
-  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText, buildButton]), scoreBoard]);
+  // The unicorn's ladder, a row of its own under the line — see renderGrowth. Empty for
+  // everything that is not a unicorn, and CSS hides it then, so it takes no room until it has any.
+  const growthBar = createElement({ cssClass: styles.growth });
+  const infoPanel = createElement({ cssClass: styles.info }, [
+    createElement({}, [infoEmoji, infoName, infoText, buildButton]),
+    growthBar,
+    scoreBoard,
+  ]);
 
   // The board takes its size from the map and the zoom step; this row scrolls to reach the
   // parts of it that do not fit. Panning is the browser's own scrolling — which brings touch
@@ -999,6 +1006,36 @@ export function GameMapComponent(
     infoEmoji.textContent = emoji;
     infoName.textContent = name; // empty for the hint, which has no name
     infoText.textContent = description;
+    growthBar.replaceChildren(); // only a unicorn has a ladder; showInfo draws it after this
+  }
+
+  /**
+   * How grown a unicorn is, as the whole ladder under its description: "Rank: 1 • • 2 • • 3",
+   * the rank numbers with a mark for each shining turn between, lit as far as the counter has
+   * come and dim past it, the rank it holds right now in bold — so the player sees at once what
+   * rank it is, how far it is to the next, and how much further the ladder goes. The 1 is the
+   * rank every unicorn starts at, and always lit. The number is the same one the light is drawn
+   * in, one line per rank. "Rank" to the player, level in the code (getUnicornLevel): the word
+   * "level" is the boards' on screen. Either side's — the rival's own progress is a thing worth
+   * being able to look up.
+   *
+   * One span per rung rather than one per state, so the current rank can be picked out of the
+   * lit half; the stylesheet spaces them (see .growth).
+   */
+  function renderGrowth(tile: Tile) {
+    const growth = getGrowth(tile);
+    const current = growth - (growth % GROWTH_PER_LEVEL); // the rung the rank it holds is written on
+
+    growthBar.replaceChildren(
+      createElement({ tag: "span", text: `${getTranslation(TranslationKey.RANK)}:` }),
+      ...Array.from({ length: MAX_GROWTH + 1 }, (_, i) =>
+        createElement({
+          tag: "span",
+          cssClass: [i > growth ? styles.pending : "", i === current ? styles.current : ""],
+          text: i % GROWTH_PER_LEVEL ? GROWTH_MARK : `${1 + i / GROWTH_PER_LEVEL}`,
+        }),
+      ),
+    );
   }
 
   /** Whatever the player tapped explains itself — an object, bare ground, or the fog. */
@@ -1031,15 +1068,11 @@ export function GameMapComponent(
       // The rival's tub sells to the rival, so the offer is not described on it at all.
       if (objectType === GameObjectType.BATHTUB && TREE_COUNT)
         infoText.textContent += ` ${getTranslation(TranslationKey.INFO_BATHTUB_SELL)}`;
-      // How grown a unicorn is, one sparkle per level, after its name, then one mark per shining
-      // turn already put in towards the next. A count rather than a number and with no word for
-      // "level" in it: it needs no translating, and it is the same reading as the light it casts,
-      // which is drawn one line per level. Either side's — the rival's own progress is a thing
-      // worth being able to look up.
-      if (SIDE_UNICORN.includes(objectType)) {
-        const tile = map.tiles[index!];
-        infoName.textContent += ` ${LEVEL_EMOJI.repeat(getUnicornLevel(tile))}${GROWTH_MARK.repeat(getUnicornProgress(tile))}`;
-      }
+      // Whether the player has found a fountain yet — the one thing a rank is about, so the
+      // ladder and the shine line below both wait for it. Either side's unicorn gets the ladder
+      // once it is on: the rival's rank is worth looking up as soon as ranks mean anything.
+      const hasFoundFountain = map.tiles.some((t) => t.object === GameObjectType.FOUNTAIN && isSeen(t, PLAYER));
+      if (hasFoundFountain && SIDE_UNICORN.includes(objectType)) renderGrowth(map.tiles[index!]);
       // The unicorn's own description is the one that changes with the run. INFO_UNICORN is what
       // it is for and how to walk it, which is all the opening position can act on: every board
       // starts as a 3x3 of bare meadow with clouds past it, and the fountain the line-up rule is
@@ -1055,8 +1088,7 @@ export function GameMapComponent(
       // piece on the opponent's tile. The sparkles can never turn up on a unicorn of the
       // player's without this line: a beam needs the fountain one step away (see
       // updateRainbows), and a unicorn always reveals its own 3x3.
-      if (objectType === SIDE_UNICORN[PLAYER] && map.tiles.some((t) => t.object === GameObjectType.FOUNTAIN && isSeen(t, PLAYER)))
-        infoText.textContent = getTranslation(TranslationKey.INFO_UNICORN_SHINE);
+      if (objectType === SIDE_UNICORN[PLAYER] && hasFoundFountain) infoText.textContent = getTranslation(TranslationKey.INFO_UNICORN_SHINE);
     } else if (index === undefined) {
       // Two resting lines rather than one: "tap something" is no use to a player who has nothing
       // left to tap. The spent turn has two endings of its own — every turn but the last one is

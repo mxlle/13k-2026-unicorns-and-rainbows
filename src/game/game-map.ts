@@ -218,10 +218,11 @@ export const BASE_INCOME = 2;
 //
 // Shining, not merely living: it grows on the turns it is actually lined up 🦄⛲🌈, which is
 // the act the whole game is about. See growUnicorns.
-const GROWTH_PER_LEVEL = 3; // turns spent shining per level-up
+// Exported with the ceiling for the info panel, which draws the whole ladder as a bar.
+export const GROWTH_PER_LEVEL = 3; // turns spent shining per level-up
 const MAX_UNICORN_LEVEL = 3; // its rainbow is worth 1 at the start and 3 once it is fully grown
 // The counter's ceiling, since it counts shining turns rather than levels — two level-ups' worth.
-const MAX_GROWTH = (MAX_UNICORN_LEVEL - 1) * GROWTH_PER_LEVEL;
+export const MAX_GROWTH = (MAX_UNICORN_LEVEL - 1) * GROWTH_PER_LEVEL;
 // PLACEHOLDER: how much board there is per present. Lowered from 60, which is a couple more on
 // every board from the 9x9 up — but the count was never the weak part. Tripling the presents on
 // the 25x25 was measured at 8%, because a present's *contents* were flat: five drops against a
@@ -319,15 +320,12 @@ export function getUnicornLevel(tile: Tile): number {
 }
 
 /**
- * How many of the GROWTH_PER_LEVEL shining turns towards the next level this unicorn has put in,
- * 0 to GROWTH_PER_LEVEL - 1 — the rest of the counter getUnicornLevel divides off. For the info
- * panel, which shows it so that a level-up can be seen coming rather than only arriving. MAX_GROWTH
- * is a whole number of levels, so a fully grown unicorn reads 0 here and nothing is shown pending.
- *
- * `% NaN` is NaN and `|| 0` catches it, so the undefined growth of a newcomer reads as 0.
+ * The raw counter, 0 to MAX_GROWTH, with a newcomer's undefined read as 0. For the info panel,
+ * which draws the whole ladder off it so that a level-up can be seen coming rather than only
+ * arriving; everything else reads the level (getUnicornLevel) and never the turns behind it.
  */
-export function getUnicornProgress(tile: Tile): number {
-  return tile.growth! % GROWTH_PER_LEVEL || 0;
+export function getGrowth(tile: Tile): number {
+  return tile.growth || 0;
 }
 
 /**

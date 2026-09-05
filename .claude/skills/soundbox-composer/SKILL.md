@@ -35,7 +35,7 @@ loud about it. The audit's verdict gates on all of it.
 After any trim, re-render every song (`--simple` for the simple player) and listen.
 
 Checksum-comparing renders only works for songs with no noise: `NOISE_VOL` draws on
-`Math.random()`, so cozy-paws differs on every render. Zero its `NOISE_VOL` to diff bit-exactly.
+`Math.random()`, so candy-clouds (noise ticks) differs on every render. Zero its `NOISE_VOL` to diff bit-exactly.
 
 ## Workflow
 

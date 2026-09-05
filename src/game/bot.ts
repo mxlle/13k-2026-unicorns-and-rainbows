@@ -179,11 +179,6 @@ const DROP_VALUE = 12;
 // and a thirtieth of one by the end. A flat rate has to sit somewhere in between, and every grid
 // row above picked 12 whatever the drops were worth.
 const CANDY_VALUE = 12;
-// The loot table's odds: three outcomes, one entry each, so an unopened present is worth the
-// plain mean of a pile of drops, a pile of sweets and a whole unicorn. A number rather than a
-// value, because what is in a present now depends on the board it is on — see CHEST_DROPS — so
-// the bot has to work out what an unopened one is worth instead of being told.
-const CHEST_ODDS = 1 / 3;
 // What a unicorn is worth beyond the score it carries: a second pair of eyes and a second
 // light, for the rest of the run.
 const UNICORN_POTENTIAL = 60;
@@ -781,10 +776,13 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // A unicorn is both halves of the game at once: another pair of eyes and another light.
   // So it is bought on the average of the two weights rather than under either of them.
   const unicornWeight = (explore + economy) / 2;
-  // What an unopened present is worth: its three outcomes at their odds, priced in what this
-  // board's presents actually hold. It used to be a flat 70, which was fine while the contents
-  // were flat too — now a 25x25 present carries five times a 5x5 one and the bot has to know.
-  const chestValue = CHEST_ODDS * (CHEST_DROPS * dropWorth + CHEST_CANDY * CANDY_VALUE + unicornValue);
+  // What each of the three prizes is worth, indexed by ChestLoot. It used to be one number —
+  // the mean of the three, at their equal odds — because a present kept its secret until it was
+  // stepped on. It says what it holds now (the wrapping is coloured by it, see LOOT_HUES in the
+  // interface), so guessing has been replaced by reading, and a present is worth walking to
+  // exactly as much as the thing in it. Priced in what this board's presents actually hold: a
+  // 25x25 one carries five times a 5x5 one.
+  const chestValues = [CHEST_DROPS * dropWorth, CHEST_CANDY * CANDY_VALUE, unicornValue];
 
   /**
    * What a set of rainbows cast by a `level` unicorn is worth. Every one of them scores, and
@@ -940,9 +938,12 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
     let gain =
       explore * countFog(map, position, side) * TILE_VALUE + getStandingValue(position, false, from, getUnicornLevel(getTile(map, from)!));
 
-    // A present is worth walking to whichever bot is playing: it is drops, sweets or a whole
-    // unicorn, and every one of those is worth having.
-    if (isSeen(tile, side) && tile.object === GameObjectType.CHEST) gain += unicornWeight * chestValue;
+    // A present is worth walking to whichever bot is playing — but how far is worth walking
+    // depends on which of the three it is. `loot` is set and cleared with the present itself
+    // (see openChest), so having one is the whole of being an unopened present, and the fog
+    // guard is unchanged: a side prices only the presents it has found, which is exactly the
+    // rule the player reads the colour under.
+    if (isSeen(tile, side) && tile.loot !== undefined) gain += unicornWeight * chestValues[tile.loot];
 
     return gain;
   };

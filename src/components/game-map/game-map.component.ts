@@ -124,6 +124,18 @@ const MIN_TILE = 8; // a floor for the maths below, in case the map row is measu
 // gradient — they are scattered about a tile in twelve, so what is seen is the variety and never
 // the sweep it is cut from.
 const HUE_STEP = 30;
+// PLACEHOLDER: what a present is wrapped in, by what is inside — degrees, indexed by ChestLoot.
+// Water turns the box blue, which is the colour its beams and its counter already are. Candy
+// keeps the wrapping the emoji came in, red ribbon and all: it is the middle prize, and leaving
+// the middle one untinted means there are two colours to learn rather than three, with the plain
+// present reading as the ordinary one. A unicorn takes the third quarter of the wheel, far enough
+// from both to be told apart at a glance.
+const LOOT_HUES = [180, 0, 270];
+// The three prizes as glyphs, indexed by ChestLoot — what the info panel names in place of the
+// wrapping once the player has found a present. The colour says it on the board; this says the
+// same thing once, in a form with no code to learn, and it is what a player who cannot tell the
+// two tints apart reads instead.
+const LOOT_EMOJIS = [DROP_EMOJI, CANDY_EMOJI, OBJECT_CONFIG[GameObjectType.UNICORN].emoji];
 // PLACEHOLDER payout-flight timings. FLY_SPREAD is the window all departures share rather
 // than a gap apiece: a big board can be paying out thirty times at once, and one emoji every
 // FLY_STAGGER would take longer to watch than the turn took to play.
@@ -794,6 +806,13 @@ export function GameMapComponent(
       // Either side's tub, since both are the same piece of furniture at the same size.
       ground.classList.toggle(styles.big, isTub);
       ground.classList.toggle(styles.small, isVisible && tile.object === GameObjectType.CUSTARD);
+      // A present says what it holds, in the colour it is wrapped in. Only once it has been found:
+      // under a cloud the glyph is the cloud, and tinting that would say there is something here.
+      // `loot` is set and cleared with the present itself (see openChest), so this needs no second
+      // question about what the tile is.
+      const hasLoot = isVisible && tile.loot !== undefined;
+      ground.classList.toggle(styles.loot, hasLoot);
+      if (hasLoot) ground.style.setProperty("--l", `${LOOT_HUES[tile.loot!]}deg`);
       // which trees are paying into the player's jar this turn — read off the same list the
       // income itself is counted from, so the glow can never promise candy that never comes.
       // The player's own light only: a tree earning off the rival's rainbow is earning for the
@@ -987,7 +1006,12 @@ export function GameMapComponent(
     if (index !== undefined && isSeen(map.tiles[index], PLAYER) && map.tiles[index].object === GameObjectType.DONUT)
       setInfo(TranslationKey.INFO_DONUT, OBJECT_CONFIG[GameObjectType.DONUT].emoji);
     else if (objectType !== undefined) {
-      setInfo(OBJECT_CONFIG[objectType].info, OBJECT_CONFIG[objectType].emoji);
+      // A present the player has found is named by what is in it rather than by its wrapping —
+      // the same fact the colour on the board is already carrying, said once in words' place.
+      setInfo(
+        OBJECT_CONFIG[objectType].info,
+        objectType === GameObjectType.CHEST ? LOOT_EMOJIS[map.tiles[index!].loot!] : OBJECT_CONFIG[objectType].emoji,
+      );
       // The panel names the opponent's things with the opponent's own glyph, so what is being
       // explained is the thing that was tapped rather than the player's version of it.
       if (HAS_OPPONENT) infoEmoji.classList.toggle(styles.dark, isDark(objectType));

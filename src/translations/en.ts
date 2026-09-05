@@ -82,8 +82,11 @@ export const enTranslations: Record<TranslationKey, string> = {
   // fires is a line of the panel spent on nothing. The lollipop tree's identical sentence stays:
   // trees *are* grown beside fountains, so for them it is the whole point.
   [TranslationKey.INFO_CUSTARD]: "Custard|Bouncy. Every step off it is free.",
-  // Says what it is for without saying what is in it: the three outcomes, and the one action.
-  [TranslationKey.INFO_CHEST]: "Present|Step on it to open. Inside is 💧, 🍬 or a new 🦄.",
+  // It used to list the three outcomes, which was the honest thing to say while a present kept
+  // its secret. It says what it holds now — in the colour it is wrapped in on the board, and in
+  // the glyph this panel puts in place of the 🎁 — so the sentence teaches the rule instead of
+  // the list, and a player who cannot tell two tints apart still gets the answer by tapping.
+  [TranslationKey.INFO_CHEST]: "Present|Step on it to open. Its colour says what is inside.",
   // The three build sites. No price in the text: the button carries it, and it is the button
   // that would go out of date if the numbers moved.
   [TranslationKey.INFO_TUB_SITE]: "Empty tub|A unicorn beside it can fill it up.",

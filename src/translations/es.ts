@@ -28,7 +28,7 @@ export function getEsTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_TREE]: "Árbol de caramelos|Convierte el 💧 de cada 🌈 al lado en 🍬. Aquí no puede aparecer un arcoíris.",
     [TranslationKey.INFO_DONUT]: "Dona|Un portal. Toca otra 🍩 para saltar allí por 2 💧.",
     [TranslationKey.INFO_CUSTARD]: "Flan|Rebota. Desde aquí cada paso es gratis.",
-    [TranslationKey.INFO_CHEST]: "Regalo|Písalo para abrirlo. Dentro hay 💧, 🍬 o un 🦄 nuevo.",
+    [TranslationKey.INFO_CHEST]: "Regalo|Písalo para abrirlo. Su color dice qué hay dentro.",
     [TranslationKey.INFO_TUB_SITE]: "Bañera vacía|Un unicornio al lado puede llenarla.",
     [TranslationKey.INFO_FOUNTAIN_SITE]: "Escombros|Un unicornio al lado puede reconstruir la fuente.",
     [TranslationKey.INFO_TREE_SITE]: "Brote|Un unicornio al lado puede convertirlo en un árbol de 🍭.",

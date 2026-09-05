@@ -545,6 +545,13 @@ $win-hop-height: 2rem;
       filter: saturate(0.6);
     }
 
+    // A present, wrapped in what is inside it — see LOOT_HUES. Its own variable rather than the
+    // custard's --h, and deliberately so: one is where the tile *is* and the other is what the
+    // tile *holds*, they are stamped at different times, and no tile is ever both.
+    &.loot {
+      filter: hue-rotate(var(--l, 0deg));
+    }
+
     // A build site is a promise rather than a thing, and the size is what says so — small
     // beside the full-grown object it becomes. At full opacity: faded read as scenery to
     // ignore rather than as an offer. `scale` rather than `transform` for the same reason the

@@ -24,7 +24,7 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_TREE]: "Lollibaum|Er macht aus dem 💧 jedes 🌈 daneben 🍬. Hier kann kein Regenbogen entstehen.",
     [TranslationKey.INFO_DONUT]: "Donut|Ein Portal. Tippe einen anderen 🍩 an, um für 2 💧 dorthin zu springen.",
     [TranslationKey.INFO_CUSTARD]: "Pudding|Wackelig. Von hier ist jeder Schritt gratis.",
-    [TranslationKey.INFO_CHEST]: "Geschenk|Betritt es zum Öffnen. Darin ist 💧, 🍬 oder ein neues 🦄.",
+    [TranslationKey.INFO_CHEST]: "Geschenk|Betritt es zum Öffnen. Seine Farbe verrät, was drin ist.",
     [TranslationKey.INFO_TUB_SITE]: "Leere Wanne|Ein Einhorn daneben kann sie füllen.",
     [TranslationKey.INFO_FOUNTAIN_SITE]: "Geröll|Ein Einhorn daneben kann den Brunnen wieder aufbauen.",
     [TranslationKey.INFO_TREE_SITE]: "Setzling|Ein Einhorn daneben kann ihn zum 🍭-Baum ziehen.",

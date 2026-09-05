@@ -8,7 +8,8 @@
 // webfont for consistent emoji rendering — must NOT be in the js13k or poki build:
 // external requests break the competition's offline rule (and cost bytes), and poki
 // does not allow them either
-@import url("https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap");
+// temp disabled to test emojis in all browsers
+// @import url("https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap");
 
 // The rainbow wash over the page. The body's own dark gradient is in globals.scss and ships
 // everywhere; this is only the colour on top of it, and the one animation that runs whether

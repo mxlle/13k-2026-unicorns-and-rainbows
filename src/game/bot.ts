@@ -177,11 +177,35 @@ const DROP_VALUE = 12;
 // unicorns — until you notice what a sweet actually converts to: `price` of them buy one unicorn
 // and the price is the size of the herd, so a sweet is worth a whole unicorn on the opening turn
 // and a thirtieth of one by the end. A flat rate has to sit somewhere in between, and every grid
-// row above picked 12 whatever the drops were worth.
+// row above picked 12 whatever the drops were worth. It is the *full* rate, read through
+// `candyWorth` rather than directly, exactly as DROP_VALUE is read through `dropWorth`.
 const CANDY_VALUE = 12;
-// What a unicorn is worth beyond the score it carries: a second pair of eyes and a second
-// light, for the rest of the run.
+/**
+ * What a unicorn is worth *per turn it has left to live*, beyond the score it carries: a
+ * second pair of eyes and a second light, for the rest of the run.
+ *
+ * Per turn rather than the flat 60 it used to be, and that flat number was the reason the bot
+ * hoarded sweets. Everything else in here is already priced over the run — a rainbow, a tub, a
+ * lollipop tree are all `turnsLeft` times what they pay — so the unicorn was the one investment
+ * with no horizon on it: one bought on the third turn of a 25-turn board was priced exactly like
+ * one bought on the twenty-fourth. Meanwhile its price is the size of the herd, and that grows.
+ * A constant worth against a rising price is a *fixed herd size* past which no purchase can ever
+ * be justified, however early in the run it is and however much the extra pair of eyes would have
+ * gone on to earn — so the bot stopped buying at seventeen unicorns with a hundred sweets in the
+ * jar, and only started again when CURRENCY_HORIZON marked the prices down at the whistle.
+ *
+ * Floored at the flat value it replaced, and that floor is a measurement rather than caution. Read
+ * literally, "worth what it has left to earn" says a unicorn on the last turn of a 5x5 is worth
+ * almost nothing — and playing it that way cost 20% of the 5x5 at 200 seeds, because the bot
+ * stopped walking to unicorn presents. What it is missing is that a newcomer is another pair of
+ * eyes for what fog is left, and on a board of 25 tiles that is most of the score's own multiplier
+ * however few turns are in it. Modelling that properly means asking how much fog a second explorer
+ * would lift, which is a search of its own; the floor buys the same answer for one Math.max. It
+ * binds on the short boards and over the last few turns of the long ones — everywhere the flat
+ * value was never the problem — and the per-turn rate takes over from turn eight of a run out.
+ */
 const UNICORN_POTENTIAL = 60;
+const UNICORN_POTENTIAL_PER_TURN = 8;
 // What a rebuilt bathtub is worth beyond the drops it pays: it is a second place to buy
 // unicorns, out in the middle of the board rather than back in the corner.
 const TUB_UNICORN_VALUE = 80;
@@ -266,6 +290,17 @@ const CURRENCY_HORIZON = 3;
  * glut and the bot would stop valuing water exactly when it needs it most.
  */
 const SPENDABLE_PER_UNICORN = 4;
+/**
+ * The same idea for the jar: how many unicorns' worth of sweets count as a jar the run can still
+ * spend. Below that a sweet is worth CANDY_VALUE; above it, candy is piling up faster than it can
+ * be turned into unicorns and the surplus is worth less and less — see `candyWorth`.
+ *
+ * In unicorn-prices rather than sweets, because a sweet only ever buys one thing and what it
+ * costs is the size of the herd: twenty sweets is four unicorns to a herd of five and most of one
+ * to a herd of twenty-five. It is exactly the reasoning behind SPENDABLE_PER_UNICORN above, told
+ * in the currency's own terms.
+ */
+const SPENDABLE_UNICORNS = 4;
 
 export const BotActionKind = { MOVE: 0, PORTAL: 1, BUY: 2, BUILD: 3, END_TURN: 4 } as const;
 export type BotActionKind = (typeof BotActionKind)[keyof typeof BotActionKind];
@@ -767,12 +802,17 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // level-1 reading, and the one thing that reads it directly is a fountain site, whose light
   // is whoever's happens to reach it later rather than anybody's in particular.
   const rainbowValue = thingValue + turnsLeft * dropWorth;
-  const unicornValue = thingValue + UNICORN_POTENTIAL;
+  const unicornValue = thingValue + Math.max(UNICORN_POTENTIAL, UNICORN_POTENTIAL_PER_TURN * turnsLeft);
   // What a price actually costs the run, which is not what it costs the purse: money left
   // over at the end is money that scored nothing. See CURRENCY_HORIZON.
   const spendability = Math.min(1, turnsLeft / CURRENCY_HORIZON);
   const dropPrice = dropWorth * spendability;
-  const candyPrice = CANDY_VALUE * spendability;
+  // And what one sweet is worth, by the same reckoning and for the same reason — see
+  // SPENDABLE_UNICORNS, and `dropWorth` above, which this is the jar's copy of. A jar too big for
+  // the herd to spend is a jar whose sweets are worth less than the tally says, which is what
+  // makes buying a unicorn out of a hoard worth doing at all.
+  const candyWorth = CANDY_VALUE * Math.min(1, (SPENDABLE_UNICORNS * income[side].herd) / Math.max(1, income[side].candy));
+  const candyPrice = candyWorth * spendability;
   // A unicorn is both halves of the game at once: another pair of eyes and another light.
   // So it is bought on the average of the two weights rather than under either of them.
   const unicornWeight = (explore + economy) / 2;
@@ -782,7 +822,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // interface), so guessing has been replaced by reading, and a present is worth walking to
   // exactly as much as the thing in it. Priced in what this board's presents actually hold: a
   // 25x25 one carries five times a 5x5 one.
-  const chestValues = [CHEST_DROPS * dropWorth, CHEST_CANDY * CANDY_VALUE, unicornValue];
+  const chestValues = [CHEST_DROPS * dropWorth, CHEST_CANDY * candyWorth, unicornValue];
 
   /**
    * What a set of rainbows cast by a `level` unicorn is worth. Every one of them scores, and
@@ -802,7 +842,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   const getRainbowsValue = (rainbows: Position[], level: number) =>
     rainbows.reduce((total, rainbow) => {
       const trees = countTreesBeside(map, rainbow, side);
-      const perTurn = trees ? trees * CANDY_VALUE : dropWorth;
+      const perTurn = trees ? trees * candyWorth : dropWorth;
 
       return total + thingValue + level * turnsLeft * perTurn;
     }, 0);
@@ -821,7 +861,7 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
     // A lollipop tree: one sweet a turn per rainbow it catches, so a spot that would catch two
     // is worth twice a spot that would catch one, and a spot with no light at all is worth
     // nothing at any price.
-    return economy * turnsLeft * CANDY_VALUE * countFeeding(map, position, side);
+    return economy * turnsLeft * candyWorth * countFeeding(map, position, side);
   };
 
   /**

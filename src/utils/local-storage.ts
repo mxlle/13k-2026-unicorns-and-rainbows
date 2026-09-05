@@ -9,7 +9,12 @@ const LOCAL_STORAGE_PREFIX = "mxlle";
 export type LocalStorageKey = defineEnum<typeof LocalStorageKey>;
 export const LocalStorageKey = defineEnum({
   MUTED: "m",
-  SCORES: "l", // the best score on each level's own board, comma-joined and indexed by level
+  // The best score on each level's own board, comma-joined and indexed by level. The digit is a
+  // version: a record is only meaningful against the rules it was set under, so a change to the
+  // economy that moves what a board is worth gets a new key rather than a migration — the old
+  // one is simply left behind, and every stripe starts empty again. Last bumped when the flower
+  // became a springboard (see getMoveCost), which changed what a drop buys on every board.
+  SCORES: "l1",
   SIZE: "s1", // the board the launch screen is offering next — one rung above the last one played
 });
 

@@ -22,7 +22,7 @@ const whistle = [0, 130, 128, 30, 0, 60, 152, 8, 30, 0, 60, 14, 40, 6, 0, 0, 0, 
 const hihat = [0, 0, 128, 0, 0, 0, 128, 0, 0, 70, 2, 3, 22, 30, 0, 0, 0, 0, 0, 0, 1, 170, 0, 0, 64, 0, 0, 0, 0];
 
 // Thump: a low sine whose pitch falls with its envelope, over in a tenth of a second — a kick
-// at a low note, a "plop" at a higher one.
+// at a low note.
 const thump = [0, 200, 128, 60, 0, 0, 128, 0, 0, 0, 2, 8, 40, 60, 0, 0, 0, 0, 0, 0, 2, 60, 0, 0, 42, 0, 0, 0, 0];
 
 // 0 and 1 — money being counted into the purse or the jar, drops and sweets alike: three hi-hat
@@ -37,26 +37,17 @@ export const countSound = {
   numChannels: 1,
 };
 
-// 2 — a new unicorn: a short fanfare — ta-ta-ta-DAA, three G5s and a C6 with an E6 on top.
-// Two columns of patternLen rows: the second note of the chord sits at row 6 + patternLen.
+// 2 — a new unicorn: a short fanfare — ta-DAA, a G5 and a C6 with an E6 on top.
+// Two columns of patternLen rows: the second note of the chord sits at row 2 + patternLen.
 export const unicornSound = {
-  songData: [{ i: bell, p: [1], c: [{ n: [154, , 154, , 154, , 159, , , , , , , , , , , , 163] }] }],
+  songData: [{ i: bell, p: [1], c: [{ n: [154, , 159, , , , , , , , 163] }] }],
   rowLen: 2200,
-  patternLen: 12,
+  patternLen: 8,
   endPattern: 0,
   numChannels: 1,
 };
 
-// 3 — a present opening: a single plop.
-export const popSound = {
-  songData: [{ i: thump, p: [1], c: [{ n: [140] }] }],
-  rowLen: 2756,
-  patternLen: 6,
-  endPattern: 0,
-  numChannels: 1,
-};
-
-// 4 — a rainbow lit: a rising C-major sparkle, C5 up to E6.
+// 3 — a rainbow lit: a rising C-major sparkle, C5 up to E6.
 export const rainbowSound = {
   songData: [{ i: bell, p: [1], c: [{ n: [147, 151, 154, 159, 163] }] }],
   rowLen: 1500,
@@ -65,7 +56,7 @@ export const rainbowSound = {
   numChannels: 1,
 };
 
-// 5 — something built: a thump with a two-note chime on top, C then G.
+// 4 — something built: a thump with a two-note chime on top, C then G.
 export const buildSound = {
   songData: [
     { i: thump, p: [1], c: [{ n: [123] }] },
@@ -77,7 +68,7 @@ export const buildSound = {
   numChannels: 2,
 };
 
-// 6 — the portal: one long upward glide — the classic teleport.
+// 5 — the portal: one long upward glide — the classic teleport.
 export const portalSound = {
   songData: [{ i: whistle, p: [1], c: [{ n: [152] }] }],
   rowLen: 2756,
@@ -86,7 +77,7 @@ export const portalSound = {
   numChannels: 1,
 };
 
-// 7 — the run won: a C-major flourish, C E G C, then A up to C again.
+// 6 — the run won: a C-major flourish, C E G C, then A up to C again.
 export const winSound = {
   songData: [{ i: bell, p: [1], c: [{ n: [147, , 151, , 154, , 159, , , , , , 156, , 159] }] }],
   rowLen: 3300,
@@ -95,7 +86,7 @@ export const winSound = {
   numChannels: 1,
 };
 
-// 8 — the race lost: a slow sigh, E D C, down to A, back home to C.
+// 7 — the race lost: a slow sigh, E D C, down to A, back home to C.
 export const loseSound = {
   songData: [{ i: bell, p: [1], c: [{ n: [151, , 149, , 147, , , , 144, , , , , , 147] }] }],
   rowLen: 4400,

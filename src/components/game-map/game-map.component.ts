@@ -1240,8 +1240,6 @@ export function GameMapComponent(
     const loot = openChest(map, target, PLAYER);
     // A jump is a move at the portal's price, and nothing else ever costs that.
     if (cost === PORTAL_COST) playSoundEffect(SoundEffect.PORTAL);
-    // The present opening; what was inside is heard when it lands, see showLoot.
-    if (loot !== undefined) playSoundEffect(SoundEffect.POP);
 
     const previousRainbowCount = map.rainbowCounts[PLAYER];
     revealAround(map, target, PLAYER);

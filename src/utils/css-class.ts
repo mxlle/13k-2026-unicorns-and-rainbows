@@ -14,4 +14,5 @@ export const CssClass = defineEnum({
   // The loud voice, on anything that is not a button: the header's title row and the ladder's
   // labels. Buttons get it from the element selector and do not carry this. See globals.scss.
   EMPHASIS: "global__emphasis",
+  DIMMED: "global__dimmed", // switched off but still there: the audio buttons' off state
 });

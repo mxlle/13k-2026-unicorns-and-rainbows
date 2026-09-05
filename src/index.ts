@@ -9,7 +9,7 @@ import { GAME_TITLE, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-uti
 import { initSoundEffects, playSoundEffect } from "./audio/sound-control/sound-control-box";
 import { SoundEffect } from "./audio/sound-control/sound-effect";
 import { HeaderComponent } from "./framework/components/header/header.component";
-import { MuteButton } from "./components/mute-button/mute-button";
+import { AudioButtons } from "./components/audio-buttons/audio-buttons";
 import { GameMapComponent } from "./components/game-map/game-map.component";
 import { LaunchScreenComponent } from "./components/launch-screen/launch-screen.component";
 
@@ -17,7 +17,7 @@ if (HAS_VISUAL_NICE_TO_HAVES) {
   import("./globals.nice2have.scss");
 }
 
-const initializeMuted = getLocalStorageItem(LocalStorageKey.MUTED) === "true";
+const initializeMuted = getLocalStorageItem(LocalStorageKey.MUSIC_MUTED) === "true";
 
 let isInitialized = false;
 
@@ -50,7 +50,7 @@ function init() {
 
   // the run's counters sit in the header rather than over the board, so they can never cover
   // a tile; the chip takes itself out of the flow and centres — see its styles
-  document.body.append(HeaderComponent(GAME_TITLE, [headerControls, MuteButton()]), gameArea, launchScreen);
+  document.body.append(HeaderComponent(GAME_TITLE, [headerControls, ...AudioButtons()]), gameArea, launchScreen);
 
   showLaunchScreen(true);
 

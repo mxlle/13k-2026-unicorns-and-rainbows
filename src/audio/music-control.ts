@@ -1,5 +1,5 @@
 import { candyCloudsSong as song } from "./songs/candy-clouds";
-import { LocalStorageKey, setLocalStorageItem } from "../utils/local-storage";
+import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../utils/local-storage";
 import { PubSubEvent, pubSubService } from "../utils/pub-sub-service";
 import { IS_POKI_ENABLED } from "../env-utils";
 import { CPlayerSimple as CPlayer } from "./small-player-simple";
@@ -8,6 +8,9 @@ import type { SoundBoxPlayer } from "./player-interface";
 let audioElem: HTMLAudioElement;
 let isActive = false;
 let initialized = false;
+// The effects have their own switch, remembered on their own key. No autoplay dance for them:
+// an effect only ever plays on the player's own tap.
+let areEffectsOn = getLocalStorageItem(LocalStorageKey.SOUND_MUTED) !== "true";
 
 export async function initAudio(initializeMuted: boolean) {
   const player = new CPlayer();
@@ -61,16 +64,23 @@ export function togglePlayer(): boolean {
   isActive = !isActive;
   playOrPauseMusicIfApplicable();
 
-  setLocalStorageItem(LocalStorageKey.MUTED, isActive ? "false" : "true");
+  setLocalStorageItem(LocalStorageKey.MUSIC_MUTED, isActive ? "false" : "true");
 
   return isActive;
 }
 
-// The mute button owns *all* audio, not just the music: `isActive` is what it toggles, and
-// `audioElem.muted` is what the tab going away (or Poki) does behind its back. Sound effects
-// ask both, so they follow the button and the tab without a second flag to keep in step.
+export function toggleEffects(): boolean {
+  areEffectsOn = !areEffectsOn;
+  setLocalStorageItem(LocalStorageKey.SOUND_MUTED, areEffectsOn ? "false" : "true");
+
+  return areEffectsOn;
+}
+
+// The effects follow their own button and the tab: `areEffectsOn` is what the button toggles,
+// and `audioElem.muted` is what the tab going away (or Poki) does to the music behind its back —
+// asked here too, so a hidden tab goes quiet altogether rather than only losing its music.
 export function isSoundOn(): boolean {
-  return isActive && !audioElem.muted;
+  return areEffectsOn && !audioElem.muted;
 }
 
 export function playOrPauseMusicIfApplicable(shouldPlay: boolean = isActive) {

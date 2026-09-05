@@ -137,6 +137,12 @@ button.#{$ICON_BTN} {
   }
 }
 
+// Off, not gone: greyed and faded, still a button. The audio toggles wear this when switched off.
+.#{$DIMMED} {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
 .#{$HIDDEN} {
   display: none !important;
 }

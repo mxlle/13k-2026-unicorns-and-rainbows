@@ -8,7 +8,8 @@ const LOCAL_STORAGE_PREFIX = "mxlle";
 
 export type LocalStorageKey = defineEnum<typeof LocalStorageKey>;
 export const LocalStorageKey = defineEnum({
-  MUTED: "m",
+  MUSIC_MUTED: "m",
+  SOUND_MUTED: "e", // the effects, switched off separately from the music
   // The best score on each level's own board, comma-joined and indexed by level. The digit is a
   // version: a record is only meaningful against the rules it was set under, so a change to the
   // economy that moves what a board is worth gets a new key rather than a migration — the old

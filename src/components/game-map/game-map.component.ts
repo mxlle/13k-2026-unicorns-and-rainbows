@@ -32,7 +32,7 @@ import {
   getScore,
   getScoreParts,
   getSpawnTargets,
-  hasFreeMove,
+  canAct,
   HAS_RIVAL,
   hasGo,
   isRunOver,
@@ -361,6 +361,10 @@ export function GameMapComponent(
   let lastIncome: number[] = [];
   let lastScore = 0;
   let newRun = true;
+  // Whether the last render found the turn spent — see render(). Held so the prompt fires on
+  // the edge into that state and not on every repaint of it, and so showInfo knows which of
+  // the two resting lines the panel should fall back to.
+  let wasStuck = false;
   // The opponent's score, live beside the player's own. It is the whole reason to have a rival
   // rather than a par to beat: being able to see the gap while there are still turns left to
   // close it. Its face is the dark unicorn rather than a second star, so which number belongs
@@ -652,6 +656,33 @@ export function GameMapComponent(
   addEventListener("resize", () => applyZoom());
 
   function render() {
+    // Guidance: an empty purse makes the income the only way on, so ending the turn
+    // becomes the next step. Before that, on the opening turn, it is picking a character.
+    // Once the run is over the same button is the only thing left to press.
+    // The two signals on that button are deliberately split. Colour goes on as soon as the
+    // purse is empty — ending the turn is the way on from there, whether or not something
+    // free or paid for in sweets is still available. The pulse waits for the strict case,
+    // when there is provably nothing left to do (see canAct), so it never nags a player who
+    // can still act.
+    const outOfWater = map.drops[PLAYER] < MOVE_COST;
+    const needsIncome = !canAct(map, PLAYER);
+    const isOver = !isRunning;
+    // The turn is spent, said in words as well as on the button. What it does is what a player
+    // who has understood the turn would do: drop the selection, because the board has nothing
+    // left to offer, and put the reason where the board's explanations already are — see
+    // showInfo, which owns the wording and the two endings it has.
+    //
+    // On the edge rather than on the state, or it would nag once per repaint. Only while the run
+    // is on: once it is over the panel belongs to the result, and a turn that ended spent — which
+    // is every one of them — would otherwise have this hand the panel back to its hint the moment
+    // endGame had finished writing the score into it.
+    if (isRunning && needsIncome !== wasStuck) {
+      wasStuck = needsIncome; // before select(), which asks showInfo for the resting line
+      if (wasStuck) {
+        hopInfo();
+        select();
+      } else showInfo(selected && getIndex(selected)); // the income landed; the line goes back
+    }
     const selectedIndex = selected && getIndex(selected);
     const targetIndices = targets.map(getIndex);
     // A step onto a flower costs nothing, and the purse is the only place that would
@@ -676,16 +707,6 @@ export function GameMapComponent(
     // step out wears, so the two are one character rather than two lookalikes.
     const priceTag = isTubSelected ? `−${getUnicornPrice(map, PLAYER)}${CANDY_EMOJI}` : `−${MOVE_COST}${DROP_EMOJI}`;
     const jumpTag = `−${PORTAL_COST}${DROP_EMOJI}`;
-    // Guidance: an empty purse makes the income the only way on, so ending the turn
-    // becomes the next step. Before that, on the opening turn, it is picking a character.
-    // Once the run is over the same button is the only thing left to press.
-    // The two signals on that button are deliberately split. Colour goes on as soon as the
-    // purse is empty — ending the turn is the way on from there, whether or not a free step
-    // over a flower is still available. The pulse waits for the stricter case, when there
-    // is genuinely nothing else left to do, so it never nags a player who can still act.
-    const outOfWater = map.drops[PLAYER] < MOVE_COST;
-    const needsIncome = outOfWater && !hasFreeMove(map, PLAYER);
-    const isOver = !isRunning;
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
     // Which tiles are actually turning light into a rainbow this turn. Read off the beams the
     // model already worked out, so the halo can never promise a rainbow that is not there —
@@ -911,6 +932,21 @@ export function GameMapComponent(
     );
   }
 
+  /**
+   * The panel's bounce, from the top. Two things ask for it — the turn going spent, and the run
+   * ending — and either may ask while it is already wearing the class, which on its own does
+   * nothing: a CSS animation restarts only when the browser recomputes a style whose animation
+   * name has changed. Hence the measurement in the middle, which is a forced reflow and nothing
+   * else. It has to be a *call* and not a property read: the build tree-shakes reads it thinks
+   * nobody wants (propertyReadSideEffects, see vite.config.ts), and the side effect is the whole
+   * point of this one.
+   */
+  function hopInfo() {
+    infoPanel.classList.remove(styles.hop);
+    infoPanel.getBoundingClientRect();
+    infoPanel.classList.add(styles.hop);
+  }
+
   /** The info panel is one line: an emoji plus a "Name|Description" text. */
   function setInfo(key: TranslationKey, emoji: string) {
     const [name, description] = getTranslation(key).split("|");
@@ -967,8 +1003,17 @@ export function GameMapComponent(
       // updateRainbows), and a unicorn always reveals its own 3x3.
       if (objectType === SIDE_UNICORN[PLAYER] && map.tiles.some((t) => t.object === GameObjectType.FOUNTAIN && isSeen(t, PLAYER)))
         infoText.textContent = getTranslation(TranslationKey.INFO_UNICORN_SHINE);
-    } else if (index === undefined) setInfo(TranslationKey.INFO_HINT, HINT_EMOJI);
-    else if (isSeen(map.tiles[index], PLAYER)) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
+    } else if (index === undefined) {
+      // Two resting lines rather than one: "tap something" is no use to a player who has nothing
+      // left to tap. The spent turn has two endings of its own — every turn but the last one is
+      // followed by an income, and the last one is followed by nothing at all, so it says the
+      // run is over instead of promising money that is not coming. Both wear the glyph the turn
+      // counter is wearing at the time, which is where the same distinction is already drawn.
+      const isLast = map.turn >= TURN_LIMIT;
+      const stuckKey = isLast ? TranslationKey.INFO_STUCK_LAST : TranslationKey.INFO_STUCK;
+
+      setInfo(wasStuck ? stuckKey : TranslationKey.INFO_HINT, wasStuck ? (isLast ? LAST_TURN_EMOJI : TURN_EMOJI) : HINT_EMOJI);
+    } else if (isSeen(map.tiles[index], PLAYER)) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
     else setInfo(TranslationKey.INFO_FOG, FOG_EMOJI);
   }
 
@@ -1445,6 +1490,10 @@ export function GameMapComponent(
     infoText.textContent += ` ${score}`; // the text ends ready for the number
     showsScore = false; // the result owns the panel now; there is nothing left to toggle
     renderScoreBoard(true); // the total above, its working below — and the rival's total under that
+    // The same bounce the spent turn gets, and asked for the same way — the last turn is spent
+    // when the run ends, so more often than not this panel is already mid-hop, and it is the
+    // result that has to be announced rather than the turn before it.
+    hopInfo();
     render();
 
     pubSubService.publish(PubSubEvent.GAME_END, { isWon });
@@ -1484,6 +1533,7 @@ export function GameMapComponent(
     if (tileElements.length !== MAP_SIZE * MAP_SIZE) buildBoard();
     showsScore = false; // render() clears last run's working with it, before the new board shows
     newRun = true; // the first render of a board seeds the bar rather than reacting to it
+    wasStuck = false; // the last board's spent turn must not be the new one's opening line
     isRunning = true; // before render(), which reads it for the turn button
     select(undefined);
     render();

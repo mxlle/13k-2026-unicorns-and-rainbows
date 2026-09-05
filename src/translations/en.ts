@@ -87,6 +87,17 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_DARK_RAINBOW]: "Dark rainbow|It scores for your rival. Its tile is taken; yours cannot land here.",
   // Both endings end the same way — a score to read — so both lines end ready for a number,
   // exactly as WON does. The rival's own total is a row in the breakdown underneath.
+  // PLACEHOLDER wording. Shown when nothing on the board can be paid for any more — see canAct.
+  // Deliberately not "you have no 💧": the purse is often not empty when this appears, it is
+  // just short of everything on offer, and a player told they have no drops goes looking for a
+  // drop rather than reading the sentence after it. "Income" is the word the "(+n)" beside each
+  // counter has been saying wordlessly all run, which is what this connects the button to.
+  [TranslationKey.INFO_STUCK]: "Turn spent|Nothing left you can pay for. End the turn to collect your income.",
+  // PLACEHOLDER wording. The closing turn has no income behind it, so the button is the end of
+  // the run rather than the way on to the next turn — and saying "collect your income" there
+  // would promise money that is not coming. It is the one place the interface says out loud
+  // that the turns are what the run is made of.
+  [TranslationKey.INFO_STUCK_LAST]: "Last turn spent|Nothing left to do. End the turn to finish the run.",
   [TranslationKey.WON_RACE]: "You win!|Your final score:",
   [TranslationKey.LOST_RACE]: "Your rival wins!|Your final score:",
 };

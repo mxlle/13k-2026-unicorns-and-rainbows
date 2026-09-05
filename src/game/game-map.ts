@@ -1025,19 +1025,38 @@ export function getMoveCost(map: GameMap, to: Position, side: Side): number {
 }
 
 /**
- * Whether any character the player can see has a free step available — with an empty purse,
- * the only thing that can still happen. The "end your turn" nudge hangs off this, so that a
- * player standing next to a flower is not pushed on while there is still something to do.
- * Characters under the fog are left out on purpose: counting one would silently disarm the
- * nudge on account of a unicorn the player has not even found yet.
+ * Whether there is anything at all this side could still do this turn — a step it can pay for
+ * (a free one over a flower counts), a jump, a unicorn it can buy, or a site it can raise.
+ * The whole of what a tap can do, asked of the whole board at once, which is why it is here
+ * rather than in the interface: it is the same four offers select() lights up, and the two
+ * would go out of step if they were written twice.
+ *
+ * Both nudges towards ending the turn hang off it — the pulse on the button and the line in
+ * the info panel — so it has to be exact in the direction of *silence*: it says "nothing" only
+ * when there is provably nothing, and a jar of sweets with no tub field free is that case as
+ * surely as an empty purse is.
+ *
+ * Only what this side has found. A tile under its own clouds is skipped whatever is on it, for
+ * the same reason the fog rules skip a hidden glower: counting a unicorn the player has not met
+ * would silently disarm the nudge on account of something they cannot act with.
  */
-export function hasFreeMove(map: GameMap, side: Side): boolean {
-  return map.tiles.some(
-    (tile, index) =>
-      tile.living === SIDE_UNICORN[side] &&
-      isSeen(tile, side) &&
-      getMoveTargets(map, getPosition(index)).some((target) => !getMoveCost(map, target, side)),
-  );
+export function canAct(map: GameMap, side: Side): boolean {
+  return map.tiles.some((tile, index) => {
+    if (!isSeen(tile, side)) return false;
+    const position = getPosition(index);
+
+    // One tile is at most one of these three: somebody's unicorn is standing on it, or a tub of
+    // this side's is built on it, or it is ground that might be a site. Ordered by how often
+    // the answer is yes, so the common case is the first test rather than the last.
+    return tile.living === SIDE_UNICORN[side]
+      ? getMoveTargets(map, position).some((target) => getMoveCost(map, target, side) <= map.drops[side]) ||
+          getPortalTargets(map, position, side).some((target) => canUsePortal(map, target, side))
+      : tile.object === SIDE_BATHTUB[side]
+        ? // getSpawnTargets comes back empty unless the jar can pay, so this is the price and the
+          // room for a newcomer in one question
+          !!getSpawnTargets(map, position).length
+        : canBuild(map, position, side);
+  });
 }
 
 /**

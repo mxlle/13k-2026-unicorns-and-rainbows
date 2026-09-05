@@ -54,4 +54,11 @@ export const TranslationKey = defineEnum({
   // It is the same map and not another deal of it: a run is a plan, and the second go at a plan
   // is the whole of what there is to learn from the first.
   RETRY: 26,
+  // The resting line in place of INFO_HINT once the turn is provably spent — no name of its
+  // own would do here, so this one has a name half: it is a prompt rather than a caption.
+  INFO_STUCK: 27,
+  // The same line on the closing turn, where there is no income coming and ending the turn
+  // ends the run. A key of its own rather than a ternary: the maps only compact when every
+  // value in them is a literal (see vite.config.ts).
+  INFO_STUCK_LAST: 28,
 });

@@ -31,6 +31,8 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     // Der Gegner. Kein HAS_OPPONENT-Ternary nötig: die ganze Datei hängt schon an HAS_GERMAN.
     [TranslationKey.INFO_RIVAL]: "Dunkles Einhorn|Dein Rivale. Es spielt dasselbe Spiel — sei vor ihm an den Brunnen.",
     [TranslationKey.INFO_DARK_RAINBOW]: "Dunkler Regenbogen|Er zählt für deinen Rivalen. Sein Feld ist besetzt.",
+    [TranslationKey.INFO_STUCK]: "Zug verbraucht|Du kannst dir nichts mehr leisten. Beende den Zug, um dein Einkommen zu kassieren.",
+    [TranslationKey.INFO_STUCK_LAST]: "Letzter Zug verbraucht|Nichts mehr zu tun. Beende den Zug, um das Spiel zu beenden.",
     [TranslationKey.WON_RACE]: "Du gewinnst!|Dein Endstand:",
     [TranslationKey.LOST_RACE]: "Dein Rivale gewinnt!|Dein Endstand:",
   };

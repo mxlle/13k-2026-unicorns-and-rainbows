@@ -35,6 +35,8 @@ export function getEsTranslationMap(): Record<TranslationKey, string> {
     // El rival. No hace falta un ternary de HAS_OPPONENT: todo el archivo ya depende de HAS_SPANISH.
     [TranslationKey.INFO_RIVAL]: "Unicornio oscuro|Tu rival. Juega el mismo juego — llega a las fuentes antes que él.",
     [TranslationKey.INFO_DARK_RAINBOW]: "Arcoíris oscuro|Suma puntos para tu rival. Su casilla está ocupada.",
+    [TranslationKey.INFO_STUCK]: "Turno agotado|Ya no puedes pagar nada. Termina el turno para cobrar tus ingresos.",
+    [TranslationKey.INFO_STUCK_LAST]: "Último turno agotado|No queda nada por hacer. Termina el turno para terminar la partida.",
     [TranslationKey.WON_RACE]: "¡Ganaste!|Tu puntaje final:",
     [TranslationKey.LOST_RACE]: "¡Ganó tu rival!|Tu puntaje final:",
   };

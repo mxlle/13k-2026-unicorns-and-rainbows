@@ -282,12 +282,12 @@ $win-hop-height: 2rem;
   font-size: 0.8rem;
   color: theme.$text-secondary;
 
-  // A won run: the panel that carries the result bounces and keeps the success tint, so
-  // the end of the run announces itself without a dialog over the board. It settles on
-  // its own — the pulsing "new game" button is what should be moving after that.
+  // A won run keeps the success tint, so the end of the run announces itself without a dialog
+  // over the board. The bounce that comes with it is not here: endGame asks for it through
+  // .hop below, because by then the panel is usually already hopping — the last turn is a spent
+  // turn — and a second rule naming the same animation would restart nothing.
   :global(.#{names.$WON}) & {
     background: rgba(theme.$success-color-light, 0.25);
-    animation: hop $win-hop-duration;
   }
 }
 
@@ -317,6 +317,14 @@ $win-hop-height: 2rem;
     transform: translateY(-0.18 * $win-hop-height);
     animation-timing-function: ease-in;
   }
+}
+
+// The panel's bounce: the turn-spent prompt arriving, and the result at the end of the run. On
+// a screen where nothing else can move it is what carries the eye down to the button underneath.
+// One class for both, taken off and put back on by hopInfo() — see the reflow in there, which is
+// what makes a bounce that is already running start again from the top.
+.hop {
+  animation: hop $win-hop-duration;
 }
 
 .infoEmoji {

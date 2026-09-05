@@ -185,6 +185,7 @@ $stripe-gap: 0.4rem;
   // it — has about a hundred pixels less to live in than it wants, and two gaps is the first
   // place to find some of them without anything having to be dropped.
   gap: 0.6rem;
+  font-family: theme.$font-family-special;
 }
 
 // The two emoji in the stripe — the 🗺️ in front of the board's dimensions and the 🦄 on the

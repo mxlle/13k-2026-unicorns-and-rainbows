@@ -313,8 +313,12 @@ $win-hop-height: 2rem;
   // over the board. The bounce that comes with it is not here: endGame asks for it through
   // .hop below, because by then the panel is usually already hopping — the last turn is a spent
   // turn — and a second rule naming the same animation would restart nothing.
+  //
+  // Laid over the panel's own glass rather than replacing it — the same two-layer trick the
+  // highlight button plays on the rainbow — so a won panel is a frosted panel that has gone
+  // green, rather than a flat green rectangle where a frosted panel used to be.
   :global(.#{names.$WON}) & {
-    background: rgba(theme.$success-color-light, 0.25);
+    background: linear-gradient(rgba(theme.$success-wash, 0.2), rgba(theme.$success-wash, 0.2)), theme.$glass-2;
   }
 }
 
@@ -496,13 +500,14 @@ $win-hop-height: 2rem;
     }
   }
 
-  // A step that costs no drop, in the success colour rather than the main one. It comes
-  // after .target on purpose — both are set on a free step, and this one wins. Giving it
-  // a colour of its own is what lets a run of custards read as a free path at a glance,
-  // instead of the player finding out from the purse after taking the step.
+  // A step that costs no drop, in a green of its own rather than the main colour — see
+  // $success-wash, and why it is not the same green the won board's outline uses. It comes
+  // after .target on purpose: both are set on a free step, and this one wins. Giving it a
+  // colour of its own is what lets a run of custards read as a free path at a glance, instead
+  // of the player finding out from the purse after taking the step.
   &.free {
-    background: rgba(theme.$success-color-light, 0.18);
-    box-shadow: inset 0 0 0 2px rgba(theme.$success-color-light, 0.6);
+    background: rgba(theme.$success-wash, 0.22);
+    box-shadow: inset 0 0 0 2px rgba(theme.$success-wash, 0.6);
 
     // Nothing to pay, so nothing to write: the green ring is the whole of what a free step
     // has to say, and a "0" on eight tiles would be eight things to read instead.
@@ -511,7 +516,7 @@ $win-hop-height: 2rem;
     }
 
     @include theme.hover {
-      background: rgba(theme.$success-color-light, 0.38);
+      background: rgba(theme.$success-wash, 0.4);
     }
   }
 

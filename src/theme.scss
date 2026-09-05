@@ -9,11 +9,30 @@
 $main-color: #c81a7a;
 // The dev-only template's accent, and nothing else in the game.
 $success-color: #227744;
-// The "this is going your way" green: the won board's outline, the info panel's tint, the tinted
-// ring on a free step, and — as GAIN_COLOR in game-map.component.ts — the colour a counter flashes
-// when it climbs. Deeper than the dark theme's #44aa77, which was picked to glow on black and
-// disappears as text on cream; the alpha washes below it are unaffected either way.
+// The "this is going your way" green: the won board's outline, the info panel's tint, and — as
+// GAIN_COLOR in game-map.component.ts — the colour a counter flashes when it climbs. Deep,
+// because all three of those are read as *text or a hairline* on a pale page, which is the job
+// brightness is worst at. For the same green where it is a wash instead, see $success-wash: the
+// two are not variants of one colour, they are two answers to two different questions.
 $success-color-light: #1d8055;
+// The same good news, for every place it is a *field of colour* rather than ink: the free step's
+// tile and ring, and the info panel once the run is won. The split from $success-color-light is
+// not a preference — the two greens are asked to do opposite things. A deep green is what you
+// want for a hairline or a numeral on a pale page, and it is exactly wrong for a wash, because a
+// dark colour thinned over near-white does not come out as a pale version of itself. It comes out
+// grey: $success-color-light at the free step's old 0.18 landed on #d6dcdb, and at the won
+// panel's 0.25 on #c7cdcb. Neither is a colour anybody would call green, and both were carrying
+// the one reading that has to be instant — that this costs nothing, that you won.
+//
+// Bright and saturated instead, so even a thin wash stays unmistakably green. Every alpha riding
+// on it is written at its usage site in the map's stylesheet: 0.22 for a free tile, 0.40 for the
+// same tile under the pointer, 0.6 for its ring, and 0.2 for the won panel — that last one laid
+// *over* the panel's glass rather than replacing it, so a won panel is still frosted (the same
+// two-layer trick $highlight-dim plays on the rainbow button).
+//
+// The figure worth protecting when tuning any of them is the distance from a *paid* step, drawn
+// in $main-color pink: green against pink is what says "this one is free", and it holds at ΔE 32.
+$success-wash: #16e76b;
 // The amber the closing turn goes. Also deepened: a warning that cannot be read is not one.
 $warning-color: #c76a00;
 // Sunlight — the halo on a light source and the colour of light that earned nothing. On the dark

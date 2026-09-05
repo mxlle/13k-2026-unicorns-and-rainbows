@@ -444,7 +444,10 @@ export function GameMapComponent(
   // have reacts to money moving, the rate beside it reacts to the rate changing.
   // It is the better reading anyway. What you hold and what the board pays you are two
   // different facts, and they now look like two.
-  const currencyIncomes = [createElement({ tag: "span" }), createElement({ tag: "span" })];
+  const currencyIncomes = [
+    createElement({ tag: "span", cssClass: styles.income }),
+    createElement({ tag: "span", cssClass: styles.income }),
+  ];
   const currencyValues = [dropCount, candyCount];
   currencyDisplays.forEach((display, currency) => display.append(currencyIncomes[currency]));
   const status = createElement({ cssClass: styles.status }, [

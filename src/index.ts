@@ -5,7 +5,7 @@ import { CssClass } from "./utils/css-class";
 import { sleep } from "./utils/promise-utils";
 import { initAudio } from "./audio/music-control";
 import { getLocalStorageItem, LocalStorageKey } from "./utils/local-storage";
-import { GAME_EMOJI, GAME_TITLE, HAS_SIMPLE_SOUND_EFFECTS, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
+import { GAME_TITLE, HAS_SIMPLE_SOUND_EFFECTS, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
 import { coinSoundSrcUrl, initWinLoseSoundEffects, loseSoundSrcUrl, winSoundSrcUrl } from "./audio/sound-control/sound-control-box";
 import { playSoundSimple } from "./audio/sound-control/sound-control";
 import { HeaderComponent } from "./framework/components/header/header.component";
@@ -26,7 +26,7 @@ function init() {
   isInitialized = true;
 
   const [gameArea, startNewGame, headerControls] = GameMapComponent(() => showLaunchScreen(true));
-  const [launchScreen, updateLaunchScreen] = LaunchScreenComponent((level, random) => {
+  const [launchScreen, updateLaunchScreen, startPickedLevel] = LaunchScreenComponent((level, random) => {
     // Shown before the run starts, or applyZoom would be measuring a hidden map row and
     // every board would open at the wrong step.
     showLaunchScreen(false);
@@ -42,7 +42,7 @@ function init() {
     // Re-read on the way in: a run just walked away from has written its score to storage, and
     // the stripe it belongs to is what says so. The screen holds nothing of its own about a
     // level, so showing it and bringing it up to date are the same act.
-    if (show) updateLaunchScreen!();
+    if (show) updateLaunchScreen();
     gameArea.classList.toggle(CssClass.HIDDEN, show);
     headerControls.classList.toggle(CssClass.HIDDEN, show);
     launchScreen.classList.toggle(CssClass.HIDDEN, !show);
@@ -50,7 +50,7 @@ function init() {
 
   // the run's counters sit in the header rather than over the board, so they can never cover
   // a tile; the chip takes itself out of the flow and centres — see its styles
-  document.body.append(HeaderComponent(GAME_EMOJI, GAME_TITLE, [headerControls, MuteButton()], CssClass.GAME_ICON), gameArea, launchScreen);
+  document.body.append(HeaderComponent(GAME_TITLE, [headerControls, MuteButton()]), gameArea, launchScreen);
 
   showLaunchScreen(true);
 
@@ -82,6 +82,18 @@ function init() {
       sleep(300).then(() => pokiSdk?.gameplayStop()); // to avoid issue that stop is called before start
     }
   });
+
+  // A first visit has nothing to choose between. Every rung is unplayed, the ladder is offering
+  // the bottom one, and a menu is the wrong first thing to show somebody who has not seen the
+  // game yet — so the picked rung opens by itself. Through the launch screen's own start, so it
+  // steps up the ladder and stores the next rung exactly as a tap would: walking out of that
+  // first run lands on the ladder with level 2 already on offer.
+  // The stored rung is what says a level has ever been picked; it is written the moment one is.
+  //
+  // Last in init(), after the subscriptions: this starts a run, and a run that starts before
+  // anything is listening is one GAME_START nobody hears — which on the poki build is a
+  // gameplayStart the platform never gets.
+  if (!getLocalStorageItem(LocalStorageKey.SIZE)) startPickedLevel();
 }
 
 // INIT

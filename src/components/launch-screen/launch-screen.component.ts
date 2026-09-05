@@ -7,7 +7,6 @@ import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import { GAME_EMOJI, HAS_GAMEPLAY_NICE_TO_HAVES } from "../../env-utils";
 import { getBestScore, getPercent } from "../../game/levels";
-import { ComponentDefinition } from "../../types";
 
 const MAP_EMOJI = "🗺️"; // labels the board a stripe plays on
 const DICE_EMOJI = "🎲"; // the other board: this level's size, dealt fresh (see createDiceButton)
@@ -93,7 +92,9 @@ const hueFor = (index: number) => VIOLET_HUE * rungAt(index) ** WARM_BIAS;
  * the ladder is walked by pressing the same button over and over, and picking a stripe is
  * something a player does only to break step — to replay one, or to skip ahead.
  */
-export function LaunchScreenComponent(onPlay: (level: number, random?: boolean) => void): ComponentDefinition {
+export function LaunchScreenComponent(
+  onPlay: (level: number, random?: boolean) => void,
+): [hostElement: HTMLElement, update: () => void, startPicked: () => void] {
   // The rung being offered, as an index rather than a size: the whole behaviour is "the next
   // one along", which is a thing only a position in the ladder can say.
   let pickedIndex = 0;
@@ -118,7 +119,7 @@ export function LaunchScreenComponent(onPlay: (level: number, random?: boolean) 
   // The space rides with the emoji rather than sitting in front of the word, so that hiding the
   // one takes the other with it and the button is not left with a space to open on.
   const playButton = createButton({ cssClass: [CssClass.HINT, styles.play] }, [
-    createElement({ tag: "span", cssClass: [CssClass.EMOJI, CssClass.GAME_ICON, styles.optional], text: `${GAME_EMOJI} ` }),
+    createElement({ tag: "span", cssClass: [CssClass.EMOJI, styles.optional], text: `${GAME_EMOJI} ` }),
     getTranslation(TranslationKey.PLAY),
   ]);
 
@@ -187,7 +188,7 @@ export function LaunchScreenComponent(onPlay: (level: number, random?: boolean) 
       // the button on it, which on a phone is the difference between a comfortable hit and a
       // careful one. The button stays because it is what *says* the second tap plays.
       const stripe = createElement({ cssClass: styles.stripe, onClick: () => (index === pickedIndex ? start() : pick(index)) }, [
-        createElement({ cssClass: styles.label }, [
+        createElement({ cssClass: [styles.label, CssClass.EMPHASIS] }, [
           createElement({ cssClass: styles.level, text: `${index + 1}` }),
           // Wrapped so the emoji and the dimensions are one flex item; loose, they would be two,
           // and the label's gap would open up in the middle of the board's own name.
@@ -281,5 +282,8 @@ export function LaunchScreenComponent(onPlay: (level: number, random?: boolean) 
   // bottom of the ladder, which is what the floor at 0 says in one expression.
   pick(Math.max(0, MAP_SIZES.indexOf(Number(getLocalStorageItem(LocalStorageKey.SIZE)))));
 
-  return [host, update];
+  // `start` goes out with the rest so the caller can open the picked rung without a tap — see
+  // the first visit in index.ts. It is the same act the stripe's own click performs, storage
+  // and the step up the ladder included, rather than a second way in that could drift from it.
+  return [host, update, start];
 }

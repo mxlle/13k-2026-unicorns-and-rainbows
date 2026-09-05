@@ -76,10 +76,48 @@ $danger-color-contrast: var(--d-clr, #c22a4a);
 // with the `rainbow` hue-rotate keyframes and lives in globals.nice2have.scss, so
 // $rainbow-animation has one reader and only the friends-&-family build has it at all; the
 // button holds the gradient still and ships everywhere.
-$rainbow-gradient: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3);
+//
+// It is the **launch screen's ladder**, laid on its side: one stop per rung, at that rung's own
+// hue and saturation and at the stripes' lightness. Not a resemblance — the numbers are the ones
+// the ladder is built from (VIOLET_HUE, WARM_BIAS and the SATURATION_ pair in the launch screen's
+// component, $stripe-lightness in its stylesheet), walked here by hand because a gradient wants
+// to be one literal and the ladder is built per stripe in TS. Which is what the button *means*
+// on the only screen it appears on: it is the way back to the levels, drawn in the levels.
+//
+// The old saturated spectrum was from the dark theme, where the page was near-black and a
+// rainbow could be as loud as it liked. On cream it was the one object left over from the old
+// palette — and it is the button the run ends on, so it was also the last thing seen.
+//
+// The ink is the page's own dark plum, inherited from the base button rule rather than set here.
+// That is the whole reason the dimming layer this used to carry is gone: the rainbow was darkened
+// so a near-white label could survive being drawn over yellow, and a pastel band that is light
+// everywhere takes dark ink everywhere instead. Whichever way it is tuned, keep it light enough
+// for that — the blue rung is the one that runs out first.
+$rainbow-gradient: linear-gradient(
+  124deg,
+  hsl(0 80% 74%),
+  hsl(24 76% 74%),
+  hsl(64 72% 74%),
+  hsl(114 68% 74%),
+  hsl(170 64% 74%),
+  hsl(232 60% 74%),
+  hsl(300 56% 74%)
+);
 $rainbow-animation: rainbow 10s ease infinite;
+// The page is set in two voices and only two: body text, and everything that speaks up —
+// headings, buttons, the ladder's labels. Both are declared once, in globals.scss (see the two
+// font rules there), and nothing else in the game names a face.
 $font-family: sans-serif;
-$font-family-special: 'Impact', 'Arial Black', 'sans-serif-black', sans-serif;
+// The loud one. Impact is the shape being asked for, and on a device that does not have it the
+// chain walks down through two other heavy faces before giving up — but 'Arial Black' is not
+// everywhere either and 'sans-serif-black' is only a family on Android, so on the rest the
+// fallback is the plain sans the body text is already set in, and the two voices collapse into
+// one. Hence the weight beside it: whatever face this lands on, it is asked to be heavy, so the
+// distinction survives even where every named family is missing. Where Impact *is* present, the
+// browser has one weight to pick from and may synthesise the rest — which is the right trade, it
+// being a face heavy enough that the synthesis has almost nothing to add.
+$font-family-special: "Impact", "Arial Black", "sans-serif-black", sans-serif;
+$font-weight-special: 800;
 $border-radius: 0.4rem;
 
 // light theme colours — "pastel candy": a cream-to-pink page, unicorn-warm rather than sky-blue.
@@ -205,19 +243,6 @@ $wide-screen: 900px;
 // stacked layout they were designed for.
 @mixin sidePanels {
   @media (min-width: $wide-screen), (min-aspect-ratio: 1 / 1) {
-    @content;
-  }
-}
-
-// Below this width the header's title text steps aside, leaving the emoji: the run's chip is
-// centred on the whole header and takes no notice of what is in the flow beside it, so past
-// this the words and the numbers would be drawn over each other. Width only — this costs no
-// height and is wanted on a short window too.
-// It is 1099 rather than the 999 the stacked header uses because the chip carries four
-// counters now (see .status): measured at ~380px against the title's ~335px, which need a
-// window over a thousand pixels wide to sit side by side without touching.
-@mixin narrowHeader {
-  @media (max-width: 1099px) {
     @content;
   }
 }

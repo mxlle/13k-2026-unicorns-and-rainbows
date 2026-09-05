@@ -3,18 +3,15 @@ import { CssClass } from "../../../utils/css-class";
 import styles from "./header.module.scss";
 
 /**
- * The emoji is the header's identity — it stays at every screen size, the words do not.
- *
- * `emojiClass` is for whoever owns the emoji to say how it should look. The header takes any
- * glyph and has no business knowing that this game's one is a fountain that wants turning pink,
- * so the colour rides in from the call site rather than living in the header's own stylesheet.
+ * The game's name and whatever the screen lends the header, on one row. The title stays at
+ * every width: it is the one place the game says what it is called, and words say that to a
+ * player who has not learnt a glyph yet. The mark used to sit in front of it and step aside on
+ * a narrow screen — it is on the launch screen's play button instead, where it is decoration
+ * rather than a thing that has to shorten.
  */
-export function HeaderComponent(emoji: string, title: string, endElements: (Node | string)[] = [], emojiClass = ""): HTMLElement {
-  return createElement({ cssClass: styles.host }, [
-    createElement({ cssClass: styles.title }, [
-      createElement({ tag: "span", cssClass: [CssClass.EMOJI, emojiClass], text: emoji }),
-      createElement({ tag: "span", cssClass: styles.titleText, text: title }),
-    ]),
+export function HeaderComponent(title: string, endElements: (Node | string)[] = []): HTMLElement {
+  return createElement({ cssClass: [styles.host, CssClass.EMPHASIS] }, [
+    createElement({ cssClass: styles.title, text: title }),
     createElement({ cssClass: styles.endElements }, endElements),
   ]);
 }

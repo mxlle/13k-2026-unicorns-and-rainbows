@@ -11,5 +11,7 @@ export const CssClass = defineEnum({
   HIDDEN: "global__hidden",
   EMOJI: "global__emoji",
   HINT: "global__hint", // pulses whatever the player should do next
-  GAME_ICON: "global__game-icon", // the game's own mark — GAME_EMOJI, in the game's own colour
+  // The loud voice, on anything that is not a button: the header's title row and the ladder's
+  // labels. Buttons get it from the element selector and do not carry this. See globals.scss.
+  EMPHASIS: "global__emphasis",
 });

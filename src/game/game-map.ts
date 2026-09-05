@@ -1292,7 +1292,13 @@ export function endTurn(map: GameMap, side: Side) {
  */
 export function nextTurn(map: GameMap) {
   map.turn++;
-  growUnicorns(map);
+  // Not past the whistle. The clock ticking one last time is what ends the run, and a herd
+  // that grew on that tick would light a board nobody can play any more: a unicorn levelling
+  // up widens its rainbow, so the last thing the player sees is beams multiplying underneath
+  // a result that has already been counted. Growth belongs to turns that are going to be
+  // played. Nothing else moves with it — the score counts rainbows rather than their size,
+  // and the closing turn pays out nothing to earn with either (see endTurn).
+  if (!isRunOver(map)) growUnicorns(map);
 }
 
 /**

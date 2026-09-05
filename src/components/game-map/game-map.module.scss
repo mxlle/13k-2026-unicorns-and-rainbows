@@ -236,6 +236,20 @@ $board-column-max: calc(100dvh - 5rem);
   }
 }
 
+// The "(+n)" half of a currency counter: what the board pays next turn, set behind what you
+// have now. Two facts sit in one counter and only one of them is the number a player is
+// spending from, so the rate is put a step back — smaller and faded, an annotation on the
+// figure it follows rather than a second figure of the same weight.
+//
+// PLACEHOLDER pair. Type size rather than a transform, though the two look the same here: a
+// `scale` would leave the box its full width and open a gap in the middle of the counter, and
+// it is also the property the pop animates (see pop() in the component), which would then be
+// starting from somewhere other than 1.
+.income {
+  font-size: 0.8em;
+  opacity: 0.5;
+}
+
 // A counter that leads somewhere — only the score does, and it opens its own breakdown.
 .tappable {
   cursor: pointer;

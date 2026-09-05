@@ -5,16 +5,24 @@
 // component). So the band fills in as the ladder is climbed rather than simply being there,
 // and a screen of levels is read at a glance without a figure being compared to anything.
 //
-// PLACEHOLDER pair. The floor is not as pale as it sounds — the page behind it is nearly
-// black, so this already reads as a coloured band — but it has to stay far enough under the
-// earned colour that the boundary between them is unmistakable at a glance.
-$empty-solidity: 0.18;
-$earned-solidity: 0.8;
+// PLACEHOLDER pair. Raised from the dark theme's 0.18 floor, and the page is why: 18% of a
+// saturated hue over near-black already read as a coloured band, and the same 18% over a
+// cream-pink page reads as very slightly tinted cream. It still has to stay far enough under the
+// earned colour that the boundary between them is unmistakable at a glance, which is what keeps
+// this from simply being raised until the floor is comfortable to look at.
+$empty-solidity: 0.32;
+$earned-solidity: 0.85;
 // The pointer and the pick, which are now the one thing a stripe says that is *not* how full it
 // is — so both are brightness rather than solidity, and neither can be mistaken for progress.
-// The pick is the smaller lift of the two because it also has a ring; hover has only this.
-$hover-lift: 1.25;
-$picked-lift: 1.12;
+// The pick is the smaller step of the two because it also has a ring; hover has only this.
+//
+// Below 1 rather than above it, which is the whole of what the light theme changed here: on
+// black, "more" is brighter, and on cream, brightness only ever heads towards white — a pale
+// stripe brightened is a stripe on its way to invisible. Darkening is the direction that
+// intensifies against a light page, so the numbers flipped and the names now read a little
+// oddly. Keep them on the same side of 1 as each other, whatever they are tuned to.
+$hover-lift: 0.9;
+$picked-lift: 0.95;
 
 // The gap between stripes, and the same value again as the breathing room around the whole
 // band so the outer stripes are not pressed against the window edge. Small on purpose: the
@@ -93,12 +101,14 @@ $stripe-gap: 0.4rem;
 // Left on every screen, and left whether the stripe is picked or not: the level number is what
 // the eye runs down, and a column of them only reads as a column if every row starts it in the
 // same place. The auto margin is what pushes the offer to the other end.
-// The shadow is what keeps white text readable across the whole band: a stripe played to its
-// target is nearly solid, and at the yellow end of the rainbow that is a very light background.
+// The shadow is what keeps the text readable across the whole band, and it changed sides with
+// the theme: the ink is a dark plum now, so the halo behind it is white. A stripe played to its
+// target is nearly solid, and at the blue and violet end of the rainbow that is a dark enough
+// background to swallow dark ink without this.
 .label {
   margin-right: auto;
   white-space: nowrap;
-  text-shadow: 0 1px 3px #000;
+  text-shadow: 0 0 3px #fff;
   display: flex;
   align-items: center;
   // Tight by default, opened up where there is room (see the side-panels block below). This is
@@ -151,9 +161,11 @@ $stripe-gap: 0.4rem;
   gap: 0.4rem;
 }
 
-// The offer, at the end of the picked stripe. Dark rather than tinted, because it has to
-// read on any hue the stripe under it happens to be — which the game's own button
-// backgrounds, all pale washes of white, would not.
+// The offer, at the end of the picked stripe. Near-opaque rather than tinted, because it has to
+// read on any hue the stripe under it happens to be — which the game's own button backgrounds,
+// all thin washes of the alpha base, would not. It borrows the dialog's own surface for that:
+// whatever the theme, that is the one colour in the game defined as "solid enough to sit over
+// anything".
 .play {
   white-space: nowrap;
   background: theme.$dialog-bg;

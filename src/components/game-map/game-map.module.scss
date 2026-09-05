@@ -112,12 +112,18 @@ $board-column-max: calc(100dvh - 5rem);
   // Columns are a fixed tile wide rather than a fraction of the board, so the board takes
   // its size from the map. The rows follow: every .tile carries aspect-ratio 1.
   grid-template-columns: repeat(var(--s), var(--tile));
-  gap: 1px; // the board background shows through as grid lines
+  // No gap: the grid lines are a hairline border on every tile now, in a colour of their own
+  // (see $grid-color). They used to be this background showing through a 1px gap, which tied
+  // how strong the grid was to what the tile washes were sitting on.
   font-size: calc(var(--tile) * 0.62);
   border-radius: theme.$border-radius;
   overflow: hidden;
-  background: theme.$bg-alpha-25;
-  outline: 1px solid theme.$bg-alpha-25;
+  // A colour rather than the alpha wash every other surface uses — see $ground-color. It is only
+  // ever seen *through* things now: under a beam, and under the barely-there clearing wash. The
+  // outline stays a wash: it is only drawing the board's edge against the page, which is exactly
+  // what a wash is good at.
+  background: theme.$ground-color;
+  outline: 1px solid theme.$shade-alpha-25;
 
   :global(.#{names.$WON}) & {
     outline-color: theme.$success-color-light;
@@ -257,7 +263,7 @@ $board-column-max: calc(100dvh - 5rem);
   gap: 0.6rem;
   padding: 0.15rem 0.6rem;
   border-radius: 999px; // pill, whatever the chip's height turns out to be
-  background: theme.$bg-alpha-15;
+  background: theme.$glass-3;
 
   // On a phone it stops floating over the header and takes the whole of its second line —
   // see the header's own styles for the stacking. In the flow, so the line is exactly as
@@ -298,7 +304,7 @@ $win-hop-height: 2rem;
   min-height: $info-height;
   padding: 0.4rem 0.8rem;
   border-radius: theme.$border-radius;
-  background: theme.$bg-alpha-10;
+  background: theme.$glass-2;
   text-align: center;
   font-size: 0.8rem;
   color: theme.$text-secondary;
@@ -412,13 +418,21 @@ $win-hop-height: 2rem;
   aspect-ratio: 1;
   line-height: 1;
   cursor: pointer; // every tile is tappable, fog and bare ground included
-  background: theme.$tile-color-alpha;
+  // The grid, one hairline per tile. Right and bottom only, so two neighbours share a single line
+  // instead of drawing one each, and the odd pair along the board's own right and bottom edge sit
+  // under its outline where they cannot be told apart from it. A border rather than a box-shadow
+  // because the selection rings below are box-shadows and would fight it.
+  border-right: 1px solid theme.$grid-color;
+  border-bottom: 1px solid theme.$grid-color;
+  // The fog is the tile's default state and explored ground the override, which is the way round
+  // the game discovers them in — every tile starts unfound.
+  background: theme.$tile-fog-alpha;
   transition:
     background-color 0.2s,
     transform 0.2s;
 
   &.revealed {
-    background: theme.$bg-alpha-05;
+    background: theme.$tile-clear-alpha;
   }
 
   // a light source: the emoji itself haloes, so it reads as the thing giving off the beams
@@ -436,7 +450,7 @@ $win-hop-height: 2rem;
     // Same ring in a neutral colour for a selection that leads nowhere: scenery, and
     // a character that cannot step anywhere (blocked in, or an empty purse).
     &.neutral {
-      background: theme.$bg-alpha-25;
+      background: theme.$shade-alpha-25;
       box-shadow: inset 0 0 0 2px theme.$text-tertiary;
     }
   }

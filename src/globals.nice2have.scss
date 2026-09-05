@@ -11,9 +11,9 @@
 // temp disabled to test emojis in all browsers
 // @import url("https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap");
 
-// The rainbow wash over the page. The body's own dark gradient is in globals.scss and ships
-// everywhere; this is only the colour on top of it, and the one animation that runs whether
-// anything happened or not.
+// The rainbow wash over the page. The body's own cream-pink gradient is in globals.scss and
+// ships everywhere; this is only the colour on top of it, and the one animation that runs
+// whether anything happened or not.
 body::before {
   content: "";
   pointer-events: none;

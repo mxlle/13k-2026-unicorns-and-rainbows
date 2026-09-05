@@ -1,8 +1,20 @@
 @use "theme" as *;
 @use "names" as *;
 
-// how far the highlight button's rainbow is darkened so $text-primary stays readable on it
+// how far the highlight button's rainbow is darkened so $text-inverse stays readable on it.
+// Unchanged from the dark theme: the button keeps light ink on a dimmed rainbow, which is the
+// one thing on a pale page that has no business getting paler.
 $highlight-dim: #0003;
+
+// The page. PLACEHOLDER pair: cream-pink at the top washing to a warmer apricot at the foot,
+// which is the same top-to-bottom warming the night sky it replaces had. The board no longer
+// leans on these — it has $ground-color of its own to build its two tile states over — so what
+// these have to get right is the chrome instead: the glass scale is white, and white on white
+// draws nothing, so pushing the page towards white is what makes the buttons and panels
+// disappear. Deeper is the safer direction, up to the point where the pink starts competing
+// with $main-color for the eye.
+$page-top: #ffe6f2;
+$page-bottom: #ffdcc4;
 
 html,
 body {
@@ -31,7 +43,7 @@ html {
 }
 
 body {
-  background: linear-gradient(to bottom, #020111 60%, #20202c 100%);
+  background: linear-gradient(to bottom, $page-top 60%, $page-bottom 100%);
   color: $text-primary;
   font-family: $font-family-special;
   user-select: none;
@@ -48,21 +60,25 @@ button {
   font-size: 1em;
   cursor: pointer;
   color: $text-primary;
-  border: 1px solid $bg-alpha-05;
+  border: 1px solid $shade-alpha-05;
   border-bottom-width: 3px;
-  background: $bg-alpha-10;
+  background: $glass-2;
   backdrop-filter: blur(2px);
   padding: 0.25rem 0.5rem;
   border-radius: $border-radius;
   hyphens: none;
 
   @include hover {
-    background: $bg-alpha-10;
+    background: $glass-2;
   }
 
   &.#{$PRIMARY}:not([disabled]) {
     background: $main-color;
-    border-color: $bg-alpha-25;
+    border-color: $glass-4;
+    // A filled button is the one place the page's ink is the wrong ink: $text-primary is a dark
+    // plum meant for cream, and the fill under it is a deep pink. Both loud variants say so
+    // explicitly now — under the dark theme they inherited a near-white and never had to.
+    color: $text-inverse;
 
     @include hover {
       background: rgba($main-color, 0.7);
@@ -73,7 +89,8 @@ button {
   // label reads over every band of it. For the one button that is the point of the screen.
   &.#{$PRIMARY_HIGHLIGHT}:not([disabled]) {
     background: linear-gradient($highlight-dim, $highlight-dim), $rainbow-gradient;
-    border-color: $bg-alpha-25;
+    border-color: $glass-4;
+    color: $text-inverse;
   }
 
   &.#{$SECONDARY} {
@@ -103,7 +120,7 @@ button.#{$ICON_BTN} {
     background: none;
 
     @include hover {
-      background-color: $bg-alpha-05;
+      background-color: $glass-1;
     }
   }
 }

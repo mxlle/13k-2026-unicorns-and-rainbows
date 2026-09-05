@@ -1,38 +1,58 @@
 @use "./names" as *;
 @use "sass:color";
 
-$main-color: #e02890;
-$main-color-secondary: color.mix($main-color, white, 80%);
-$main-color-tertiary: color.mix($main-color, white, 50%);
-$danger-color: #bd2751;
-$danger-color-contrast: var(--d-clr, #e06d80);
+// PLACEHOLDER: the game's pink, and it has two jobs that pull in opposite directions — it is the
+// title's ink on a pale page *and* the fill of the primary button. Deeper than it was under the
+// dark theme, because ink on cream is the harder of the two: at the old #e02890 the title sat at
+// about 4:1 against the page. The button no longer relies on it alone — a filled button carries
+// $text-inverse now (see globals.scss), so this can go as deep as the title wants.
+$main-color: #c81a7a;
+// The dev-only template's accent, and nothing else in the game.
 $success-color: #227744;
-$success-color-light: #44aa77;
-$warning-color: #ffaa00;
-$light-color: #ffe9a8; // warm sunlight — the glow on light sources and their beams
+// The "this is going your way" green: the won board's outline, the info panel's tint, the tinted
+// ring on a free step, and — as GAIN_COLOR in game-map.component.ts — the colour a counter flashes
+// when it climbs. Deeper than the dark theme's #44aa77, which was picked to glow on black and
+// disappears as text on cream; the alpha washes below it are unaffected either way.
+$success-color-light: #1d8055;
+// The amber the closing turn goes. Also deepened: a warning that cannot be read is not one.
+$warning-color: #c76a00;
+// Sunlight — the halo on a light source and the colour of light that earned nothing. On the dark
+// theme this was a pale wash (#ffe9a8), because a glow on black is made of brightness. On cream
+// there is no brightness left to add, so a glow has to be made of *saturation* instead: this is
+// the same warm yellow taken all the way down to a gold that still reads as sun rather than as
+// dirt. Turn it towards #ffc400 for a brighter noon, towards #d08a00 for a stronger halo.
+$light-color: #f0a500;
 // The two currencies, for the light that is on its way to becoming one of them: a rainbow paying
 // the purse is drawn in water blue, one whose light a lollipop tree is turning into sweets in
 // candy red. Both are taken off the emoji they stand for — 💧 and 🍬 — so the beam, the glow on
 // the tree and the counter it all feeds say the same thing without a legend. Keep the sweet one
 // clear of $warning-color, which is the amber the closing turn goes, and of $light-color, which
-// is what unearned light is drawn in. See .beam in the map's stylesheet.
-$water-color: #7ecbf5;
-$candy-color: #fb6a3c;
-// The same two, for the opponent's light, plus a dimmed sunlight for light that earned nothing.
-// Darker rather than inverted: inverting candy red lands on a cyan close enough to the player's
-// own water blue to be misread, and knowing whose light a beam is matters more than the neatness
-// of a negative.
+// is what unearned light is drawn in.
 //
-// A beam is seen through a tile at a quarter of its strength, over $tile-color-1, and that is
-// what these are picked against rather than against themselves. It has one consequence worth
-// knowing before tuning them: past a point, *darker* stops buying separation. The deep water blue
-// below lands on screen at rgb(26, 56, 95) against a tile of rgb(21, 49, 42) — barely any
-// difference in brightness, and it reads all the same because the hue is nowhere near the
-// meadow's. So saturation is the lever here, not lightness; a duller dark blue disappears where
-// a vivid one does not.
-$water-color-dark: #2b4cff;
-$candy-color-dark: #8c300f;
-$light-color-dark: #8a7444;
+// Both are a step deeper than the dark theme's, and for one reason: a beam is drawn *under* the
+// tiles, and on revealed ground the tile is only a 5% wash, so the beam is seen at very nearly
+// its own colour against a pale page. The old #7ecbf5 was a light blue on near-black; on cream it
+// was a light blue on near-white. See .beam in the map's stylesheet.
+$water-color: #2b8ad6;
+$candy-color: #ef5a20;
+// The same two, for the opponent's light, plus a dimmed sunlight for light that earned nothing.
+// Darker, which is the direction that works here: on the dark theme "darker" ran out of room
+// almost immediately and hue had to carry the distinction, but against a pale page a deep colour
+// separates from a mid one on brightness alone, which is the reading that survives being seen
+// through fog.
+//
+// These have one case to answer for now, and it is the easy one. The fog is opaque, so no beam is
+// ever seen through it and nothing has to survive being diluted; and explored ground is a wash of
+// 0.1, so a beam arrives at ninety per cent of its own colour against a near-white surface. Depth
+// is therefore doing exactly what it looks like it is doing — check any change on open ground,
+// which is the only place these are ever drawn.
+$water-color-dark: #12306e;
+$candy-color-dark: #7a2408;
+$light-color-dark: #7a5a10;
+// The colour the drop counter takes while it is being spent from. Nothing in SCSS reads it — the
+// keyframe that uses it is a TS literal, SPEND_COLOR in game-map.component.ts, because a keyframe
+// cannot read a stylesheet — so this is the canonical value and that one is kept in step by hand.
+$danger-color-contrast: var(--d-clr, #c22a4a);
 // The rainbow: the highlight button and the page background wash share it. The wash cycles it
 // with the `rainbow` hue-rotate keyframes and lives in globals.nice2have.scss, so
 // $rainbow-animation has one reader and only the friends-&-family build has it at all; the
@@ -43,50 +63,110 @@ $font-family: sans-serif;
 $font-family-special: monospace;
 $border-radius: 0.4rem;
 
-// dark theme colors
-$text-primary-dark: #f0f0f0;
-$text-secondary-dark: #ccc;
-$text-tertiary-dark: #9ab;
-$dialog-bg-dark: rgba(0, 0, 0, 0.95);
-$overlay-bg-dark: rgba(0, 0, 0, 0.3);
-$alpha-base-dark: white;
-$bg-alpha-05-dark: rgba($alpha-base-dark, 0.05);
-$bg-alpha-10-dark: rgba($alpha-base-dark, 0.1);
-$bg-alpha-15-dark: rgba($alpha-base-dark, 0.15);
-$bg-alpha-25-dark: rgba($alpha-base-dark, 0.25);
-$bg-primary-dark: #0e120c;
-$bg-secondary-dark: #3d5a3a;
-// The fog, and its only job — a revealed tile is $bg-alpha-05 over the page instead. Sky
-// rather than the meadow green it used to be: an unfound tile is a cloud, not ground, and it
-// should not look like the field it is hiding.
+// light theme colours — "pastel candy": a cream-to-pink page, unicorn-warm rather than sky-blue.
+// The board sitting on it is built the other way up from the page: explored ground is the
+// brightest thing on the screen and the fog is the one saturated field, so a run reads as a
+// board clearing rather than as a board filling in. See $grid-color for how its three surfaces
+// were pulled apart from each other.
+$text-primary-light: #3a2030;
+$text-secondary-light: #5c4552;
+$text-tertiary-light: #8a7080;
+// The ink for anything drawn *on* one of the loud fills — the primary button's pink and the
+// highlight button's dimmed rainbow. Under the dark theme both of those inherited $text-primary
+// and got a near-white for free; now that the page's ink is dark, they have to say so.
+$text-inverse: #fff8fb;
+$dialog-bg-light: rgba(255, 246, 250, 0.96);
+// The chrome: every UI surface that floats on the page — a button's face, the run's status pill,
+// the info panel — is a wash of this over whatever is behind it. **White, not black**, and that
+// is a look rather than a contrast decision: white over a pastel page frosts it (the buttons
+// already carry a backdrop blur), where black over the same page greys it, and a greyed pastel
+// is the one thing that makes a bright theme look like a dark one with the lights turned up.
 //
-// Muted rather than a daylight blue, and that is the beams' doing rather than taste. A beam is
-// drawn *under* the tiles and read through them at a quarter strength (see the block above), so
-// a beam crossing into the fog is seen over exactly this colour. Over the old green the water
-// blue separated by hue; over a blue it can only separate by brightness, so the duller and
-// darker this stays, the more of that is left. Raise its saturation and the first thing to go is
-// a water beam reaching a tile nobody has found yet.
-$tile-color-1-dark: #173044;
-$tile-color-1-dark-alpha: rgba($tile-color-1-dark, 0.75);
-$tile-color-2-dark: #1f271c;
-$table-bg-dark: #563232;
-$table-border-dark: #905d5d;
+// The steps are far stronger than the dark theme's 5/10/15/25 were, and that is forced rather
+// than chosen. A wash separates from what is behind it by the distance between the two, and the
+// page moved: 10% white over near-black is a plainly visible surface, while the same 10% over a
+// near-white pink is very nearly nothing. So the numbers had to climb until the chrome was a
+// surface again — which is why they are named by rank now rather than by percentage, the
+// percentages having stopped meaning anything a reader could carry from one theme to the other.
+//
+// Kept just short of opaque on purpose: what makes this read as glass rather than as white
+// cardboard is that the page's own colour still comes through, and the page is a gradient — the
+// pill at the top of the screen and the panel at the side sit over visibly different pinks. Take
+// them to 1 and that stops happening.
+$alpha-base-light: white;
+$glass-1-light: rgba($alpha-base-light, 0.45);
+$glass-2-light: rgba($alpha-base-light, 0.7);
+$glass-3-light: rgba($alpha-base-light, 0.8);
+$glass-4-light: rgba($alpha-base-light, 0.85);
+// The other direction, for the surfaces that are defined by being *darker* than what they sit on
+// rather than lighter — which no white wash can do at any strength. The board owns two of them:
+// the neutral selection ring, which has to read as a tint on ground that is now nearly white,
+// and the board's own edge, which has to be a boundary rather than a rim light.
+//
+// The fourth is the rim on a button, and it is what makes a frosted face read as a raised key
+// instead of a pale smudge: a white border on a white face draws nothing. The faintest step is
+// enough — with `border-bottom-width: 3px` under it, this is a hairline on three sides and a
+// soft shadow on the fourth, which is all the lift a button needs on a light page.
+//
+// Kept deliberately separate from the chrome above rather than folded into it: the two scales
+// answer different questions — "is this floating on the page" versus "is this pressed into the
+// ground" — and a single base could only ever get one of them right.
+$shade-alpha-05-light: rgba(black, 0.05);
+$shade-alpha-25-light: rgba(black, 0.25);
+// The lattice, and the reason the three values below are free to be what they are. It used to be
+// the ground showing through a 1px gap between the tiles, which meant one colour was doing two
+// jobs: a stronger grid could only be bought by deepening the ground, and the ground is what the
+// tile washes sit on, so it tinted explored ground in the same stroke. Given a colour of its own
+// — a hairline on every tile, see .tile — the grid owes the ground nothing, and the ground can go
+// back to being nothing but the surface beams are drawn against.
+//
+// Two things fall out of it beyond the decoupling. It now reads the same over explored ground and
+// over fog, where the gap read strongly over one and faintly over the other; and it is no longer
+// interrupted at full brightness wherever a beam crossed a gap, since there are no gaps.
+// The game's pink taken nearly to black rather than a neutral ink: a grey lattice on a pink board
+// is the one thing here that would read as a spreadsheet.
+$grid-color: rgba(148, 0, 91, 0.1);
+// What the board is, under everything. Its job is now almost entirely invisible: it is the
+// surface a beam composites against, and — because the clearing above is very nearly clear — it
+// is also very nearly what explored ground *looks* like. It is no longer the grid, and it is no
+// longer seen under the fog at all, so the pressure that used to be on it is gone. Keep it close
+// to white; the clearing has nothing else to be made of.
+$ground-color: #fff0f9;
+// Explored ground: a wash so thin it is barely there, which is the point. Beams are drawn *under*
+// the tiles, so this passes (1 − alpha) of a beam through — at 0.1, ninety per cent, which is
+// brighter than a beam has ever read on this board, the old 5% black wash included. What little
+// it does add is a touch of cool over the ground's pink, which keeps explored ground from being
+// flatly identical to the substrate.
+//
+// This is the dial to reach for if beams ever need to be *calmer*: raise it and they fade. There
+// is nothing else riding on it any more — the lattice has its own colour and the fog is opaque.
+$tile-clear-light: #fbf7ff;
+$tile-clear-light-alpha: rgba($tile-clear-light, 0.1);
+// The fog, and it is **opaque** — which is a rule about the game rather than a colour decision.
+// Fog hides. A translucent cloud let a beam be read through it, which quietly handed the player
+// information about ground they had not found yet, and no amount of tuning the alpha fixes that;
+// only closing it does. So the alpha is kept as a written 1 rather than dropped, because it is a
+// dial someone might reach for, and it should be obvious that it is currently shut.
+//
+// The knock-on is worth knowing: the opponent's three `-dark` beam colours were picked to survive
+// being diluted into a translucent fog, and that constraint is simply gone — they are only ever
+// seen on explored ground now. See the block above them.
+$tile-fog-light: #dec2f4;
+$tile-fog-light-alpha: rgba($tile-fog-light, 1);
 
 // theme sass variables
-$text-primary: $text-primary-dark;
-$text-secondary: $text-secondary-dark;
-$text-tertiary: $text-tertiary-dark;
-$dialog-bg: $dialog-bg-dark;
-$overlay-bg: $overlay-bg-dark;
-$bg-alpha-05: $bg-alpha-05-dark;
-$bg-alpha-10: $bg-alpha-10-dark;
-$bg-alpha-15: $bg-alpha-15-dark;
-$bg-alpha-25: $bg-alpha-25-dark;
-$bg-primary: $bg-primary-dark;
-$bg-secondary: $bg-secondary-dark;
-$tile-color-1: $tile-color-1-dark;
-$tile-color-2: $tile-color-2-dark;
-$tile-color-alpha: $tile-color-1-dark-alpha;
+$text-primary: $text-primary-light;
+$text-secondary: $text-secondary-light;
+$text-tertiary: $text-tertiary-light;
+$dialog-bg: $dialog-bg-light;
+$glass-1: $glass-1-light;
+$glass-2: $glass-2-light;
+$glass-3: $glass-3-light;
+$glass-4: $glass-4-light;
+$shade-alpha-05: $shade-alpha-05-light;
+$shade-alpha-25: $shade-alpha-25-light;
+$tile-clear-alpha: $tile-clear-light-alpha;
+$tile-fog-alpha: $tile-fog-light-alpha;
 
 // Where the board stops carrying the panels under it and takes them beside it instead. In px
 // rather than rem on purpose: a media query's rem is the browser's initial font size, not the

@@ -64,6 +64,18 @@ import {
 } from "../../game/bot";
 
 const FOG_EMOJI = "☁️";
+// TEMPORARY, dev-only: the floor colours under consideration, cycled by the 🎨 button in the dev
+// corner. First entry is the stylesheet's own $ground-color and is applied by clearing the inline
+// style, so it tracks theme.scss rather than duplicating it. Delete with createGroundButton.
+const GROUND_EMOJI = "🎨";
+const GROUND_CANDIDATES: [string, string][] = [
+  ["A current cream", "#ffeecf"],
+  ["B paler cream", "#fff6e3"],
+  ["C mint meadow", "#e9f5e4"],
+  ["D page pink", "#ffeaf3"],
+  ["E warm neutral", "#fdf8f2"],
+  ["F soft lilac", "#f0ecfa"],
+];
 const DROP_EMOJI = "💧";
 const TURN_EMOJI = "⏳";
 // The closing turn's own emoji: the same hourglass, run out. It is the whole "this is your
@@ -158,11 +170,11 @@ const POP_SCALE = 1.35;
 // The colour the drop counter takes while it is being spent from — the same pop as income,
 // in the negative. A literal because a keyframe cannot read a stylesheet: keep it in step
 // with theme.scss's $danger-color-contrast by hand.
-const SPEND_COLOR = "#e06d80";
+const SPEND_COLOR = "#c22a4a";
 // The colour a counter takes when what it is worth goes *up* — the income growing, the score
 // climbing. The mirror of SPEND_COLOR, and a literal for the same reason: a keyframe cannot
 // read a stylesheet, so keep it in step with theme.scss's $success-color-light by hand.
-const GAIN_COLOR = "#44aa77";
+const GAIN_COLOR = "#1d8055";
 // PLACEHOLDER spend-feedback timings. One drop rises off the tile per drop paid, so a portal
 // jump throws two and a free step off a custard throws none — the same "one glyph, one unit"
 // the payout speaks in. The rise is in em, so it scales with the glyph rather than the zoom.
@@ -501,6 +513,39 @@ export function GameMapComponent(
   }
 
   /**
+   * TEMPORARY, dev-only: cycles the board's floor through the colours we are choosing between,
+   * so the decision can be made by looking at a real board rather than at swatches. Sets the
+   * inline style on the board element rather than going through the stylesheet, which is what
+   * keeps it free: $ground-color stays a plain compile-time constant, no CSS has to become a
+   * custom property for the toggle's sake, and the whole thing is one uncalled declaration in
+   * every build but the dev server's.
+   *
+   * Delete this, GROUND_CANDIDATES and its button once the floor is settled — at which point the
+   * winner goes into $ground-color in theme.scss and nothing else changes.
+   */
+  function createGroundButton(): HTMLElement {
+    let index = 0;
+    const button = createButton(
+      {
+        cssClass: CssClass.ICON_BTN,
+        onClick: () => {
+          index = (index + 1) % GROUND_CANDIDATES.length;
+          const [name, hex] = GROUND_CANDIDATES[index];
+          // The first entry is whatever theme.scss says, so index 0 means "hand it back to the
+          // stylesheet" rather than "set it to the same value" — that way the default is always
+          // the real default, even after theme.scss changes underneath this.
+          board.style.background = index === 0 ? "" : hex;
+          button.title = `floor: ${name} ${hex}`;
+          console.log(`floor ${index}/${GROUND_CANDIDATES.length - 1}: ${name} — ${hex}`);
+        },
+      },
+      [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: GROUND_EMOJI })],
+    );
+
+    return button;
+  }
+
+  /**
    * Dev-only: the bot's controls — which bot is playing, one action from it, and the rest of
    * the run at once. It is for balancing rather than for playing: a run driven by a bot with
    * a stated policy is a reading of what the board is worth to *that* policy, and four of
@@ -620,7 +665,7 @@ export function GameMapComponent(
   // what the launch screen wants: none of it means anything before a run.
   const headerControls = createElement({ cssClass: styles.headerControls }, [
     status,
-    ...(HAS_DEV_TOOLS ? [createFogButton(), ...createBotControls()] : []),
+    ...(HAS_DEV_TOOLS ? [createFogButton(), createGroundButton(), ...createBotControls()] : []),
   ]);
   // Built here rather than up with its counters, because it holds the zoom steps and they have
   // to exist first. They are controls for the board and now sit under it with the other one —

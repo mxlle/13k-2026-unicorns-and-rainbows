@@ -1443,12 +1443,15 @@ export function GameMapComponent(
     // glyphs carrying money the run has no more use for.
     const wait = map.turn < TURN_LIMIT ? flyIncome() : 0;
     isPaying = !!wait; // an empty board pays nothing and has nothing to wait for
+    // Ending the turn is done with whatever was picked up: the selection goes with it, so the
+    // board stops offering steps nobody can take while the income flies and the rival moves,
+    // and the next turn starts from the hint rather than from last turn's piece.
+    select();
     render(); // takes the button out of reach for the length of the flight
 
     setTimeout(() => {
       isPaying = false;
       endTurn(map, PLAYER);
-      select(selected); // steps that were unaffordable a moment ago may be back
       render();
 
       // The rival goes next, and the clock only moves on once it has had its turn — so a

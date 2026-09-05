@@ -27,8 +27,51 @@ const VIOLET_HUE = 300;
  * its first sixth while green sprawls over the next third. Spacing the stripes equally comes
  * out as two greens and no orange at all — so the steps are crowded towards the warm end,
  * which is exactly where the colour changes fastest. PLACEHOLDER exponent, tuned by eye.
+ *
+ * This is also why the ladder is not drawn in a perceptually uniform space, which would make the
+ * bias unnecessary and every rung equally loud. That was tried: flat OKLCH lightness and chroma
+ * hold the rungs beautifully even, and stop the band looking like a rainbow at all — because
+ * yellow being light and blue being dark is not an artefact to correct, it is what makes yellow
+ * read as yellow rather than as olive. Evenness is the wrong goal here; see SATURATION_WARM for
+ * the narrower fix.
  */
 const WARM_BIAS = 1.4;
+/**
+ * Saturation at the two ends of the ladder, walked linearly between them, and the reason it is
+ * not one flat number: HSL saturation is not perceptual, so a single value comes out twice as
+ * loud at some hues as at others. Magenta is one of the loud ones and the worst placed of them,
+ * because the page behind it is pink — a loud magenta on a pink page reads as the page turned up
+ * too far, where a loud green simply reads as green.
+ *
+ * So the cool end is damped until it weighs what the warm end weighs: level 1 comes out at a Lab
+ * chroma of 55 against level 7's 52, where a flat 80% had them at 75 and 52. It leaves the warm
+ * half alone, which is where the rainbow most needs its punch, and the falloff runs the same way
+ * the difficulty does — loudest at the top of the ladder, calmest at the bottom.
+ *
+ * PLACEHOLDER pair. Handed to the stylesheet as --s rather than computed there, for the same
+ * reason as the hues.
+ */
+const SATURATION_WARM = 80;
+const SATURATION_COOL = 56;
+/**
+ * How far a stripe's own colour drifts, top to bottom, towards the hue of the stripe below it.
+ * The ladder runs red at the top to violet at the foot, so hue *increases* down the screen and a
+ * positive step leans each card towards its lower neighbour — which is what makes seven separate
+ * cards still read as one rainbow.
+ *
+ * PLACEHOLDER, and this is very nearly as far as it goes: the gaps between rungs are uneven (see
+ * WARM_BIAS) and the smallest of them is about 25°, between the top two. Past that a stripe's
+ * foot would reach the colour of the card below it and the ladder would start to look like it
+ * had lost a step — so if the gradient still wants to be stronger, take it out of
+ * $stripe-lightness-drop in the stylesheet rather than out of this.
+ */
+const NEIGHBOUR_HUE_STEP = 24;
+
+/** How far up the ladder a rung is: 0 at the hardest board, 1 at the easiest. */
+const rungAt = (index: number) => (MAP_SIZES.length - 1 - index) / (MAP_SIZES.length - 1);
+
+/** Where a rung sits on the rainbow. Index 0 is the easiest board and takes VIOLET_HUE. */
+const hueFor = (index: number) => VIOLET_HUE * rungAt(index) ** WARM_BIAS;
 
 /**
  * The launch screen: one stripe per board on offer, played in two taps — one to pick the
@@ -160,10 +203,24 @@ export function LaunchScreenComponent(onPlay: (level: number, random?: boolean) 
         ]),
       ]);
 
-      // The stripe's hue, which is the one thing about it that is settled for good — how full it
-      // is, the other per-stripe value, is set by update() and moves. Everything else about how
-      // a stripe is drawn is in the stylesheet, reading these two.
-      stripe.style.setProperty("--h", `${VIOLET_HUE * ((MAP_SIZES.length - 1 - index) / (MAP_SIZES.length - 1)) ** WARM_BIAS}deg`);
+      // The stripe's two hues, which are the one thing about it that is settled for good — how
+      // full it is, the other per-stripe value, is set by update() and moves. Everything else
+      // about how a stripe is drawn is in the stylesheet, reading these three.
+      //
+      // Both are handed over ready-made rather than the stylesheet deriving the second with a
+      // calc(): lightningcss is already known to mis-parse an hsl() whose hue is a var() it
+      // cannot resolve (see .stripe), and arithmetic on that var is not a thing to find out
+      // about in a built stylesheet.
+      // Centred on the rung's own hue rather than starting from it, which is the fix for a rung
+      // not looking like the colour it was asked for. Anchored at the head, the top stripe ran
+      // red to orange and its perceived middle came out around 12° — orange-red, with no red
+      // about it. Every rung was reading warm of itself; it was only obvious where the ladder ran
+      // out of room below red. Half the step each way puts the intended hue back in the middle,
+      // and the foot still leans towards the card below.
+      const hue = hueFor(index);
+      stripe.style.setProperty("--h", `${hue - NEIGHBOUR_HUE_STEP / 2}deg`);
+      stripe.style.setProperty("--h2", `${hue + NEIGHBOUR_HUE_STEP / 2}deg`);
+      stripe.style.setProperty("--s", `${SATURATION_WARM + (SATURATION_COOL - SATURATION_WARM) * rungAt(index)}%`);
       stripes.push(stripe);
 
       return stripe;

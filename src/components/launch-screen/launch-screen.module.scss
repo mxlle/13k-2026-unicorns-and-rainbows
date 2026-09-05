@@ -5,24 +5,66 @@
 // component). So the band fills in as the ladder is climbed rather than simply being there,
 // and a screen of levels is read at a glance without a figure being compared to anything.
 //
-// PLACEHOLDER pair. Raised from the dark theme's 0.18 floor, and the page is why: 18% of a
-// saturated hue over near-black already read as a coloured band, and the same 18% over a
-// cream-pink page reads as very slightly tinted cream. It still has to stay far enough under the
-// earned colour that the boundary between them is unmistakable at a glance, which is what keeps
-// this from simply being raised until the floor is comfortable to look at.
-$empty-solidity: 0.32;
-$earned-solidity: 0.85;
-// The pointer and the pick, which are now the one thing a stripe says that is *not* how full it
-// is — so both are brightness rather than solidity, and neither can be mistaken for progress.
-// The pick is the smaller step of the two because it also has a ring; hover has only this.
+// PLACEHOLDER, and the balance point of three things that all pull against each other. Standing
+// out from the page wants the rungs *darker*; the label wants them *lighter*, since ink contrast
+// on a stripe is set by lightness alone; and the gradient below wants a big drop between head and
+// foot, which drags the foot darker. There is no setting that maximises all three.
 //
-// Below 1 rather than above it, which is the whole of what the light theme changed here: on
-// black, "more" is brighter, and on cream, brightness only ever heads towards white — a pale
-// stripe brightened is a stripe on its way to invisible. Darkening is the direction that
-// intensifies against a light page, so the numbers flipped and the names now read a little
-// oddly. Keep them on the same side of 1 as each other, whatever they are tuned to.
-$hover-lift: 0.9;
-$picked-lift: 0.95;
+// What decides it is the **foot**, not the head — the foot is the darkest thing the label ever
+// sits on, and the blue rung is the one that runs out first. Its foot has to reach about 70% for
+// the label to clear the 4.5:1 the 1.2rem board text wants. At 70/60 it managed 2.8:1; at 74/64,
+// keeping the fuller drop, only 3.4:1. So the range is shifted up until the foot lands on 70 and
+// the drop takes what is left, which is what fixes the label and why the drop below is 4 rather
+// than the 10 it was.
+//
+// The saturation that goes with these is not here — it is per rung, handed over as --s by the
+// component, because one flat value comes out twice as loud at some hues as at others. See
+// SATURATION_WARM there.
+$stripe-lightness: 74%;
+// How much darker the foot of a stripe is than its head — the gradient's strength, in other
+// words. Hue drift alone (see NEIGHBOUR_HUE_STEP in the component) is a very quiet gradient,
+// because two hues 24° apart at the same lightness are about equally bright and the eye reads
+// one colour with a slight lean. Taking lightness out on the way down is what makes it visible,
+// and it is the direction light comes from, so it reads as a shaped surface rather than as two
+// colours meeting.
+//
+// Four points rather than the ten it was, and not by choice: see $stripe-lightness for why the
+// foot cannot go below 70%. It costs real gradient — head-to-foot goes from ΔE 19..47 down to
+// ΔE 11..29 — but 11 is still well clear of the ~5 where a gradient stops being visible, so the
+// band still reads as a shaped surface rather than a flat one. Raising the head to buy the drop
+// back is not free either: it pales the rung, and standing out from the page is the other thing
+// lightness controls.
+//
+// One thing that does *not* work, so it need not be tried twice: putting the gradient back with a
+// vertical saturation rise instead. It restores the strength (ΔE 20..46 at +20 points) and hands
+// the label straight back — a more saturated foot is a perceptually darker foot, and ink was down
+// to 4.0:1 again.
+$stripe-lightness-drop: 4%;
+// How far the unearned end of a stripe is washed out towards white. This replaces the pair of
+// alphas the progress gradient used to be built from, and the reason is the vertical gradient
+// below: two alphas over the page meant the *earned* end was nearly opaque and the unearned end
+// nearly clear, so anything drawn underneath showed through one end and not the other. A veil
+// laid over the top instead leaves both ends showing the same gradient, one of them simply
+// paler — the boundary still lands in exactly the same place and still reads as a hard edge,
+// which is the whole point of it.
+//
+// It is also a dial on how well an unplayed rung stands out from the page, and it trades against
+// the progress edge: every point of the one is a point off the other. At the stronger colours
+// above there is room for both — 23 against the page, 16 across the edge.
+$stripe-veil: rgba(255, 255, 255, 0.45);
+// How the pointer and the pick answer, and the one thing a stripe says that is *not* how full it
+// is. Saturation rather than the brightness this used to be, which is the better instrument on a
+// light page: brightness only ever heads towards white, so it made a pale rung paler, while
+// saturation makes a colour more itself.
+//
+// Both are far below the saturate(2) that suggested the idea, and the reason is evenness. The
+// filter clamps, and at 80% base saturation there is little headroom left, so a strong factor
+// clips different channels on different rungs: at s=2 the response ranges from ΔE 10 on the blue
+// rung to ΔE 43 on the green one, which reads as the ladder answering a hover in seven different
+// amounts. At 1.35 the spread is 8 to 20, against the 7-to-9 of the brightness it replaces.
+// Push them up for a louder answer, knowing the green rungs shout first.
+$hover-saturate: 1.35;
+$picked-saturate: 1.15;
 
 // The gap between stripes, and the same value again as the breathing room around the whole
 // band so the outer stripes are not pressed against the window edge. Small on purpose: the
@@ -62,53 +104,80 @@ $stripe-gap: 0.4rem;
   padding: 0 1rem;
   cursor: pointer;
   font-size: 1.2rem;
+  // The rim every other control in the game wears (see the button rule in globals.scss), and the
+  // one thing a stripe was missing: a pale rung on a pale page has nothing drawing its boundary,
+  // and no amount of tuning the fill fixes an object with no edge. The heavier bottom edge is
+  // what makes it read as a key to press rather than as a painted band.
+  // No backdrop-filter to go with it, unlike the buttons: a stripe's fill is an opaque hsl(),
+  // so there is nothing behind it left to frost.
+  border: 1px solid theme.$shade-alpha-05;
+  border-bottom-width: 3px;
   // Rounded, so a stripe reads as a card in a list of levels rather than as a band of a
   // painted-on rainbow. Generous rather than the theme's default: at this height a small
   // radius is invisible, and it is the corners doing the work of saying "these are seven
   // separate things you pick between".
   border-radius: 1rem;
-  // --h is the stripe's hue and --p how full it is; both are set per stripe by the component,
-  // and --p is why the fill is a gradient rather than a second element laid over the first —
-  // one property moves the boundary, and nothing has to be sized against the stripe's width.
+  // Two layers, and which is which matters. Underneath, the stripe's own colour: --h at the top
+  // drifting to --h2 at the foot, both set per stripe by the component, so a card leans towards
+  // the hue of the card below it and the seven of them still read as one rainbow. Over it, the
+  // progress boundary — --p is how full the stripe is, and everything past it is veiled towards
+  // white. That order is what keeps the vertical gradient reading the same at both ends of the
+  // stripe; built the other way round it would show through the empty end and be buried under
+  // the full one.
   // Two hard stops at the same position, so the edge is a clean line rather than a fade: this
-  // is a reading of a number, and a soft edge would make it look like an approximate one.
-  // The alpha is what makes the rainbow pale, and it is on the background rather than on the
-  // element so the label keeps its own contrast over it.
+  // is a reading of a number, and a soft edge would make it look like an approximate one. And
+  // it is a gradient rather than a second element laid over the first because one property then
+  // moves the boundary, with nothing to size against the stripe's width.
   // Legacy comma syntax, and it has to stay that way: lightningcss mis-parses the modern
   // `hsl(h s l / a)` form when the hue is a var() it cannot resolve — it reads the slash as a
   // division and folds the alpha into the lightness, which comes out white.
   --p: 0%; // a level never played is an empty bar, whatever the component has got round to
-  background: linear-gradient(
-    90deg,
-    hsla(var(--h), 95%, 60%, $earned-solidity) var(--p),
-    hsla(var(--h), 95%, 60%, $empty-solidity) var(--p)
-  );
+  background:
+    linear-gradient(90deg, transparent var(--p), $stripe-veil var(--p)),
+    linear-gradient(
+      180deg,
+      hsl(var(--h), var(--s), $stripe-lightness),
+      hsl(var(--h2), var(--s), $stripe-lightness - $stripe-lightness-drop)
+    );
   transition: filter 0.2s;
 
   @include theme.hover {
-    filter: brightness($hover-lift);
+    filter: saturate($hover-saturate);
   }
 }
 
 // The picked stripe: written as two classes so it beats the single-class :hover rule above
 // on specificity, whatever the source order ends up being. The ring is what actually says
-// "picked"; the lift is there so the answer to a tap is felt before it is read.
+// "picked"; the change in saturation is there so the answer to a tap is felt before it is read.
 .stripe.picked {
-  filter: brightness($picked-lift);
-  box-shadow: inset 0 0 0 2px theme.$text-primary;
+  filter: saturate($picked-saturate);
+  // An outline rather than the inset shadow this was, and that is the fix for a small visual
+  // bug. An inset shadow is clipped to the *padding* box, so the ring landed inside the stripe's
+  // own rim and left a pale line stranded outside the selection — 1px of it around the top and
+  // sides, 3px along the bottom, where the rim is heavier. An outline hugs the border box
+  // instead, so the rim sits inside the ring where it belongs and a picked stripe reads as one
+  // object with a ring round it. It follows the border-radius, and it costs no layout, so
+  // nothing shifts by a pixel on being picked.
+  outline: 2px solid theme.$text-primary;
 }
 
 // Left on every screen, and left whether the stripe is picked or not: the level number is what
 // the eye runs down, and a column of them only reads as a column if every row starts it in the
 // same place. The auto margin is what pushes the offer to the other end.
-// The shadow is what keeps the text readable across the whole band, and it changed sides with
-// the theme: the ink is a dark plum now, so the halo behind it is white. A stripe played to its
-// target is nearly solid, and at the blue and violet end of the rainbow that is a dark enough
-// background to swallow dark ink without this.
+// The white halo behind the ink. It is back to being a nicety rather than the only thing holding
+// the label up: at the lightness the ladder now runs at, the worst rung clears 4.5:1 from the
+// fill alone (see $stripe-lightness). Kept, and kept at two layers, because it is cheap and it is
+// what makes the numerals crisp where the earned end of a stripe meets the veiled end. Two layers
+// rather than one: the tight one gives the glyph edges their own local contrast, which is what
+// actually rescues thin text on a mid-tone, and the wider one lifts the whole word off the
+// colour. It also keeps the numerals crisp where the earned end of a stripe meets the veiled
+// end, which is the one place on the screen the ink crosses a hard edge.
 .label {
   margin-right: auto;
   white-space: nowrap;
-  text-shadow: 0 0 3px #fff;
+  text-shadow:
+    0 0 2px #fff,
+    0 0 5px #fff;
   display: flex;
   align-items: center;
   // Tight by default, opened up where there is room (see the side-panels block below). This is

@@ -192,6 +192,10 @@ const POP_OPTIONS: KeyframeAnimationOptions = { "duration": POP_DURATION, "direc
 // It is also how often the timer looks to see whether the payout has finished, which is the
 // one thing that makes it wait — see toggleAutoPlay.
 const AUTO_STEP_DELAY = 120;
+// PLACEHOLDER: how long the end-turn button stays asking before it forgets it was asked — see
+// the guard on it below. Long enough to answer without hurrying, short enough that a button
+// left armed by a tap nobody meant is back to its plain self before it is looked at again.
+const CONFIRM_TIMEOUT = 3000;
 
 /**
  * Where an element sits on the screen, as its centre — a tile a glyph leaves from and a
@@ -272,6 +276,13 @@ export function GameMapComponent(
   // playing this side — see showHint. Set only by 💡 and dropped again by the next thing the
   // player does, so an arrow can never outlive the question it was answering.
   let hintIndex: number | undefined;
+  // The end-turn button has been pressed once and is asking whether that was meant — see the
+  // guard on it. Only ever armed while the player still has something they could do instead:
+  // a turn that is genuinely spent ends on one tap, which is every ordinary turn.
+  let confirmsEndTurn = false;
+  // What disarms it again on its own, so a question nobody answers does not sit on the button
+  // for the rest of the run.
+  let confirmTimer: number | undefined;
   // The one hint that has no tile to point at: "there is nothing here worth doing". It lights
   // the end-turn button instead, which is where that answer already lives.
   let hintsEndTurn = false;
@@ -373,7 +384,7 @@ export function GameMapComponent(
   // One button for both ends of a run: end the turn while playing, back to the launch screen
   // once it is over. Which board to play next is that screen's question, not this bar's —
   // there are seven of them now, and they are the stripes of the rainbow over there.
-  const endTurnButton = createButton({ onClick: () => (isRunning ? finishTurn() : onExit()) });
+  const endTurnButton = createButton({ onClick: endTurnPressed });
   // The board just played, from the top: the same map, the same opening, the same seed. What
   // ends a run is a plan running out of turns, and the second go at a plan is where the first
   // one is worth anything.
@@ -947,12 +958,17 @@ export function GameMapComponent(
     // It is disabled either way (see isLocked), so this changes what it says, not what it does —
     // and it says it where the player last pressed, which is where they are looking.
     if (HAS_OPPONENT && isRivalTurn) endTurnButton.replaceChildren(rivalTurnGlyph!);
-    else endTurnButton.textContent = getTranslation(isOver ? TranslationKey.LEVELS : TranslationKey.END_TURN);
+    // The question mark is the whole of the armed label: the sentence is already written and
+    // already translated three times over, and "End turn?" is the same sentence asking.
+    else
+      endTurnButton.textContent = getTranslation(isOver ? TranslationKey.LEVELS : TranslationKey.END_TURN) + (confirmsEndTurn ? "?" : "");
     endTurnButton.disabled = isLocked(); // no second turn until this one is paid out and the rival has moved
     // Ending a turn is one step among many; starting the next run is the whole screen.
-    endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
+    // Armed, it goes as loud as the spent turn makes it: a button that has quietly changed what
+    // the next tap does must not look like the button that was there a moment ago.
+    endTurnButton.classList.toggle(CssClass.PRIMARY, (outOfWater || confirmsEndTurn) && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
-    endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver || hintsEndTurn);
+    endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver || hintsEndTurn || confirmsEndTurn);
     // The hint asks the bot, and the bot answers about a board that is standing still: nothing
     // to advise while the income is flying, the rival is walking or the run is over.
     hintButton.disabled = isLocked() || !isRunning;
@@ -1262,6 +1278,7 @@ export function GameMapComponent(
   function showHint() {
     if (!isRunning || isLocked()) return;
 
+    disarmEndTurn(); // asking what to do is an answer to the button's own question
     const action = getBotAction(map, BotStrategy.MIXED, PLAYER);
     // Nothing to do, or nothing worth doing: the only advice left is the clock, and the button
     // that moves it on is where that is already said.
@@ -1280,6 +1297,7 @@ export function GameMapComponent(
   function clearHint() {
     hintIndex = undefined;
     hintsEndTurn = false;
+    disarmEndTurn(); // and so is it an answer to the button's own question
   }
 
   function onTileClick(index: number) {
@@ -1535,6 +1553,48 @@ export function GameMapComponent(
     });
 
     return end;
+  }
+
+  /**
+   * The guard on the one control in the game that cannot be taken back. Ending a turn spends a
+   * turn out of the run and hands the board to the rival, and it sits a finger's width under
+   * the info panel's own button — so a tap meant for the raise button lands here, and there is
+   * no undoing it.
+   *
+   * The guard is a second tap rather than a dialog or a hold: a dialog would be the loudest
+   * possible answer to a rare slip (and would pull the framework's unused dialog component
+   * back into the bundle), and a hold has to teach itself to a player who has never been asked
+   * to hold anything.
+   *
+   * It is skipped when the game can prove there is nothing else to do — the state the button is
+   * already pulsing in — and once the run is over, where the button is the way out to the levels
+   * and there is nothing left to lose.
+   *
+   * That line is deliberately drawn wide rather than at the slip itself. Measured over the
+   * ladder, a turn ends with some legal move still on the board on anything from half to nearly three
+   * quarters of turns (46% on the 9x9, 72% on the 25x25), because a turn normally ends with a drop or two
+   * left and nothing worth spending it on — so this asks *often*, not rarely. That is the trade
+   * it was chosen on: a broad net that also catches presses no narrow rule would have. The
+   * narrow rule, if it ever comes to that, is `buildSite` — ask only while the raise button is
+   * on screen, which is the one state the mis-taps were actually observed in.
+   */
+  function endTurnPressed() {
+    if (!isRunning) return onExit();
+    if (confirmsEndTurn || !canAct(map, PLAYER)) return finishTurn();
+
+    confirmsEndTurn = true;
+    clearTimeout(confirmTimer);
+    confirmTimer = setTimeout(() => {
+      confirmsEndTurn = false;
+      render();
+    }, CONFIRM_TIMEOUT);
+    render();
+  }
+
+  /** Takes the question back. Anything else the player does is an answer of "no, not that". */
+  function disarmEndTurn() {
+    clearTimeout(confirmTimer);
+    confirmsEndTurn = false;
   }
 
   /**

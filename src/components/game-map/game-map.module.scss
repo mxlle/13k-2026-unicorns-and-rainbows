@@ -214,10 +214,23 @@ $board-column-max: calc(100dvh - 5rem);
   width: 100%;
   max-width: $panel-width;
 
+  // The clock closes the left-hand group, and the bar's one big gap opens after it. That is
+  // what puts 💡 and the way out of the turn together at the far end: they are the two answers
+  // to "I do not know what to do here" — be told, or stop — and beside the counter the bulb
+  // read as something to do with the clock instead.
+  //
+  // Said as a margin on the clock rather than as an auto margin on the hint button so that the
+  // pair cannot be split by the wrap in the side-panel layout: neither of them carries a margin
+  // that could push one to the end of a line and leave the other at the start of the next.
+  // The turn display is the only counter down here — the currencies and the scores are up in
+  // the header's chip — so the class needs no help telling them apart.
+  > .count {
+    margin-right: auto;
+  }
+
   // The end-turn button alone — :last-child rather than every button, now that the zoom steps
   // are in here too and must keep the round icon face the header gave them.
   > button:last-child {
-    margin-left: auto; // turn count and zoom left, the button on the far right
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;

@@ -558,6 +558,19 @@ $win-hop-height: 2rem;
     }
   }
 
+  // Where the hint says to go — see showHint. Last of the ring rules on purpose: a hinted tile
+  // is nearly always a lit one as well (a step is a target, and off a springboard a free one),
+  // and the point of the ring is to pick that one tile out of the eight wearing the same colour.
+  //
+  // The light's amber, which is the one colour on the board that belongs to neither currency,
+  // so it cannot be misread as a price. Thicker than the rings under it because it has to read
+  // *through* them, and the pulse it wears is the same one every other "do this next" affordance
+  // has — put on from render() as the global hint class, so a tile pointed at by the bulb and a
+  // tub inviting a purchase beat in time rather than each to its own animation.
+  &.hinted {
+    box-shadow: inset 0 0 0 3px theme.$light-color;
+  }
+
   // The two glyph layers, sharing the one centred cell so they stack. `rotate` and
   // `scale` are used instead of `transform` on purpose: they compose with the tile's
   // own scale instead of overwriting it.

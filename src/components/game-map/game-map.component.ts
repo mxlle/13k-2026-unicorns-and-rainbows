@@ -83,6 +83,11 @@ const SCORE_EMOJI = "⭐";
 const ZOOM_EMOJI = "🔍";
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
+// The hint button in the turn bar — the one control that answers "what now?" with a move on
+// the board rather than with a sentence in the panel. A bulb rather than the panel's finger:
+// the two are different questions ("tap something" vs "here is what I would do"), and the
+// board would otherwise be pointing at itself with the same glyph twice.
+const HINT_ACTION_EMOJI = "💡";
 // PLACEHOLDER glyph for one turn's step on the unicorn's ladder, between the rank numbers:
 // "Rank: 1 • • 2 • • 3", see renderGrowth. A bullet rather than a middle dot or a full stop:
 // big enough to read as a rung, and not as punctuation.
@@ -263,6 +268,13 @@ export function GameMapComponent(
   // movement, so nothing can be standing on it and this can never be true at the same time as
   // isCharacter — the three kinds of selection stay cleanly apart.
   let buildSite: Position | undefined;
+  // What the hint is pointing at, as a tile index: the tile the bot would act on if it were
+  // playing this side — see showHint. Set only by 💡 and dropped again by the next thing the
+  // player does, so an arrow can never outlive the question it was answering.
+  let hintIndex: number | undefined;
+  // The one hint that has no tile to point at: "there is nothing here worth doing". It lights
+  // the end-turn button instead, which is where that answer already lives.
+  let hintsEndTurn = false;
   // The turn is being paid out: income is in the air and the purse has not been credited
   // yet. The board is locked for as long as it lasts — a step taken mid-flight would change
   // the very income the player is watching arrive.
@@ -492,6 +504,12 @@ export function GameMapComponent(
   // parts of it that do not fit. Panning is the browser's own scrolling — which brings touch
   // momentum, trackpad gestures and keyboard scrolling along for nothing.
   const mapArea = createElement({ cssClass: styles.mapArea }, [board]);
+  // Free and unlimited, and in the row of things you press rather than up with the things you
+  // read. It sits between the clock and the end-turn button on purpose: the two ways out of a
+  // turn you cannot see your way through are "be told what to do" and "stop", side by side.
+  const hintButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: showHint }, [
+    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: HINT_ACTION_EMOJI }),
+  ]);
   const zoomOutButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: () => zoom(-1) }, ["−"]);
   const zoomInButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: () => zoom(1) }, ["+"]);
 
@@ -649,6 +667,7 @@ export function GameMapComponent(
     zoomOutButton,
     zoomInButton,
     turnDisplay,
+    hintButton,
     endTurnButton,
   ]);
   const hostElement = createElement({ cssClass: styles.host }, [mapArea, infoPanel, turnBar]);
@@ -799,8 +818,14 @@ export function GameMapComponent(
       element.classList.toggle(styles.glowing, shining.has(index) || isTub);
       element.classList.toggle(
         CssClass.HINT,
-        canSpawn || canRaiseHere || (hintCharacters && isSeen(tile, PLAYER) && tile.living === GameObjectType.UNICORN),
+        canSpawn ||
+          canRaiseHere ||
+          index === hintIndex ||
+          (hintCharacters && isSeen(tile, PLAYER) && tile.living === GameObjectType.UNICORN),
       );
+      // The hint's own ring, over whatever the tile is already wearing — a hinted step is a lit
+      // target too, and often a free one. See .hinted for why it is the light's amber.
+      element.classList.toggle(styles.hinted, index === hintIndex);
       element.classList.toggle(styles.selected, isSelectedTile);
       // no steps lit means the selection is only being looked at — see select()
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
@@ -927,7 +952,10 @@ export function GameMapComponent(
     // Ending a turn is one step among many; starting the next run is the whole screen.
     endTurnButton.classList.toggle(CssClass.PRIMARY, outOfWater && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
-    endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver);
+    endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver || hintsEndTurn);
+    // The hint asks the bot, and the bot answers about a board that is standing still: nothing
+    // to advise while the income is flying, the rival is walking or the run is over.
+    hintButton.disabled = isLocked() || !isRunning;
     // The bot acts under the same conditions the player does.
     if (HAS_DEV_TOOLS) updateBotControls!();
   }
@@ -1213,9 +1241,51 @@ export function GameMapComponent(
     showInfo(index);
   }
 
+  /**
+   * The hint: what the bot would do on the player's side, drawn rather than played. It goes
+   * through select() exactly as a tap does — the unicorn it would move is picked up with all
+   * its steps lit, and the step it would take is the one wearing the hint ring — so carrying
+   * the advice out is the same second tap it would have been anyway. Nothing is done for the
+   * player; the button ends where a tap on the suggested piece would have.
+   *
+   * It is the opponent's own strategy on purpose: the advice is the move the rival would have
+   * made in this position, so a player who follows it is playing the rival's game rather than
+   * a weaker one written for the occasion. It is also read off the player's own fog, because
+   * the bot only ever judges from its own side's — a hint can never point at something the
+   * player has no way to know is there.
+   *
+   * getBotAction files the plan it just settled on (see rememberGoal), which is what makes a
+   * run of hints walk somewhere instead of pacing between two prizes. A hint the player then
+   * ignores leaves that plan behind on a tile nobody moved to — the same harmless leftover a
+   * player moving a unicorn by hand already leaves, worth one inherited goal at most.
+   */
+  function showHint() {
+    if (!isRunning || isLocked()) return;
+
+    const action = getBotAction(map, BotStrategy.MIXED, PLAYER);
+    // Nothing to do, or nothing worth doing: the only advice left is the clock, and the button
+    // that moves it on is where that is already said.
+    hintsEndTurn = !action || action.kind === BotActionKind.END_TURN;
+    // A build acts on the site itself and has no second tile, so the site is its own target:
+    // selecting it is what puts the raise button up, and the ring says which of several sites
+    // was meant.
+    const target = hintsEndTurn ? undefined : (action!.to ?? action!.from);
+    hintIndex = target && getIndex(target);
+    showsScore = false; // the board takes the panel back, exactly as a tap on it does
+    if (!hintsEndTurn) select(action!.from);
+    render();
+  }
+
+  /** Drops the hint: anything the player does next is an answer to the question it was asking. */
+  function clearHint() {
+    hintIndex = undefined;
+    hintsEndTurn = false;
+  }
+
   function onTileClick(index: number) {
     if (!isRunning || isLocked() || index < 0) return;
     showsScore = false; // the board takes the panel back, whether the tap moves or just looks
+    clearHint(); // whatever the tap is, it is the player deciding for themselves again
 
     if (targets.some((target) => getIndex(target) === index)) {
       // the same second tap either way — what it finishes depends on what is selected, and
@@ -1274,6 +1344,7 @@ export function GameMapComponent(
 
   /** Raises what the selected site is for, and hands the board back with the building on it. */
   function raise() {
+    clearHint(); // the advice has been taken (or ignored); either way it is spent
     const site = buildSite!;
     const [, drops, candy] = getBuild(map.tiles[getIndex(site)].object)!; // before the site is spent
 
@@ -1479,6 +1550,7 @@ export function GameMapComponent(
     // The closing turn pays out nothing — see endTurn — so there is nothing to watch either,
     // and the result comes up the moment the button is pressed instead of after a flight of
     // glyphs carrying money the run has no more use for.
+    clearHint(); // the turn the advice was about is over
     const wait = map.turn < TURN_LIMIT ? flyIncome() : 0;
     isPaying = !!wait; // an empty board pays nothing and has nothing to wait for
     // Ending the turn is done with whatever was picked up: the selection goes with it, so the
@@ -1645,6 +1717,7 @@ export function GameMapComponent(
     isRivalTurn = false;
     if (HAS_OPPONENT) markRivalAction(); // a ring from the last board must not open the next one
     if (tileElements.length !== MAP_SIZE * MAP_SIZE) buildBoard();
+    clearHint(); // an arrow drawn on the last board must not open the next one
     showsScore = false; // render() clears last run's working with it, before the new board shows
     newRun = true; // the first render of a board seeds the bar rather than reacting to it
     wasStuck = false; // the last board's spent turn must not be the new one's opening line

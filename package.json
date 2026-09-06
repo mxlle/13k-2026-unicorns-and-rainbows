@@ -30,10 +30,11 @@
     "sweep": "vite build -m bot --ssr scripts/sweep-harness.ts --outDir dist-bot --emptyOutDir --logLevel error && node dist-bot/bot.js",
     "package": "node scripts/package.js",
     "size": "node scripts/package.js --report-only",
+    "images": "node thumbnail/build.mjs",
     "typecheck": "tsc",
     "lint": "node scripts/lint-invariants.mjs",
     "clean": "rimraf dist",
-    "prettier": "prettier --write src scripts vite.config.ts"
+    "prettier": "prettier --write src scripts vite.config.ts thumbnail"
   },
   "devDependencies": {
     "@rollup/plugin-replace": "^6.0.2",

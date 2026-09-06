@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Empire of Sugar — thumbnail & cover source</title>
+    <!--
+      The submission artwork. Not part of the game and not in the zip — js13k wants the
+      thumbnail and the cover as separate files, to different specs:
+
+        thumbnail   320 x 320   <=  64 kB
+        cover       800 x 500   <= 256 kB
+
+      Both are drawn here rather than screenshotted out of the running game, so that a change
+      to either is a one-line edit and a re-run rather than a session of temporarily breaking
+      the stylesheet. Open this file directly in a browser to tweak (append ?target=cover for
+      the cover); run `npm run images` to capture both.
+
+      The ladder's numbers are read out of the game by scripts/build.mjs and pasted in below,
+      so this file cannot drift from the launch screen's palette. The defaults here are only
+      what you see when the file is opened by hand.
+    -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+      }
+      .art {
+        position: relative;
+        overflow: hidden;
+        /* the game's own page wash — it is what shows through the ladder's rounded corners */
+        background: linear-gradient(to bottom, #ffe6f2 60%, #ffdcc4 100%);
+      }
+      .ladder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column-reverse;
+      }
+      .rung {
+        flex: 1;
+      }
+      .tile {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, var(--tile-a));
+        border: 1px solid rgba(58, 32, 48, 0.1);
+        box-shadow: 0 2px 5px rgba(58, 32, 48, 0.2);
+      }
+      .tile span,
+      .em {
+        font-family: "Noto Color Emoji", "Apple Color Emoji", sans-serif;
+        line-height: 1;
+      }
+      /* A lifted-object shadow rather than a halo. Noto's unicorn is very nearly white, so a
+         white glow round it made the hero dissolve into the pastel instead of standing off it. */
+      .em {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.85)) drop-shadow(0 2px 3px rgba(58, 32, 48, 0.38))
+          drop-shadow(0 6px 11px rgba(58, 32, 48, 0.2));
+      }
+      /* The opponent's things, drawn exactly as the game draws them — see .dark in
+         game-map.module.scss. If that rule changes, change this one. */
+      .dark {
+        filter: invert(1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="art" id="art"></div>
+
+    <script>
+      /* ------------------------------------------------------------------ *
+       * The ladder. build.mjs reads these out of the game itself — the launch
+       * screen's component and stylesheet, plus MAP_SIZES — and hands them over
+       * in the URL, so this artwork cannot drift from the screen it is quoting.
+       * The block below is only the fallback for opening this file by hand; the
+       * real values live in src, and that is where to change them.
+       * ------------------------------------------------------------------ */
+      const LADDER_DEFAULTS = {
+        rungs: 7,
+        violetHue: 300,
+        warmBias: 1.4,
+        step: 24,
+        satWarm: 80,
+        satCool: 56,
+        lightness: 74,
+        drop: 4,
+      };
+      const passed = new URLSearchParams(location.search).get("ladder");
+      const LADDER = passed ? JSON.parse(passed) : LADDER_DEFAULTS;
+
+      /* ------------------------------------------------------------------ *
+       * Knobs. Everything below is an artwork decision, not a game one.
+       * ------------------------------------------------------------------ */
+
+      /* Flat rungs rather than the launch screen's top-to-bottom gradient.
+         The gradient is only ~4 points of lightness and is close to invisible at these sizes,
+         but it forces the PNG to carry a smooth ramp — which is what banded when the file had
+         to be quantised to fit 64 kB. Flat rungs compress so much better that the file stays
+         lossless, so there is nothing left to band. Set to false to get the gradient back. */
+      const FLAT_RUNGS = true;
+
+      /* The rim the launch screen's stripes wear (1px all round, 3px along the bottom, which is
+         what makes a stripe read as a key rather than a painted band). At 320 px it is mostly
+         noise, and it costs a colour transition on every rung edge. Off by default. */
+      const RUNG_BORDER = false;
+
+      /* How opaque a board tile is over the ladder. At 0.82 the board reads as solid and the
+         rainbow becomes the frame around it; at ~0.55 the ladder reads through and the board
+         floats on it. Both were mocked up; 0.82 is the chosen look. */
+      const TILE_ALPHA = 0.82;
+
+      const TARGETS = {
+        /* --------------------------- THUMBNAIL --------------------------- *
+         * 320 x 320. A 3x3 of board tiles with the unicorn walking in over the
+         * bottom-right corner, facing into the grid. No title band: the js13k
+         * listing already sets the game's name underneath the picture. */
+        thumb: {
+          w: 320,
+          h: 320,
+          ladder: { pad: 4, gap: 3, radius: 9 },
+          tile: { box: 84, glyph: 46, radius: 14 },
+          // 3 columns on a 91 px pitch, centred in 320
+          cols: [69, 160, 251],
+          rows: [69, 160, 251],
+          board: [
+            ["🍭", "🍩", "🍮"],
+            ["⛲", "🌈", "🎁"],
+            ["🍩", "🛁", "🍭"],
+          ],
+          hero: { emoji: "🦄", size: 158, x: 248, y: 250 },
+        },
+
+        /* ----------------------------- COVER ----------------------------- *
+         * 800 x 500. The same tiles and the same ladder, on a board big enough to
+         * be laid out the way the generator actually lays one out — see README.md
+         * for which rule puts what where. The thumbnail's corner unicorn is carried
+         * over so the two pictures read as one entry.
+         *
+         * A trailing "D" on a cell marks it as the opponent's: it is drawn through
+         * invert(1), which is what the game does to the rival's three objects. */
+        cover: {
+          w: 800,
+          h: 500,
+          ladder: { pad: 5, gap: 4, radius: 12 },
+          tile: { box: 72, glyph: 40, radius: 13 },
+          // 8 x 5 on an 86 px pitch, centred in 800 x 500
+          cols: [99, 185, 271, 357, 443, 529, 615, 701],
+          rows: [78, 164, 250, 336, 422],
+          board: [
+            ["☁️", "", "🍭", "", "", "⛲", "🌈D", "🛁D"],
+            ["☁️", "", "", "🍮", "", "🍭", "🦄D", ""],
+            ["", "🍩", "", "", "🪣", "", "", "🎁"],
+            ["", "🌈", "🌈", "", "", "", "🍩", "☁️"],
+            ["🛁", "🦄", "⛲", "🍭", "🍮", "", "", "☁️"],
+          ],
+          hero: { emoji: "🦄", size: 210, x: 700, y: 410 },
+        },
+      };
+
+      /* ------------------------------------------------------------------ */
+
+      const target = TARGETS[new URLSearchParams(location.search).get("target") || "thumb"];
+      const art = document.getElementById("art");
+      art.style.cssText = `width:${target.w}px;height:${target.h}px;--tile-a:${TILE_ALPHA}`;
+
+      /* One rung per board on offer, easiest at the foot — the column is reversed, exactly as
+         the launch screen reverses it, so index 0 is the violet end. */
+      const ladder = document.createElement("div");
+      ladder.className = "ladder";
+      ladder.style.cssText = `gap:${target.ladder.gap}px;padding:${target.ladder.pad}px`;
+      for (let i = 0; i < LADDER.rungs; i++) {
+        const rung = (LADDER.rungs - 1 - i) / (LADDER.rungs - 1); // 1 at the easiest board, 0 at the hardest
+        const hue = LADDER.violetHue * Math.pow(rung, LADDER.warmBias);
+        const sat = LADDER.satWarm + (LADDER.satCool - LADDER.satWarm) * rung;
+        const d = document.createElement("div");
+        d.className = "rung";
+        // Flat takes the rung's own hue at the middle of the lightness the gradient walks.
+        const bg = FLAT_RUNGS
+          ? `hsl(${hue},${sat}%,${LADDER.lightness - LADDER.drop / 2}%)`
+          : `linear-gradient(180deg,hsl(${hue - LADDER.step / 2},${sat}%,${LADDER.lightness}%),` +
+            `hsl(${hue + LADDER.step / 2},${sat}%,${LADDER.lightness - LADDER.drop}%))`;
+        d.style.cssText =
+          `border-radius:${target.ladder.radius}px;background:${bg}` +
+          (RUNG_BORDER ? ";border:1px solid rgba(0,0,0,.05);border-bottom-width:3px" : "");
+        ladder.append(d);
+      }
+      art.append(ladder);
+
+      target.board.forEach((row, r) =>
+        row.forEach((cell, c) => {
+          const dark = cell.endsWith("D");
+          const emoji = dark ? cell.slice(0, -1) : cell;
+          const t = document.createElement("div");
+          t.className = "tile";
+          t.style.cssText =
+            `width:${target.tile.box}px;height:${target.tile.box}px;` +
+            `left:${target.cols[c]}px;top:${target.rows[r]}px;border-radius:${target.tile.radius}px`;
+          if (emoji) {
+            const s = document.createElement("span");
+            s.style.fontSize = target.tile.glyph + "px";
+            s.textContent = emoji;
+            if (dark) s.className = "dark";
+            t.append(s);
+          }
+          art.append(t);
+        }),
+      );
+
+      if (target.hero) {
+        const h = document.createElement("span");
+        h.className = "em";
+        h.textContent = target.hero.emoji;
+        h.style.cssText = `font-size:${target.hero.size}px;left:${target.hero.x}px;top:${target.hero.y}px`;
+        art.append(h);
+      }
+
+      // The capture waits on --virtual-time-budget rather than on this, but a stalled webfont
+      // is the one thing that would silently produce a picture in the wrong emoji set, so say so.
+      document.fonts.ready.then(() => document.documentElement.setAttribute("data-fonts", "ready"));
+    </script>
+  </body>
+</html>

@@ -728,15 +728,19 @@ export function GameMapComponent(
   addEventListener("resize", () => applyZoom());
 
   function render() {
-    // Guidance: an empty purse makes the income the only way on, so ending the turn
-    // becomes the next step. Before that, on the opening turn, it is picking a character.
+    // Guidance: with nothing left that can be done, the income is the only way on, so ending
+    // the turn becomes the next step. Before that, on the opening turn, it is picking a character.
     // Once the run is over the same button is the only thing left to press.
-    // The two signals on that button are deliberately split. Colour goes on as soon as the
-    // purse is empty — ending the turn is the way on from there, whether or not something
-    // free or paid for in sweets is still available. The pulse waits for the strict case,
-    // when there is provably nothing left to do (see canAct), so it never nags a player who
-    // can still act.
-    const outOfWater = map.drops[PLAYER] < MOVE_COST;
+    //
+    // One question, asked once, and every signal on the end-turn button hangs off it: the colour,
+    // the pulse, and whether a press is asked about (see endTurnPressed). The button has two
+    // resting looks and they mean exactly what the guard means — plain is "there are still things
+    // you could do, so I will check you meant this", loud is "there is nothing left, go ahead".
+    //
+    // The colour used to come on earlier, at an empty purse, as a gentler first stage before the
+    // pulse. That was worth having when a step was the only thing drops were for; with springboards
+    // and sweets in the game, a purse with no drops in it is no longer a board with nothing to do
+    // on it, so the early colour was saying something that was not true.
     const needsIncome = !canAct(map, PLAYER);
     const isOver = !isRunning;
     // The turn is spent, said in words as well as on the button. What it does is what a player
@@ -964,9 +968,12 @@ export function GameMapComponent(
       endTurnButton.textContent = getTranslation(isOver ? TranslationKey.LEVELS : TranslationKey.END_TURN) + (confirmsEndTurn ? "?" : "");
     endTurnButton.disabled = isLocked(); // no second turn until this one is paid out and the rival has moved
     // Ending a turn is one step among many; starting the next run is the whole screen.
-    // Armed, it goes as loud as the spent turn makes it: a button that has quietly changed what
-    // the next tap does must not look like the button that was there a moment ago.
-    endTurnButton.classList.toggle(CssClass.PRIMARY, (outOfWater || confirmsEndTurn) && !isOver);
+    // Armed, it borrows the spent turn's whole look: a button that has quietly changed what the
+    // next tap does must not look like the button that was there a moment ago. The two can never
+    // be confused, for all that they wear the same colour — the guard only ever arms while there
+    // is something else the player could be doing, which is precisely when this is otherwise
+    // plain, and the armed one is the one with the question mark on it.
+    endTurnButton.classList.toggle(CssClass.PRIMARY, (needsIncome || confirmsEndTurn) && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
     endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver || hintsEndTurn || confirmsEndTurn);
     // The hint asks the bot, and the bot answers about a board that is standing still: nothing
@@ -1566,9 +1573,11 @@ export function GameMapComponent(
    * back into the bundle), and a hold has to teach itself to a player who has never been asked
    * to hold anything.
    *
-   * It is skipped when the game can prove there is nothing else to do — the state the button is
-   * already pulsing in — and once the run is over, where the button is the way out to the levels
-   * and there is nothing left to lose.
+   * It is skipped when the game can prove there is nothing else to do, and once the run is over,
+   * where the button is the way out to the levels and there is nothing left to lose. The first of
+   * those is the same question the button's own look is drawn from (see render), so the two are
+   * one rule and the button is always telling the truth about which of them it is: plain means it
+   * will ask, loud means it will not.
    *
    * That line is deliberately drawn wide rather than at the slip itself. Measured over the
    * ladder, a turn ends with some legal move still on the board on anything from half to nearly three

@@ -3,10 +3,10 @@
 Neither of these is in the zip. They are the two images the js13k submission form asks for, and
 they have their own limits, which `build.mjs` checks rather than trusts:
 
-| file                 | size      | limit  | currently |
-| -------------------- | --------- | ------ | --------- |
-| `thumbnail-320.png`  | 320 × 320 | 64 kB  | ~55 kB    |
-| `cover-800x500.png`  | 800 × 500 | 256 kB | ~115 kB   |
+| file                | size      | limit  | currently |
+| ------------------- | --------- | ------ | --------- |
+| `thumbnail-320.png` | 320 × 320 | 64 kB  | ~55 kB    |
+| `cover-800x500.png` | 800 × 500 | 256 kB | ~115 kB   |
 
 Both are written to the repo root.
 
@@ -38,7 +38,7 @@ Those lookups are regexes, so **renaming one of those constants breaks this scri
 purpose. Each one throws by name rather than quietly falling back to a stale number, so a broken
 run tells you which constant moved. Point the regex at wherever it went.
 
-Two things are *not* scraped and have to be kept in step by hand:
+Two things are _not_ scraped and have to be kept in step by hand:
 
 - `.dark { filter: invert(1) }` in `art.html` mirrors the rule of the same name in
   `game-map.module.scss`. That is how the opponent's things are drawn.
@@ -56,7 +56,7 @@ Two things are *not* scraped and have to be kept in step by hand:
 - **`RUNG_BORDER`** (off) — the 1px/3px rim the launch screen's stripes wear. At these sizes it is
   mostly noise and it costs a colour transition on every rung edge.
 - **`TILE_ALPHA`** (0.82) — how opaque a board tile is over the ladder. At 0.82 the board reads as
-  solid and the rainbow becomes a frame around it; at ~0.55 the ladder reads *through* the board
+  solid and the rainbow becomes a frame around it; at ~0.55 the ladder reads _through_ the board
   and the whole picture is markedly more colourful. Worth trying if either image looks washed out.
 - **`TARGETS`** — the two boards themselves: grid pitch, tile size, which emoji sit where, and the
   hero unicorn's size and position.
@@ -66,17 +66,17 @@ Two things are *not* scraped and have to be kept in step by hand:
 It is laid out to match what `setMapSize` and the placement code in `game-map.ts` actually
 generate, so it is a plausible board rather than a pretty arrangement:
 
-| on the board            | the rule behind it                                              |
-| ----------------------- | --------------------------------------------------------------- |
-| 🛁 / 🦄 mirrored corners | each side starts in its own corner                              |
-| ⛲ with a 🍭 beside it   | a tree grows next to every fountain at generation               |
-| 🌈 only next to a ⛲     | a rainbow is cast by a unicorn standing beside a fountain       |
-| 🪣 dead centre          | `getTile(map, { x: middle, y: middle })` — the contested tub site |
-| 🍩 ×2, far apart        | donuts are a portal *pair* or nothing                           |
-| 🍮 ~1 per 12 tiles      | `CUSTARD_COUNT`                                                  |
-| 🎁 ~1 per 45 tiles      | `CHEST_DENSITY`                                                  |
-| ☁️ in two corners       | the fog, where neither side has walked yet                      |
-| inverted glyphs         | the opponent's three objects — `getSide()` and `.dark`          |
+| on the board             | the rule behind it                                                |
+| ------------------------ | ----------------------------------------------------------------- |
+| 🛁 / 🦄 mirrored corners | each side starts in its own corner                                |
+| ⛲ with a 🍭 beside it   | a tree grows next to every fountain at generation                 |
+| 🌈 only next to a ⛲     | a rainbow is cast by a unicorn standing beside a fountain         |
+| 🪣 dead centre           | `getTile(map, { x: middle, y: middle })` — the contested tub site |
+| 🍩 ×2, far apart         | donuts are a portal _pair_ or nothing                             |
+| 🍮 ~1 per 12 tiles       | `CUSTARD_COUNT`                                                   |
+| 🎁 ~1 per 45 tiles       | `CHEST_DENSITY`                                                   |
+| ☁️ in two corners        | the fog, where neither side has walked yet                        |
+| inverted glyphs          | the opponent's three objects — `getSide()` and `.dark`            |
 
 The densities are read against a 40-tile crop of a board big enough to have a rival at all
 (`RIVAL_SIZE` is 17), which is why both sides appear on it.
@@ -85,7 +85,7 @@ The densities are read against a 40-tile crop of a board big enough to have a ri
 
 - **The emoji are Noto**, pulled from Google Fonts, so the artwork looks the same wherever it is
   cut. The competition build makes no external requests, so a player sees their own system emoji
-  — on a Mac, Apple's. The images are deliberately *not* a promise about that.
+  — on a Mac, Apple's. The images are deliberately _not_ a promise about that.
 - **The 2× capture-and-downscale is macOS-only** (it uses `sips`); elsewhere the script captures
   at 1× and the emoji edges are slightly softer.
 - Set `CHROME=/path/to/chrome` if the script cannot find a browser.

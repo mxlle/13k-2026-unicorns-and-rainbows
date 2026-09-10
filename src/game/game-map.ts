@@ -370,8 +370,8 @@ export interface GameMap {
   beams: Beam[]; // what the light is doing, recomputed alongside the rainbows
   drops: number[]; // water drops in the purse; they buy steps and are banked across turns
   candy: number[]; // sweets in the jar; they buy unicorns and are banked the same way
-  dropIncome: number[]; // the bathtubs' flat pay plus every rainbow shining — recomputed with them
-  candyIncome: number[]; // lollipop trees earning right now — recomputed alongside the rainbows
+  dropIncome: number[]; // the bathtubs' flat pay plus every rainbow paying water — recomputed with them
+  candyIncome: number[]; // every rainbow a lollipop tree is powering — recomputed alongside them too
   turn: number; // the turn being played, 1 to TURN_LIMIT
 }
 
@@ -839,108 +839,100 @@ export function updateRainbows(map: GameMap) {
         // much of it. The count stays the rainbow's worth throughout.
         //
         // And it is drawn in the colour of whatever it is about to become: the water blue of the
-        // purse, or — when the rainbow at the far end is feeding a tree instead — the candy
-        // red of the jar, the same colour as the feed beyond it. So the whole path from the
+        // purse, or — when a lollipop tree at the far end is powering that rainbow instead — the
+        // candy red of the jar, the same colour as the feed beyond it. So the whole path from the
         // unicorn through the fountain to the tree is one colour, and which of the two things a
         // unicorn is doing can be read off the board at a glance rather than worked out from
         // where the trees happen to be.
-        map.beams.push({ x, y, dx, dy, isLit, isCandy: isLit && !getRainbowDrops(map, position, side), side, lines: isLit ? level : 1 });
+        map.beams.push({
+          x,
+          y,
+          dx,
+          dy,
+          isLit,
+          isCandy: isLit && !!getRainbowIncome(map, position, side)[0],
+          side,
+          lines: isLit ? level : 1,
+        });
       }
     }
   });
 
-  // What each purse takes next turn: every rainbow of that side's at the size it came out, plus
-  // the flat pay of every bathtub it owns. Counted from the tiles rather than kept as a number
-  // of its own, so a tub built mid-run starts paying without anything having to be told about it
-  // — and a tub site raised by the opponent starts paying the opponent for exactly the same
-  // reason. The rainbows are summed by their `light` rather than counted, which is the one place
-  // a grown unicorn's water actually arrives; `rainbowCounts` stays a count, because the score
-  // is about how much is built and not about how big it is. What one pays goes through
-  // getRainbowDrops, which is where the experiment that redirects it into the jar lives.
-  map.dropIncome = SIDES.map((side) =>
-    map.tiles.reduce(
-      (total, tile, index) =>
-        total +
-        (tile.object === SIDE_RAINBOW[side]
-          ? getRainbowDrops(map, getPosition(index), side)
-          : tile.object === SIDE_BATHTUB[side]
-            ? BASE_INCOME
-            : 0),
-      0,
-    ),
-  );
-
-  // The second income, counted once the rainbows are in place: a lollipop tree standing next
-  // to one turns the light into sweets. Each rainbow's own size in candy, so a tree with two of
-  // them pays for both and a tree lit by a grown unicorn pays several times one lit by a
-  // newcomer — the light is the thing being turned into sweets, and there is simply more of it.
-  // It also means lighting a fountain's second and third side is worth doing for the jar and not
-  // only for the score, which is what ties the sweets to how built-up the board is rather than
-  // to how many trees happen to be standing on it.
-  // Every pairing gets a pink beam of its own, drawn in the same pass, so the lines the player
-  // sees and the candy the jar is paid are counted off exactly the same rainbows.
-  // A lollipop tree is neutral scenery, like the fountain it stands beside: it pays whoever's
-  // light reaches it. So one tree between the two herds can be earning for both at once, off
-  // different sides of itself, and there is nothing to own or to take.
+  // What each side takes next turn: every rainbow it has shining, plus the flat pay of every
+  // bathtub it owns. Counted from the tiles rather than kept as a number of its own, so a tub
+  // built mid-run starts paying without anything having to be told about it — and a tub site
+  // raised by the opponent starts paying the opponent for exactly the same reason.
+  //
+  // **The rainbow is the earner, and the trees only change what it earns in.** What one pays
+  // goes through getRainbowIncome, the one place that answers it. The sweets used to be counted
+  // off the trees instead — a tree asked which rainbows fed it — which read as though the tree
+  // were the source and the rainbow only its supply. It is the other way round: a rainbow always
+  // earns, and a lollipop tree beside it *powers* it into paying sweets rather than water. The
+  // numbers are identical either way; where they are attributed is the whole of the change, and
+  // being attributed to a tile is what lets that tile say what it is making.
+  //
+  // Rainbows are summed by their `light` rather than counted, which is the one place a grown
+  // unicorn's water actually arrives; `rainbowCounts` stays a count, because the score is about
+  // how much is built and not about how big it is.
+  //
+  // A second pass, after the first has put every rainbow on the board: what a rainbow pays
+  // depends on nothing but the trees beside it, but *whether there is a rainbow here* is what
+  // the first pass decided. Every rainbow-tree pairing gets a pink beam of its own, pushed here,
+  // so the lines the player sees and the sweets the jar is paid are counted off the same list.
+  //
+  // A lollipop tree is neutral scenery, like the fountain it stands beside: it powers whoever's
+  // light reaches it. So one tree between the two herds can be feeding a rainbow of each at once,
+  // off different sides of itself, and there is nothing to own or to take.
+  map.dropIncome = [0, 0];
   map.candyIncome = [0, 0];
 
-  map.tiles.forEach((_, index) => {
+  map.tiles.forEach((tile, index) => {
     const position = getPosition(index);
 
-    SIDES.forEach((side) =>
-      getFeedingRainbows(map, position, side).forEach((rainbow) => {
-        const lines = getTile(map, rainbow)!.light!; // what that rainbow is worth, stamped on it as it was cast
+    SIDES.forEach((side) => {
+      if (tile.object === SIDE_BATHTUB[side]) map.dropIncome[side] += BASE_INCOME;
+      if (tile.object !== SIDE_RAINBOW[side]) return;
 
-        map.candyIncome[side] += lines;
-        map.beams.push({ ...rainbow, dx: position.x - rainbow.x, dy: position.y - rainbow.y, isLit: false, isCandy: true, side, lines });
-      }),
-    );
+      const [currency, amount] = getRainbowIncome(map, position, side);
+      (currency ? map.candyIncome : map.dropIncome)[side] += amount;
+
+      // One beam per tree, each at the rainbow's own size in lines — so a rainbow between two
+      // trees is drawn paying both, exactly as it is counted paying both.
+      if (currency)
+        getTreesBeside(map, position, side).forEach((tree) =>
+          map.beams.push({
+            ...position,
+            dx: tree.x - position.x,
+            dy: tree.y - position.y,
+            isLit: false,
+            isCandy: true,
+            side,
+            lines: tile.light!,
+          }),
+        );
+    });
   });
 }
 
 /**
- * Every rainbow making a lollipop tree earn — its own size in candy apiece — or an empty list if
- * this tile is not a tree, is a tree the player has not found, or has no rainbow beside it.
+ * The lollipop trees this side has found standing beside this tile — the ones powering a rainbow
+ * here, so that its light comes out as sweets instead of water.
  *
- * Only trees the player has found earn: an unseen one paying into the jar would give its
- * position away, the same reason a fogged glower casts no light.
+ * The fog rule, and it is the same one a fogged glower obeys: a tree nobody has found powers
+ * nothing, because an unseen one paying into the jar would give its position away.
  *
- * The board draws its glowing trees from this and the payout flies each rainbow's size in
- * sweets, so what the player sees lit, what flies at the end of the turn and what the jar is
- * actually paid are all counted off the one list and cannot drift apart.
+ * Positions rather than a count, because a pairing is a thing the player sees: the income is the
+ * rainbow's size per tree — so one standing between two of them pays both, and the bot has to be
+ * able to prefer that tile to the one next to it — and every pairing is drawn as a beam of its own.
  */
-export function getFeedingRainbows(map: GameMap, { x, y }: Position, side: Side): Position[] {
-  const rainbows: Position[] = [];
-  const tile = getTile(map, { x, y })!;
-
-  if (isSeen(tile, side) && tile.object === GameObjectType.TREE) {
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const position = { x: x + dx, y: y + dy };
-        if ((dx || dy) && getTile(map, position)?.object === SIDE_RAINBOW[side]) rainbows.push(position);
-      }
-    }
-  }
-
-  return rainbows;
-}
-
-/**
- * How many lollipop trees this side has found standing beside this tile. It is the mirror of
- * getFeedingRainbows — that one asks a tree which rainbows feed it, this one asks a rainbow how
- * many trees it feeds — and both apply the same fog rule, so a tree nobody has found neither
- * takes a rainbow's water nor pays it any sweets.
- *
- * Counted rather than answered as a yes: a rainbow between two trees pays both of them, and the
- * bot has to be able to prefer that tile to the one next to it.
- */
-export function countTreesBeside(map: GameMap, { x, y }: Position, side: Side): number {
-  let trees = 0;
+export function getTreesBeside(map: GameMap, { x, y }: Position, side: Side): Position[] {
+  const trees: Position[] = [];
 
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
-      const tile = getTile(map, { x: x + dx, y: y + dy });
-      if ((dx || dy) && isSeen(tile, side) && tile!.object === GameObjectType.TREE) trees++;
+      const position = { x: x + dx, y: y + dy };
+      const tile = getTile(map, position);
+      if ((dx || dy) && isSeen(tile, side) && tile!.object === GameObjectType.TREE) trees.push(position);
     }
   }
 
@@ -948,22 +940,30 @@ export function countTreesBeside(map: GameMap, { x, y }: Position, side: Side): 
 }
 
 /**
- * What the rainbow on this tile pays into the purse: its own size, or nothing at all when its
- * light is being fed to a lollipop tree instead.
+ * What the rainbow on this tile pays next turn: which of the two currencies, and how much of it.
+ * The currency is the index the interface already sorts everything by — 0 water, 1 sweets; the
+ * same numbering ChestLoot is deliberately built on.
  *
- * **A rainbow earns either water or sweets, never both**, and this is the whole of that rule. It
- * used to pay a drop into the purse *and* a sweet into the jar for every tree beside it, which
- * made a tree-side tile strictly better than a bare one and was where a well-played board's water
- * surplus came from. Now the tree drinks the water and makes sweets out of it, so which side of a
- * fountain to light is a choice between the two currencies rather than a tile with a right answer.
- * The sweets themselves are untouched by it — still one per tree per level, so a rainbow between
- * two trees still pays both of them. All the rule takes away is the water half of a fed rainbow.
+ * **A rainbow earns either water or sweets, never both**, and this is the whole of that rule. On
+ * bare ground it pays its own size into the purse. With lollipop trees beside it, they take that
+ * light and turn it into sweets — its size again, once per tree, so a rainbow between two of them
+ * pays twice and the purse gets nothing. It used to pay a drop into the purse *and* a sweet into
+ * the jar per tree, which made a tree-side tile strictly better than a bare one and was where a
+ * well-played board's water surplus came from. Now which side of a fountain to light is a choice
+ * between the two currencies rather than a tile with a right answer.
  *
- * The one place that question is answered, so the income the counter promises, the drops that fly
- * out of the tile at the end of the turn, and the colour the light is drawn in cannot come apart.
+ * The earning is the rainbow's, whichever currency comes out. That the sweets were once counted
+ * off the trees instead is why the rule reads as a redirection at all — there is no redirection,
+ * only one earner and two things it can be earning.
+ *
+ * The one place that question is answered, so the income the counter promises, what flies out of
+ * the tile at the end of the turn, the colour the light is drawn in and what the tile says it is
+ * making cannot come apart.
  */
-export function getRainbowDrops(map: GameMap, position: Position, side: Side): number {
-  return countTreesBeside(map, position, side) ? 0 : getTile(map, position)!.light!;
+export function getRainbowIncome(map: GameMap, position: Position, side: Side): [currency: number, amount: number] {
+  const trees = getTreesBeside(map, position, side).length;
+
+  return [trees ? 1 : 0, getTile(map, position)!.light! * (trees || 1)];
 }
 
 function blocksMove(objectType: GameObjectType | undefined): boolean {

@@ -4,7 +4,7 @@ import {
   buyUnicorn,
   canBuild,
   canUsePortal,
-  countTreesBeside,
+  getTreesBeside,
   endTurn,
   GameMap,
   getBuild,
@@ -850,14 +850,14 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
    * The score half does not scale: a rainbow is one thing built however big it is, which is what
    * the game's own score says.
    *
-   * Water *or* sweets, never both — see getRainbowDrops, which is the rule this mirrors. A bot
+   * Water *or* sweets, never both — see getRainbowIncome, which is the rule this mirrors. A bot
    * counting both would light the tree side for the pair of them and then wonder where the purse
    * went, so which side of a fountain gets lit is a choice here in the same way it is on the
    * board: sweets if a tree is beside it, water if not.
    */
   const getRainbowsValue = (rainbows: Position[], level: number) =>
     rainbows.reduce((total, rainbow) => {
-      const trees = countTreesBeside(map, rainbow, side);
+      const trees = getTreesBeside(map, rainbow, side).length;
       const perTurn = trees ? trees * candyWorth : dropWorth;
 
       return total + thingValue + level * turnsLeft * perTurn;

@@ -23,7 +23,6 @@ import {
   getBuildTargets,
   getUnicornPrice,
   getExploration,
-  getFeedingRainbows,
   getUnicornLevel,
   getGrowth,
   GROWTH_PER_LEVEL,
@@ -32,8 +31,7 @@ import {
   getMoveTargets,
   getPortalTargets,
   getPosition,
-  getRainbowDrops,
-  getTile,
+  getRainbowIncome,
   getScore,
   getScoreParts,
   getSpawnTargets,
@@ -873,12 +871,23 @@ export function GameMapComponent(
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
     // Which tiles are actually turning light into a rainbow this turn. Read off the beams the
     // model already worked out, so the halo can never promise a rainbow that is not there —
-    // the same guarantee getFeedingRainbows gives the trees. A beam is stamped with the tile
+    // the same guarantee the candy beams give the trees. A beam is stamped with the tile
     // it *leaves from*, and only the light kind is ever lit, so no isCandy check is needed.
     // Gathered once per render rather than searched per tile: it is a handful of entries.
     // Filtered by what the player can see for the same reason the beams themselves are — see
     // showsBeam. Without it a cloud hiding an opponent's unicorn wears that unicorn's halo.
     const shining = new Set(map.beams.filter((beam) => beam.isLit && showsBeam(beam)).map(getIndex));
+    // And which lollipop trees are powering one of them into paying sweets, gathered the same
+    // way and for the same reason. A candy beam runs from the rainbow to the tree it is being
+    // turned into sweets by, so the tree is the far end of it — and because the beams are what
+    // the income was counted off, the glow on a working tree can never promise candy that never
+    // comes. The player's own light only: a tree powering the rival's rainbow is earning for the
+    // rival, and lighting it up here would be crediting the player with somebody else's sweets.
+    const powering = new Set(
+      map.beams
+        .filter((beam) => beam.isCandy && !beam.isLit && beam.side === PLAYER)
+        .map(({ x, y, dx, dy }) => getIndex({ x: x + dx, y: y + dy })),
+    );
 
     map.tiles.forEach((tile, index) => {
       const element = tileElements[index];
@@ -1011,11 +1020,7 @@ export function GameMapComponent(
       const hasLoot = isVisible && tile.loot !== undefined;
       ground.classList.toggle(styles.loot, hasLoot);
       if (hasLoot) ground.style.setProperty("--l", `${LOOT_HUES[tile.loot!]}deg`);
-      // which trees are paying into the player's jar this turn — read off the same list the
-      // income itself is counted from, so the glow can never promise candy that never comes.
-      // The player's own light only: a tree earning off the rival's rainbow is earning for the
-      // rival, and lighting it up here would be crediting the player with somebody else's sweets.
-      ground.classList.toggle(styles.earning, !!getFeedingRainbows(map, getPosition(index), PLAYER).length);
+      ground.classList.toggle(styles.earning, powering.has(index)); // a tree with light to turn into sweets
       ground.classList.toggle(styles.covered, hasLiving); // out of the way, into the corner
       // The opponent's things are drawn as the negative of the player's — see .dark. Both
       // layers can carry one: a dark rainbow on the ground, a dark unicorn standing on it.
@@ -1744,8 +1749,8 @@ export function GameMapComponent(
     const centres = currencyDisplays.map(centre);
     // The paying tiles, grouped by the currency they pay — which is also the index everything
     // else is keyed by: the emoji that flies, the counter it lands on, and the one that pops.
-    // A tile pays at most one of the two: a rainbow lands on empty ground, so no tree can
-    // ever be standing on it.
+    // A tile only ever appears in one of the two groups: water or sweets, never both, which is
+    // the rule getRainbowIncome states once for the whole game.
     const groups: number[][] = [[], []];
 
     // The player's own income only, throughout: what flies is what lands in the counters the
@@ -1753,24 +1758,22 @@ export function GameMapComponent(
     // score is the thing to watch it by, and thirty more glyphs a turn crossing the screen
     // would say nothing the number does not.
     map.tiles.forEach((tile, index) => {
-      // A rainbow throws what it is worth: one drop per level of the unicorn whose light made
-      // it, so a grown one is counted out in three glyphs and the size of the herd's income can
-      // be watched arriving rather than only read off the counter. Through getRainbowDrops, so
-      // one whose light is being fed to a tree throws nothing and the flight stays the truth.
-      if (tile.object === GameObjectType.RAINBOW)
-        groups[0].push(...Array<number>(getRainbowDrops(map, getPosition(index), PLAYER)).fill(index));
+      // A rainbow throws what it earns, in whichever of the two it earns it: one glyph per level
+      // of the unicorn whose light made it, so a grown one is counted out in three and the size
+      // of the herd's income can be watched arriving rather than only read off the counter — and
+      // again per tree beside it when the trees are turning that light into sweets, so a rainbow
+      // between two of them throws for both. Through getRainbowIncome, the same call the counter's
+      // "+" came from, so the flight cannot promise what the jar is not paid.
+      //
+      // The sweets leave the rainbow rather than the tree, which is the point of the tile being
+      // the earner: what flies out of a tile is what that tile made.
+      if (tile.object === GameObjectType.RAINBOW) {
+        const [currency, amount] = getRainbowIncome(map, getPosition(index), PLAYER);
+        groups[currency].push(...Array<number>(amount).fill(index));
+      }
       // A tub pays its flat drops out of itself, one glyph each, so the income that needs no
       // setting up is counted out on the board exactly like the income that does.
       else if (tile.object === GameObjectType.BATHTUB) groups[0].push(...Array<number>(BASE_INCOME).fill(index));
-      // And a lollipop tree each feeding rainbow's size in sweets — same rule, so a tree catching
-      // two of them throws for both, and the flight counts out the price of a unicorn in the
-      // same glyphs the purchase will spend.
-      else
-        groups[1].push(
-          ...Array<number>(
-            getFeedingRainbows(map, getPosition(index), PLAYER).reduce((sweets, rainbow) => sweets + getTile(map, rainbow)!.light!, 0),
-          ).fill(index),
-        );
     });
 
     let start = 0; // when this currency's first glyph sets off

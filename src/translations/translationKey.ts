@@ -66,4 +66,11 @@ export const TranslationKey = defineEnum({
   // one word must not name two different ladders. The one place the word is said — the
   // description itself only leans on it.
   RANK: 29,
+  // "Income:", appended to a rainbow's description with what that rainbow actually pays — the
+  // one number in the panel that is read off the board rather than written into a sentence. It
+  // is deliberately the word the "(+n)" beside each counter has been saying wordlessly all run,
+  // and the word INFO_STUCK already uses for it, so the tile, the counter and the prompt are
+  // all naming one thing. A label rather than a whole sentence: the amount and its currency
+  // follow it, and neither is translatable.
+  INCOME: 30,
 });

@@ -610,6 +610,39 @@ $win-hop-height: 2rem;
     background: theme.$glass-4;
   }
 
+  // What a rainbow is earning, written into --i by render() as 💧 or 🍬 and drawn as a disc in the
+  // bottom-right of its tile. Bottom rather than top, which is a fact about the glyph it labels
+  // and not a preference: the 🌈 is an arch, so its own emoji box is empty along the bottom on
+  // most fonts, and a badge put there sits under the arc instead of over it.
+  //
+  // ::before, the price tag having ::after — which is what lets a rainbow the unicorn could step
+  // onto carry both marks at once.
+  //
+  // On a disc of its own, because unlike .covered below this label does not have the tile to
+  // itself: it is laid over whatever the ground is showing, and the beams pass under it. Round
+  // rather than the price chip's rounded rectangle — one emoji is as good as circular already,
+  // and a circle reads as a token on the tile rather than a second price tag.
+  //
+  // Bigger than $badge-scale, at which a single emoji in a corner was a smudge rather than a
+  // currency. The size is still em of the tile, so it follows the zoom the way every other tag does.
+  &.paying::before {
+    content: var(--i);
+    position: absolute;
+    inset: auto 0.1em 0.1em auto;
+    font-size: 0.6em;
+    // Enough to seat the glyph in the disc: a circle inscribed in an emoji's own box cuts its
+    // corners, and the padding is what turns the box the radius is measured from into one the
+    // emoji fits inside. In em of the badge, like every other number here.
+    padding: 0.05em;
+    // The lightest rank on the scale, and the tile is why. Every other glass surface in the game
+    // sits on the page, which does not change under it; this one sits on a tile that goes pink
+    // when it is selected, green when the step is free, purple when a build is on offer — and at
+    // the chip's own $glass-4 the disc read as a hole punched in whichever wash the tile was
+    // wearing. At rank 1 the tint comes through it and the icon still lifts off the ground.
+    background: theme.$glass-1;
+    border-radius: 50%;
+  }
+
   // A step that costs no drop, in a green of its own rather than the main colour — see
   // $success-wash, and why it is not the same green the won board's outline uses. It comes
   // after .target on purpose: both are set on a free step, and this one wins. Giving it a
@@ -962,6 +995,14 @@ $win-hop-height: 2rem;
 
       &.priced::after {
         background: theme.$night-glass-4;
+      }
+
+      // The income disc, at the same rank as on the pale page — which is the whole point of the
+      // scale being ranked rather than numbered, the two themes' percentages meaning nothing to
+      // each other. It has to be said here at all because the light value is 45% white, and over
+      // near-black that is not a surface under an icon but the brightest thing on the board.
+      &.paying::before {
+        background: theme.$night-glass-1;
       }
 
       // Both washes are opened up a little on the dark page. An alpha over near-white keeps most

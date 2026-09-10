@@ -113,4 +113,5 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.WON_RACE]: "You win!|Score:",
   [TranslationKey.LOST_RACE]: "Rival wins!|Score:",
   [TranslationKey.RANK]: "Rank",
+  [TranslationKey.INCOME]: "Income:",
 };

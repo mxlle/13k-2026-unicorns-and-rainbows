@@ -39,5 +39,6 @@ export function getEsTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.WON_RACE]: "¡Ganaste!|Puntaje:",
     [TranslationKey.LOST_RACE]: "¡Ganó tu rival!|Puntaje:",
     [TranslationKey.RANK]: "Rango",
+    [TranslationKey.INCOME]: "Ingresos:",
   };
 }

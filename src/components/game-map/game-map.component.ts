@@ -1000,6 +1000,27 @@ export function GameMapComponent(
         element.style.setProperty("--r", map.drops[PLAYER] < price[1] || map.candy[PLAYER] < price[2] ? SPEND_COLOR : "");
       }
 
+      // What this rainbow is filling, in the corner of its own tile: 💧 while it is on bare
+      // ground, 🍬 once a lollipop tree beside it is turning that light into sweets. The either/or
+      // is the thing the whole economy turns on, and until now it was only ever said in the colour
+      // of a beam and in the header's two "(+n)" — neither of which points at the tile that made
+      // the choice. The icon and not the amount: how much is already on the board as one beam
+      // line per point, the panel says the figure in words when the tile is tapped, and a number
+      // on every rainbow of a built-up 25x25 is thirty things to read.
+      //
+      // The player's own rainbows only, the same rule the glow on a working tree follows: a dark
+      // rainbow's income is the rival's, and badging it would be crediting the player with it.
+      //
+      // Written into --i, and the class is what gates the drawing — so a tile that has stopped
+      // being a rainbow needs nothing rubbed out, exactly as a stale --p on a tile that has
+      // stopped being a target is a property nothing reads. See .paying in the stylesheet.
+      const isPaying = isVisible && tile.object === GameObjectType.RAINBOW;
+      element.classList.toggle(styles.paying, isPaying);
+      // Indexed straight off the currency getRainbowIncome answers with: LOOT_EMOJIS is the
+      // drop and the sweet in that order, which is the whole reason ChestLoot is numbered the
+      // way it is (see game-objects.ts).
+      if (isPaying) element.style.setProperty("--i", `"${LOOT_EMOJIS[getRainbowIncome(map, getPosition(index), PLAYER)[0]]}"`);
+
       // The fog belongs to the ground layer: under it there is nothing else to show.
       const hasLiving = isVisible && tile.living !== undefined;
       const ground = groundGlyphs[index];
@@ -1302,6 +1323,21 @@ export function GameMapComponent(
       // The rival's tub sells to the rival, so the offer is not described on it at all.
       if (objectType === GameObjectType.BATHTUB && TREE_COUNT)
         infoText.textContent += ` ${getTranslation(TranslationKey.INFO_BATHTUB_SELL)}`;
+      // And a rainbow says what it is paying *this* turn. The sentence above states the rule in
+      // the abstract — sweets beside a tree, water otherwise — and this is the same rule with
+      // this tile's own numbers in it, which is the half a player can act on. Through
+      // getRainbowIncome, so the figure here, the badge in the tile's corner, the lines in the
+      // beam and the header's "(+n)" are one answer said four ways.
+      //
+      // Appended rather than swapped in, the way the tub's second job is: the two together stay
+      // inside $info-height, INFO_UNICORN_SHINE being the line that reserves it.
+      //
+      // The player's own, for the reason the badge is: INFO_DARK_RAINBOW describes the rival's,
+      // and a figure under it would be the player reading somebody else's books.
+      if (objectType === GameObjectType.RAINBOW) {
+        const [currency, amount] = getRainbowIncome(map, getPosition(index!), PLAYER);
+        infoText.textContent += ` ${getTranslation(TranslationKey.INCOME)} ${amount} ${LOOT_EMOJIS[currency]}`;
+      }
       // Whether the player has found a fountain yet — the one thing a rank is about, so the
       // ladder and the shine line below both wait for it. Either side's unicorn gets the ladder
       // once it is on: the rival's rank is worth looking up as soon as ranks mean anything.

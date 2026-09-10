@@ -36,5 +36,6 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.WON_RACE]: "Du gewinnst!|Endstand:",
     [TranslationKey.LOST_RACE]: "Dein Rivale gewinnt!|Endstand:",
     [TranslationKey.RANK]: "Rang",
+    [TranslationKey.INCOME]: "Einkommen:",
   };
 }

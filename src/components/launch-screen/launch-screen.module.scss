@@ -63,7 +63,8 @@ $stripe-veil: rgba(255, 255, 255, 0.45);
 // rung to ΔE 43 on the green one, which reads as the ladder answering a hover in seven different
 // amounts. At 1.35 the spread is 8 to 20, against the 7-to-9 of the brightness it replaces.
 // Push them up for a louder answer, knowing the green rungs shout first.
-$hover-saturate: 1.35;
+// The hover half of the pair ($hover-saturate) lives in globals.nice2have.scss now — the
+// competition build has no mouse hover on the ladder at all.
 $picked-saturate: 1.15;
 
 // The gap between stripes, and the same value again as the breathing room around the whole
@@ -140,14 +141,11 @@ $stripe-gap: 0.4rem;
       hsl(var(--h2), var(--s), $stripe-lightness - $stripe-lightness-drop)
     );
   transition: filter 0.2s;
-
-  @include theme.hover {
-    filter: saturate($hover-saturate);
-  }
 }
 
-// The picked stripe: written as two classes so it beats the single-class :hover rule above
-// on specificity, whatever the source order ends up being. The ring is what actually says
+// The picked stripe: written as two classes so it beats the single-class :hover rule the
+// friends-&-family build adds (globals.nice2have.scss) on specificity, whatever the source
+// order ends up being. The ring is what actually says
 // "picked"; the change in saturation is there so the answer to a tap is felt before it is read.
 .stripe.picked {
   filter: saturate($picked-saturate);

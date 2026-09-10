@@ -4,6 +4,7 @@
 // requests, and a Poki playtest is screen-recorded while it is played, which is exactly the
 // workload a full-viewport hue-rotate repainting every frame is worst for.
 @use "theme" as *;
+@use "names" as *;
 
 // webfont for consistent emoji rendering — must NOT be in the js13k or poki build:
 // external requests break the competition's offline rule (and cost bytes), and poki
@@ -35,4 +36,36 @@ body::before {
 // stack over.
 body > * {
   z-index: 1;
+}
+
+// Mouse hover feedback. All of it is behind (hover: hover) and (pointer: fine), so none of it
+// ever fires on a phone — which is why it is a nice-to-have rather than part of the game: the
+// competition build measured ~30 bytes for these three rules, for a thing only a desktop with a
+// mouse can see. What stays in every build is the hover on the board's lit tiles (see
+// game-map.module.scss): those are the offers, and a mouse over an offer should answer.
+button.#{$PRIMARY}:not([disabled]) {
+  @include hover {
+    background: rgba($main-color, 0.7);
+  }
+}
+
+button.#{$ICON_BTN}.#{$SECONDARY} {
+  @include hover {
+    background-color: $glass-1;
+  }
+}
+
+// The level ladder's stripes, saturated under the mouse. See launch-screen.module.scss for the
+// number and why it is not higher ($picked-saturate is its resting cousin over there).
+//
+// A stripe is a CSS-module class this global file cannot name, so it is reached structurally:
+// the launch screen's host is a direct child of <body>, and a stripe is the only element in the
+// page whose direct child wears the global emphasis class — the header wears it on itself, not
+// on a child. If the launch screen's markup changes, this is the one selector to re-check.
+$hover-saturate: 1.35;
+
+body > * > :has(> .#{$EMPHASIS}) {
+  @include hover {
+    filter: saturate($hover-saturate);
+  }
 }

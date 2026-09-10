@@ -78,10 +78,6 @@ button {
   border-radius: $border-radius;
   hyphens: none;
 
-  @include hover {
-    background: $glass-2;
-  }
-
   &.#{$PRIMARY}:not([disabled]) {
     background: $main-color;
     border-color: $glass-4;
@@ -89,10 +85,6 @@ button {
     // plum meant for cream, and the fill under it is a deep pink. Both loud variants say so
     // explicitly now — under the dark theme they inherited a near-white and never had to.
     color: $text-inverse;
-
-    @include hover {
-      background: rgba($main-color, 0.7);
-    }
   }
 
   // Louder than primary: the page's rainbow, held still — which is the level ladder's own band
@@ -130,10 +122,6 @@ button.#{$ICON_BTN} {
 
   &.#{$SECONDARY} {
     background: none;
-
-    @include hover {
-      background-color: $glass-1;
-    }
   }
 }
 

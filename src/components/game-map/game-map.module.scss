@@ -666,16 +666,24 @@ $win-hop-height: 2rem;
     box-shadow: inset 0 0 0 3px theme.$light-color;
   }
 
-  // The two glyph layers, sharing the one centred cell so they stack. `rotate` and
-  // `scale` are used instead of `transform` on purpose: they compose with the tile's
-  // own scale instead of overwriting it.
+  // The two glyph layers, sharing the one centred cell so they stack.
+  //
+  // No transform sizes a glyph, and that is deliberate (2026-09-10): on Linux, Firefox draws
+  // Noto Color Emoji through FreeType, which ignores transforms for bitmap glyphs, so a `scale`
+  // baked into the glyph raster lands the emoji off centre and a `rotate` is dropped outright.
+  // A `filter` sidesteps it, because the glyph is then drawn untransformed into a surface that
+  // is transformed as a picture — which is why the dormant tree kept its 45° while the lit one
+  // lost it. So sizes are font-size, and the one transform left, the tree's `rotate`, is
+  // always accompanied by a filter (see .earning).
   > span {
     grid-area: 1 / 1;
     pointer-events: none; // a click belongs to the tile, whatever glyph is drawn on it
     // How big this glyph is drawn for its own sake, as opposed to for what is happening to
     // it. Held in a variable so a situational rule below can either scale against it or
-    // replace it outright, and it is clear at the rule which of the two it is doing.
-    scale: var(--g, 1);
+    // replace it outright, and it is clear at the rule which of the two it is doing. It is
+    // a font-size, not a `scale` — see the note above — so the box grows with the glyph;
+    // the tile's columns are fixed and the spans are click-through, so nothing else moves.
+    font-size: calc(var(--g, 1) * 1em);
 
     &.big {
       --g: #{$big-scale};
@@ -742,20 +750,22 @@ $win-hop-height: 2rem;
 
     // A build site is a promise rather than a thing, and the size is what says so — small
     // beside the full-grown object it becomes. At full opacity: faded read as scenery to
-    // ignore rather than as an offer. `scale` rather than `transform` for the same reason the
-    // tree uses `rotate` — it composes with the tile's own scale instead of overwriting it.
+    // ignore rather than as an offer.
     &.site {
-      scale: 0.7;
+      font-size: 0.7em;
     }
 
     // Earning: next to a rainbow, turning that light into candy. The glow means the same
     // here as it does on the sun and the unicorns — this thing is producing — in candy
     // pink rather than sunlight, after what comes out of it. The shadow has no offset, so
     // the 45° rotation above leaves it perfectly symmetrical.
+    //
+    // A drop-shadow filter rather than a text-shadow, and it must stay a filter: it replaces
+    // the dormant saturate above, and taking the filter off a rotated glyph is exactly what
+    // made Firefox on Linux draw the lit tree upright — see the note on the glyph layers.
     &.earning {
-      filter: none;
       // the candy red of the beams feeding it, so the tree and its light are one thing
-      text-shadow: 0 0 0.3em theme.$candy-color;
+      filter: drop-shadow(0 0 0.3em theme.$candy-color);
     }
 
     // Ground under a character: out of the middle entirely and into the top-right corner, as
@@ -763,13 +773,12 @@ $win-hop-height: 2rem;
     // the point, since it is the thing being looked for — and the ground still says what it
     // is, rather than being a ring of colour the player has to guess at.
     // Absolute against the tile (which is positioned), so it leaves the shared grid cell and
-    // the character stays centred in it. The scale is written flat rather than through --g:
+    // the character stays centred in it. The size is written flat rather than through --g:
     // a label is a label, whatever size the object it names is drawn at elsewhere.
     &.covered {
       position: absolute;
       inset: 0 0 auto auto;
-      scale: $badge-scale;
-      transform-origin: top right; // shrinks into the corner instead of away from it
+      font-size: #{$badge-scale}em;
     }
   }
 

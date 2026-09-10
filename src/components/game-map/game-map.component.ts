@@ -729,7 +729,13 @@ export function GameMapComponent(
    * would either scroll a small map for no reason or open a large one unreadably small.
    */
   function applyZoom(reset = false) {
-    const fit = Math.max((Math.min(mapArea.clientWidth, mapArea.clientHeight) - MAP_SIZE) / MAP_SIZE, MIN_TILE);
+    // offsetWidth/Height rather than clientWidth/Height: the row is measured while the board is
+    // still laid out with the previous --tile (or none at all, on the first game), and if that
+    // stale board overflows the row, a classic scrollbar is standing in it at that moment. The
+    // client size is then a scrollbar narrower, the board is fitted to that, and it stays a few
+    // pixels smaller than the row for the rest of the game. The offset size is the row itself,
+    // scrollbar or not — .mapArea has no padding and no border, so the two differ only by that.
+    const fit = Math.max((Math.min(mapArea.offsetWidth, mapArea.offsetHeight) - MAP_SIZE) / MAP_SIZE, MIN_TILE);
 
     if (reset) {
       const readable = ZOOM_STEPS.findIndex((step) => fit * step >= COMFORT_TILE);

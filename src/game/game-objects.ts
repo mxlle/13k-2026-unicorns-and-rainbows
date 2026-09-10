@@ -128,14 +128,17 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   // the unicorn doing the work stands beside the site, and nothing can ever be standing on the
   // tile at the moment a building appears on it.
   // They also own the ground layer, so no rainbow can land on one until it is built.
+  // Emoji 1.0 or older only (2026-09-10): the bucket and the rock they replaced are Emoji 13.0,
+  // which Windows 10 never got, so both showed as empty squares there. The hole is text-default
+  // and carries the U+FE0F variation selector, or a symbol font may draw it monochrome.
   [GameObjectType.TUB_SITE]: {
-    emoji: "🪣",
+    emoji: "🚿",
     blocksMove: true,
     glows: false,
     info: TranslationKey.INFO_TUB_SITE,
   },
   [GameObjectType.FOUNTAIN_SITE]: {
-    emoji: "🪨",
+    emoji: "🕳️",
     blocksMove: true,
     glows: false,
     info: TranslationKey.INFO_FOUNTAIN_SITE,

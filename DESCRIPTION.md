@@ -23,7 +23,7 @@ Open questions came to me, not the AI.
 
 ## ⚠️ Spoilers below
 
-![](https://raw.githubusercontent.com/mxlle/13k-2026-unicorns-and-rainbows/main/thumbnail-320.png)
+![](https://raw.githubusercontent.com/mxlle/13k-2026-unicorns-and-rainbows/main/spoilers-tiles.png)
 
 - **Balance the two incomes. This matters most.** 💧 pays for each step, 🍬 buys unicorns. Both come from your rainbows: one beside a 🍭 makes 🍬, otherwise 💧. Water without unicorns is wasted; unicorns without water cannot move.
 - **Exploring is a multiplier.** Every 🌈 and 🦄 scores 1 point per % of ☁️ cleared.

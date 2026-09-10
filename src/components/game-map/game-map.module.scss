@@ -722,6 +722,24 @@ $win-hop-height: 2rem;
       --g: calc(#{$unicorn-scale} + #{$level-scale} * (var(--l, 1) - 1));
     }
 
+    // A newcomer the tub has not bought yet, drawn on each field it could be put on. The tub
+    // says what one costs; this says what the price buys, which until now was only ever in the
+    // info text. See-through because the whole point is that it is *not* there yet — eight
+    // solid unicorns would read as a herd that had already arrived.
+    //
+    // Still rather than blinking, and it earns that: these come eight at a time, so anything
+    // moving on them is eight things moving, and the fields are already saying "act here" with
+    // the target ring. The transparency alone carries "would be" — the same argument that keeps
+    // the price tags at 0.4em rather than at reading size.
+    //
+    // Flat at the newcomer's own size rather than through .character's ladder above: every
+    // unicorn out of a tub is level 1, and --l on this span may still be carrying the rank of
+    // whoever last stood here. Equally specific to .character, so it is placed after it.
+    &.ghost {
+      --g: #{$unicorn-scale};
+      opacity: 0.3;
+    }
+
     // PLACEHOLDER art: the lollipop emoji is drawn on a 45° stick, so it is turned
     // upright to read as a tree until it gets art of its own.
     // A tree with no rainbow beside it is dormant and gives up a little saturation — just

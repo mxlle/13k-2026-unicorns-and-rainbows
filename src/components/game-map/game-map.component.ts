@@ -897,7 +897,8 @@ export function GameMapComponent(
       element.classList.toggle(styles.selected, isSelectedTile);
       // no steps lit and nothing to raise means the selection is only being looked at — see select()
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length && !isBuildTarget);
-      element.classList.toggle(styles.target, targetIndices.includes(index));
+      const isTarget = targetIndices.includes(index);
+      element.classList.toggle(styles.target, isTarget);
       element.classList.toggle(styles.free, freeIndices.includes(index));
       // A colour of its own, and it has to be one: a build is not a step, and the tile it is
       // offered on is one the unicorn can never walk onto. Purple against the main pink for
@@ -920,8 +921,7 @@ export function GameMapComponent(
       // has stopped being a target is a property nothing draws. A tub's fields are the one
       // kind of target with nothing to say: their price is on the tub, and an empty string is
       // how a tile that has just stopped quoting one rubs the last one out.
-      if (targetIndices.includes(index))
-        element.style.setProperty("--p", isTubSelected ? `""` : `"${portalIndices.includes(index) ? JUMP_TAG : MOVE_TAG}"`);
+      if (isTarget) element.style.setProperty("--p", isTubSelected ? `""` : `"${portalIndices.includes(index) ? JUMP_TAG : MOVE_TAG}"`);
       else if (isPriced) {
         // A tub is quoted exactly as a site is, by borrowing the site's own shape: nothing in
         // water, the herd in sweets, and — truthfully, as it happens — a unicorn in the slot
@@ -978,17 +978,26 @@ export function GameMapComponent(
         livingGlyphs[index].classList.toggle(styles.dark, hasLiving && isDark(tile.living));
       }
 
-      // What the site is turning into, drawn in the living layer — which on a site is always
-      // free, because a site blocks movement and nothing can ever be standing on one. The
-      // stylesheet cross-fades the two layers (see .becoming), so the tile says "this becomes
-      // that" in the one place the player is already looking, and it costs no element and no
-      // timer to say it.
-      ground.textContent = isVisible ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
-      livingGlyphs[index].textContent = hasLiving
-        ? OBJECT_CONFIG[tile.living!].emoji
-        : isBecoming
-          ? OBJECT_CONFIG[siteBuild![0]].emoji
+      // What a tile is *offering*, as opposed to what is on it, drawn in the living layer. Both
+      // kinds of offer get it free: a site blocks movement, and a tub's field is bare ground by
+      // definition, so on neither can anything ever be standing where this goes.
+      //
+      // A site cross-fades into the building it becomes (see .becoming). A field shows the
+      // newcomer it would put there, kept see-through (see .ghost) so it reads as a thing that
+      // is not there yet rather than a herd that has already arrived — the price on the tub
+      // says what it costs, and this says what it buys, which until now was only ever said in
+      // the info text.
+      const previewEmoji = isBecoming
+        ? OBJECT_CONFIG[siteBuild![0]].emoji
+        : isTubSelected && isTarget
+          ? OBJECT_CONFIG[GameObjectType.UNICORN].emoji
           : "";
+      ground.textContent = isVisible ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
+      livingGlyphs[index].textContent = hasLiving ? OBJECT_CONFIG[tile.living!].emoji : previewEmoji;
+      // Only the ghost is drawn see-through; a site's promise is cross-fading instead, and a
+      // real unicorn is neither. No hasLiving guard is needed to tell it from one: a
+      // spawn field comes from getMoveTargets, so nothing is ever standing on it.
+      livingGlyphs[index].classList.toggle(styles.ghost, !isBecoming && !!previewEmoji);
       // How grown it is, handed to the stylesheet to draw it at: a unicorn that has been
       // shining stands taller than the newcomer beside it, which is the level said in the one
       // place the player is already looking. Only worth writing when somebody is home — an

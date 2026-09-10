@@ -206,10 +206,21 @@ const CONFIRM_TIMEOUT = 3000;
  * sign already says, and the tag is drawn at 0.4em on a tile that also has a glyph on it: six
  * characters fit there and eight do not.
  */
-function getPriceTag(objectType: GameObjectType): string {
-  const [, drops, candy] = getBuild(objectType)!;
+function getPriceTag([, drops, candy]: NonNullable<ReturnType<typeof getBuild>>): string {
   return `−${drops ? `${drops}${DROP_EMOJI}` : ""}${candy ? `${candy}${CANDY_EMOJI}` : ""}`;
 }
+
+// What a step and a jump cost, written on every tile that is offering one. Neither number can
+// move — a step is MOVE_COST wherever it is taken and a jump is PORTAL_COST wherever it lands —
+// so both are built once for the whole game rather than once per render. The tub's price used
+// to be the third of these and was the one that could not be a constant — it is the size of
+// the herd; it is written on the tub itself now (see isSelling).
+//
+// Signed, because a bare number on a tile reads as something the tile is worth rather than
+// something it takes: every one of these is money leaving the purse. The same − the zoom step
+// out wears, so the two are one character rather than two lookalikes.
+const MOVE_TAG = `−${MOVE_COST}${DROP_EMOJI}`;
+const JUMP_TAG = `−${PORTAL_COST}${DROP_EMOJI}`;
 
 /**
  * Where an element sits on the screen, as its centre — a tile a glyph leaves from and a
@@ -793,23 +804,24 @@ export function GameMapComponent(
     // The sites a tap would raise. A handful of tiles at most: there are only ever two or three
     // sites of each kind on the whole board (see SITE_COUNT).
     const buildIndices = buildTargets.map(getIndex);
-    const buildSiteIndex = buildSite && getIndex(buildSite);
-    // What every lit tile costs, written on the tile. The tub's fields have always carried
-    // their price this way and it was the one offer on the board that did — a step's cost was
-    // only ever findable in the purse, after the step. Now the board states the price of
-    // whatever it is offering, in one language: the tub's fields in sweets, a step and a jump
-    // in drops, and a free step says so by staying green with nothing written on it.
-    // The tub's own price is the one that moves — it is the size of the herd, so it goes up
-    // with every unicorn bought, which is exactly why it is worth writing on the field rather
-    // than leaving it to an info text that would be read once and remembered wrong.
-    // Both prices are the same on every tile of their kind, so they are built once per render
-    // rather than per tile; only the jump differs, and only on the donuts.
-    // Signed, because a bare number on a tile reads as something the tile is worth rather than
-    // something it takes: every one of these is money leaving the purse. The same − the zoom
-    // step out wears, so the two are one character rather than two lookalikes.
-    const priceTag = isTubSelected ? `−${getUnicornPrice(map, PLAYER)}${CANDY_EMOJI}` : `−${MOVE_COST}${DROP_EMOJI}`;
-
-    const jumpTag = `−${PORTAL_COST}${DROP_EMOJI}`;
+    // Whether what the player has picked up is a thing that *sells* — a tub or a build site,
+    // the two things that quote a price without being anything the player can tap. It is one
+    // question rather than two indices because they can never both be it: nothing stands on
+    // either, so the selection is one or the other or neither, and the tile loop asks this
+    // against isSelectedTile with nothing to look up.
+    //
+    // This is where the tub's price moved to, and the eight fields it used to be written on
+    // went bare. Three reasons, and the first is the one that started it: the fields are lit
+    // only when the jar can pay, so the price was invisible in exactly the two states a player
+    // needs it — too poor to buy, and hemmed in with nowhere to put a newcomer. The second is
+    // that all eight said the same thing, unlike a step (a jump, a free one off a springboard),
+    // so eight copies bought nothing. And the third is that a build site had meanwhile settled
+    // the question for the board as a whole: a price belongs on the thing that is selling.
+    const isSelling = !!buildSite || isTubSelected;
+    // What the herd costs to add to, read once: it is the size of the herd, so it climbs with
+    // every purchase, which is exactly why it is worth writing on the board rather than leaving
+    // it to an info text that would be read once and remembered wrong.
+    const unicornPrice = getUnicornPrice(map, PLAYER);
     const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
     // Which tiles are actually turning light into a rainbow this turn. Read off the beams the
     // model already worked out, so the halo can never promise a rainbow that is not there —
@@ -829,7 +841,12 @@ export function GameMapComponent(
       // Short-circuited on the object check: getSpawnTargets must not run for every tile.
       // The player's own tub only: the opponent's sells to the opponent, and pulsing it would
       // be inviting the player to press something that offers them nothing.
-      const canSpawn = tile.object === GameObjectType.BATHTUB && !!getSpawnTargets(map, getPosition(index)).length;
+      //
+      // Not once it has been picked up, for the same reason a lit build site stops pulsing:
+      // the pulse means "over here", and a tub with its fields lit and its price written on
+      // it has been found. It would also be beating under the price tag, which is the one
+      // thing on that tile that has to stay still to be read.
+      const canSpawn = !isSelectedTile && tile.object === GameObjectType.BATHTUB && !!getSpawnTargets(map, getPosition(index)).length;
       // A site that can be raised right now pulses for the same reason a tub that can spawn
       // does: it is an affordance nothing else on the board hints at, so it says so where it
       // happens. Short-circuited on getBuild, so canBuild runs only on the handful of sites.
@@ -840,7 +857,12 @@ export function GameMapComponent(
       // keeps pointing at the sites the current selection is *not* offering, and gets out of
       // the way of the one it is.
       const isBuildTarget = buildIndices.includes(index);
-      const canRaiseHere = !isBuildTarget && !!getBuild(tile.object) && canBuild(map, getPosition(index), PLAYER);
+      // What is on this tile could be built into, or undefined for the everything else that
+      // is not one of the three sites. Read once and passed down: the pulse, the drawn-back
+      // glyph, the price and the cross-fade all turn on the same question, and it used to be
+      // asked three times over on every tile of every render.
+      const siteBuild = getBuild(tile.object);
+      const canRaiseHere = !isBuildTarget && !!siteBuild && canBuild(map, getPosition(index), PLAYER);
       // What the tile *shows*, as opposed to what the game has revealed to the player — the
       // two are the same for everyone but a developer who has switched the clouds off. It is
       // the player's own fog throughout: the opponent's is never drawn, and the only thing
@@ -882,17 +904,44 @@ export function GameMapComponent(
       // the same reason the free step is green against it — a second kind of offer needs a
       // second colour or it reads as the first.
       element.classList.toggle(styles.build, isBuildTarget);
-      // A site being read: it says what it costs and what it turns into. The armed ones and
-      // the one being looked at alike — a site the purse cannot reach yet still has a price
-      // worth reading, which is the half of the old panel button worth keeping.
-      // Only the lit tiles are written on, and only they read it — a stale tag on a tile that
-      // has stopped being a target is a property nothing draws. A site is priced by what it
-      // becomes rather than by the one number a step or a field costs, so it is the one tag
-      // built per tile; the other two are built once per render, above.
-      const isPriced = isBuildTarget || index === buildSiteIndex;
+      // Something the player is being quoted a price for: an armed site, the site being looked
+      // at, or the tub that is selling. A site the purse cannot reach yet still says what it
+      // would cost, and so does a tub whose jar is short or whose fields are all taken —
+      // those are the three states the price used to be invisible in, and they are the ones a
+      // player most needs it in.
+      const isPriced = isBuildTarget || (isSelling && isSelectedTile);
       element.classList.toggle(styles.priced, isPriced);
-      if (targetIndices.includes(index)) element.style.setProperty("--p", `"${portalIndices.includes(index) ? jumpTag : priceTag}"`);
-      else if (isPriced) element.style.setProperty("--p", `"${getPriceTag(tile.object!)}"`);
+      // Which of the two kinds of seller this is, and it is the whole difference between them:
+      // a site quotes what it becomes and cross-fades into it, a tub quotes the herd and does
+      // not — it is furniture that sells rather than a thing turning into another thing.
+      const isBecoming = isPriced && !!siteBuild;
+      element.classList.toggle(styles.becoming, isBecoming);
+      // Only the lit tiles are written on, and only they read it — a stale tag on a tile that
+      // has stopped being a target is a property nothing draws. A tub's fields are the one
+      // kind of target with nothing to say: their price is on the tub, and an empty string is
+      // how a tile that has just stopped quoting one rubs the last one out.
+      if (targetIndices.includes(index))
+        element.style.setProperty("--p", isTubSelected ? `""` : `"${portalIndices.includes(index) ? JUMP_TAG : MOVE_TAG}"`);
+      else if (isPriced) {
+        // A tub is quoted exactly as a site is, by borrowing the site's own shape: nothing in
+        // water, the herd in sweets, and — truthfully, as it happens — a unicorn in the slot
+        // that says what you get, since GameObjectType.UNICORN is 0. One path for both sellers
+        // instead of a branch at each of the three places they differ.
+        const price = siteBuild ?? [GameObjectType.UNICORN, 0, unicornPrice];
+        element.style.setProperty("--p", `"${getPriceTag(price)}"`);
+        // Money the player has not got, in the red money leaving the purse is already drawn in.
+        // It is the one thing the grey ring cannot say on its own: a tub with nothing lit
+        // around it is either too dear or hemmed in, and those want opposite answers from the
+        // player — save up, or go and make room. Asked of the price alone rather than of
+        // canBuild, because canBuild is also false when no unicorn is beside a site, and
+        // "nobody is here to do the work" is not something red should be claiming about the purse.
+        //
+        // A property rather than a class: this is the one branch that can ever set it and the
+        // tag is the only thing that reads it, so a stale value on a tile that has stopped
+        // quoting a price is a colour nothing draws. Cleared to "" rather than removed, which
+        // is what hands the tag back to the tertiary default in the stylesheet.
+        element.style.setProperty("--r", map.drops[PLAYER] < price[1] || map.candy[PLAYER] < price[2] ? SPEND_COLOR : "");
+      }
 
       // The fog belongs to the ground layer: under it there is nothing else to show.
       const hasLiving = isVisible && tile.living !== undefined;
@@ -900,7 +949,7 @@ export function GameMapComponent(
       // guarded on isVisible, or the fog cloud hiding a tree would be turned instead
       ground.classList.toggle(styles.tree, isVisible && tile.object === GameObjectType.TREE);
       // a site is drawn back from the things that are actually there — see .site
-      ground.classList.toggle(styles.site, isVisible && !!getBuild(tile.object));
+      ground.classList.toggle(styles.site, isVisible && !!siteBuild);
       // Size as a way of sorting the meadow: a tub is where unicorns come from and is drawn
       // up with them, the custards are underfoot and are drawn down. Guarded on isVisible for
       // the same reason .tree is — an unrevealed tile is a cloud, not the thing under it.
@@ -931,14 +980,14 @@ export function GameMapComponent(
 
       // What the site is turning into, drawn in the living layer — which on a site is always
       // free, because a site blocks movement and nothing can ever be standing on one. The
-      // stylesheet cross-fades the two layers (see .priced), so the tile says "this becomes
-      // that" in the one place the player is already looking, and it costs no element, no
-      // second class and no timer to say it.
+      // stylesheet cross-fades the two layers (see .becoming), so the tile says "this becomes
+      // that" in the one place the player is already looking, and it costs no element and no
+      // timer to say it.
       ground.textContent = isVisible ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
       livingGlyphs[index].textContent = hasLiving
         ? OBJECT_CONFIG[tile.living!].emoji
-        : isPriced
-          ? OBJECT_CONFIG[getBuild(tile.object)![0]].emoji
+        : isBecoming
+          ? OBJECT_CONFIG[siteBuild![0]].emoji
           : "";
       // How grown it is, handed to the stylesheet to draw it at: a unicorn that has been
       // shining stands taller than the newcomer beside it, which is the level said in the one

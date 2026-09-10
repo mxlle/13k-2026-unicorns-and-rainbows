@@ -489,9 +489,9 @@ $win-hop-height: 2rem;
   // The fog is the tile's default state and explored ground the override, which is the way round
   // the game discovers them in — every tile starts unfound.
   background: theme.$tile-fog-alpha;
-  transition:
-    background-color 0.2s,
-    transform 0.2s;
+  // Colour only. The selection used to swell the tile it was on, and that was the one thing
+  // on a tile that ever moved — see .selected for why it went.
+  transition: background-color 0.2s;
 
   &.revealed {
     background: theme.$tile-clear-alpha;
@@ -504,10 +504,17 @@ $win-hop-height: 2rem;
 
   // PLACEHOLDER selection visuals — a tinted ring on the picked object and on every
   // tile it may step onto. Meant to be replaced by proper art later.
+  //
+  // The tile used to swell by 12% as well, and it cost more than it bought. A tile that grows
+  // reaches over its neighbours, so a selection at the edge of the fog was clipped by the
+  // cloud beside it; and the price tag along the bottom edge — which a tub now carries, and
+  // a tub is the biggest glyph on the board — was pushed half under the glyph standing on it.
+  // The ring and the wash say "this one" on their own, and they say it without moving
+  // anything: nothing on a tile is animated by the selection any more, which is also why the
+  // transition above is colour alone.
   &.selected {
     background: rgba(theme.$main-color, 0.35);
     box-shadow: inset 0 0 0 2px theme.$main-color;
-    transform: scale(1.12);
 
     // Same ring in a neutral colour for a selection that leads nowhere: scenery, and
     // a character that cannot step anywhere (blocked in, or an empty purse).
@@ -561,7 +568,44 @@ $win-hop-height: 2rem;
     font-size: 0.4em;
     line-height: 1;
     text-align: center;
-    color: theme.$text-tertiary;
+    // Tertiary unless the tile says otherwise: --r is a price the player cannot meet, written
+    // by render() in the red money leaving the purse is already drawn in (SPEND_COLOR, which
+    // is $danger-color-contrast said a second time in TS because a keyframe cannot read this
+    // file). Only a quoted price ever sets it, so the fallback is what every other tag gets.
+    color: var(--r, #{theme.$text-tertiary});
+  }
+
+  // A seller's tag gets something to sit on. The tags on lit steps do not and must not: they
+  // come eight at a time over mostly bare meadow, and eight chips would be the loudness the
+  // 0.4em above was chosen to avoid. A seller is one tile — and it is the one carrying the
+  // board's biggest glyph, a tub at $big-scale, whose bottom edge lands exactly where the
+  // price is written. Under that, tertiary grey on a 12% wash is not a colour, it is a smudge.
+  &.priced::after {
+    // Clear of the rings, which is a stricter thing than being inside the tile. The selection
+    // and build rings are 2px inset box-shadows and the hint's is 3px, all of them drawn on
+    // the inside edge — so a full-bleed band laid along the bottom cut straight through
+    // whichever one the tile was wearing. Shrink-wrapped to its own digits and lifted 4px, it
+    // sits *within* the ring as a label instead of breaking it, and the tile's own borders and
+    // the left neighbour's are that much further away again.
+    //
+    // In em of the tag's own size throughout, so the whole thing follows the zoom the way the
+    // digits do. The lift is the one px value: the rings it has to clear are px too.
+    inset: auto auto 4px 50%;
+    translate: -50%;
+    padding: 0 0.15em;
+    // Shrink-wrapping has one edge case and this is it: a tub site quotes both currencies
+    // (−6💧2🍬), and five glyphs at 0.4em of a tile whose own font is 0.62 of it come to very
+    // nearly a whole tile wide. Unclamped, that chip would hang over the neighbour.
+    //
+    // Clamped, it needs the nowrap in the same breath: a max-width is a place to break, and
+    // the long tag took it — a price split over two lines, which is the one thing a price
+    // must never do. So the rare long one stays on its line and spills a couple of pixels
+    // past the chip instead, which is what it already did before there was a chip at all.
+    // (The build button this replaced carried the same nowrap, for the same reason.)
+    max-width: 100%;
+    white-space: nowrap;
+    border-radius: 0.15em;
+    background: theme.$glass-4;
   }
 
   // A step that costs no drop, in a green of its own rather than the main colour — see
@@ -602,7 +646,8 @@ $win-hop-height: 2rem;
     }
   }
 
-  // The same sites, cross-fading between what they are and what they become. The two glyph
+  // A build site, cross-fading between what it is and what it becomes. Not every priced tile:
+  // a tub is quoted a price too and becomes nothing — it is furniture that sells. The two glyph
   // layers do it between them: a site blocks movement, so nothing can ever be standing on one
   // and the living layer over it is free for the building it is promising.
   //
@@ -611,11 +656,11 @@ $win-hop-height: 2rem;
   // of its half before it starts going. Under prefers-reduced-motion the global rule in
   // globals.scss turns both off, which lands on the site's own glyph — the honest resting
   // state, with the price tag above still saying what it would cost.
-  &.priced > span {
+  &.becoming > span {
     animation: becoming 2.4s infinite;
   }
 
-  &.priced > .character {
+  &.becoming > .character {
     // A building, not a unicorn: .character's ladder is about how grown a thing is, and this
     // glyph is a promise rather than a member of the herd. Written flat, at the size the
     // object will actually be drawn once it is standing here.

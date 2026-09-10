@@ -340,6 +340,14 @@ $tile-fog-alpha: $tile-fog-light-alpha;
 // rather than rem on purpose: a media query's rem is the browser's initial font size, not the
 // one globals.scss sets, so px is the honest unit here.
 $wide-screen: 900px;
+// PLACEHOLDER, and the one number in here that is arithmetic rather than taste: the width below
+// which the header's single line cannot hold what is on it whatever the window's shape. The
+// centred chip of counters is ~330px and does not move, so each end has (W - 330) / 2 minus the
+// header's 1rem padding to play in — and the right-hand end now carries the zoom chip as well as
+// the audio buttons, ~170px of it. Below ~700px those two overlap, and an overlap is worse than
+// a header line even on a window with no height to spare. Re-measure it if either group changes
+// width; see stackedHeader, which ors it in beside the portrait case.
+$header-one-line-min: 720px;
 
 // The one layout decision the whole game shares: does anything sit *beside* the board, or does
 // everything stack under it? Width alone got this wrong, and the case it got wrong is a real
@@ -361,11 +369,14 @@ $wide-screen: 900px;
 // The narrower case *and* room to spare downwards: the header gives up on one line entirely
 // and the run's counters drop to a line of their own under the title row. Shared rather than
 // written twice, because the header is what stacks and the chip that lands in the second line
-// belongs to the game — the two have to agree on where the change happens. Deliberately the
+// belongs to the game — the two have to agree on where the change happens. Mostly the
 // complement of sidePanels: a second header line is height spent, and a window that had the
-// height to spare is exactly the one that is stacking everything else as well.
+// height to spare is usually the one that is stacking everything else as well.
+// The second clause is the exception, and it is not about height at all: below
+// $header-one-line-min the line does not fit at any aspect ratio, so a short landscape window
+// pays for the line rather than overlapping what is on it.
 @mixin stackedHeader {
-  @media (max-width: 999px) and (max-aspect-ratio: 1 / 1) {
+  @media (max-width: 999px) and (max-aspect-ratio: 1 / 1), (max-width: $header-one-line-min) {
     @content;
   }
 }

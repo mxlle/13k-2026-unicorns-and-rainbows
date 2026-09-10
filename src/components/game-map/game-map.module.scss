@@ -206,46 +206,38 @@ $board-column-max: calc(100dvh - 5rem);
   grid-area: 3 / 1;
   display: flex;
   align-items: center;
-  gap: 0.5rem; // the zoom chip is one item now, so this only has to keep the bar's items apart
+  gap: 1rem;
   width: 100%;
   max-width: $panel-width;
+}
 
-  // The clock closes the left-hand group, and the bar's one big gap opens after it. That is
-  // what puts 💡 and the way out of the turn together at the far end: they are the two answers
-  // to "I do not know what to do here" — be told, or stop — and beside the counter the bulb
-  // read as something to do with the clock instead.
-  //
-  // Said as a margin on the clock rather than as an auto margin on the hint button so that the
-  // pair cannot be split by the wrap in the side-panel layout: neither of them carries a margin
-  // that could push one to the end of a line and leave the other at the start of the next.
-  // The turn display is the only counter down here — the currencies and the scores are up in
-  // the header's chip — so the class needs no help telling them apart.
-  > .count {
-    margin-right: auto;
-  }
-
-  // The end-turn button alone — :last-child rather than every button, because the bulb beside
-  // it is an icon button and must keep its round face.
-  > button:last-child {
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    font-size: 0.9em;
-  }
+// The bar's one stretchy item, and the only one that has to be aimed at every turn: it takes
+// whatever the clock and the bulb leave, so the way out of a turn is the widest thing on the
+// row at any width. It is also what pushes the bulb to the far end, which is where the two
+// answers to "I do not know what to do here" — be told, or stop — sit side by side.
+// A class rather than :last-child, now that the bulb is the bar's last child and has to keep
+// the round icon face the header gave it.
+.endTurn {
+  flex: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  font-size: 0.9em;
+  z-index: 1;
 }
 
 // The board's own controls as one control: the 🔍 that says what they act on and the two steps
-// that do it, on a single glass pill. The same pill as the header's chip of counters, so the
-// two things the run puts on the screen that are groups rather than single items look like it.
-// Three loose siblings held together by nothing but the bar's gap read as three things, and the
-// − and the + are one thing with two ends.
+// that do it, on a single glass pill. It sits in the header beside the chip of counters and
+// wears the same pill, so the two groups the run lends the header read as the same kind of
+// thing. Three loose siblings held together by nothing but the header's gap read as three
+// things, and the − and the + are one thing with two ends.
 .zoomChip {
   display: flex;
   align-items: center;
   gap: 0.1rem; // the two steps sit against each other; the chip's padding is what holds them in
   padding: 0.15rem 0.5rem;
   border-radius: 999px; // pill, whatever the chip's height turns out to be
-  background: theme.$glass-2;
+  background: theme.$glass-1;
 }
 
 // The two steps, stripped of the icon button's face: the chip under them is the surface, so
@@ -255,6 +247,9 @@ $board-column-max: calc(100dvh - 5rem);
 .zoomStep {
   width: 1.6rem;
   height: 1.6rem;
+  // Not inherited from the button rule: the box is fixed and border-box, so the page's button
+  // padding would leave a content box smaller than the glyph and hang it off the bottom.
+  padding: 0;
   border: none;
   background: none;
   font-size: 1.2rem;
@@ -1136,9 +1131,9 @@ $win-hop-height: 2rem;
   .turnBar {
     grid-area: 2 / 2;
     max-width: 100%;
-    flex-wrap: wrap; // four controls in a narrow column need a second line to fall back on
+    flex-wrap: wrap; // three controls in a narrow column need a second line to fall back on
 
-    > button:last-child {
+    > .endTurn {
       font-size: 1em;
     }
   }

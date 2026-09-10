@@ -88,9 +88,9 @@ const TURN_EMOJI = "⏳";
 const LAST_TURN_EMOJI = "⌛";
 const SCORE_EMOJI = "⭐";
 // Labels the two zoom steps, the way every counter in the game is labelled by the thing it
-// counts. Without it a bare − and + beside a clock read as something to do with the turns
-// rather than with the board. It sits inside the chip with them, so the label cannot drift
-// from what it labels — see .zoomChip.
+// counts. Without it a bare − and + in a row of counters read as something to do with the
+// numbers beside them. It sits inside the chip with them, so the label cannot drift from what
+// it labels — see .zoomChip.
 const ZOOM_EMOJI = "🔍";
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
@@ -431,23 +431,23 @@ export function GameMapComponent(
   // One button for both ends of a run: end the turn while playing, back to the launch screen
   // once it is over. Which board to play next is that screen's question, not this bar's —
   // there are seven of them now, and they are the stripes of the rainbow over there.
-  const endTurnButton = createButton({ onClick: endTurnPressed });
+  const endTurnButton = createButton({ cssClass: styles.endTurn, onClick: endTurnPressed });
   // The board just played, from the top: the same map, the same opening, the same seed. What
   // ends a run is a plan running out of turns, and the second go at a plan is where the first
   // one is worth anything.
   //
   // It lives in the result panel, on a line of its own under the score's working, rather than
-  // in the turn bar beside the way out. The bar is a row of things that cannot wrap — the zoom
-  // steps, the clock, the button — and a fourth control in it pushed the way out off the edge
-  // of a narrow phone. The panel is the one part of the screen that is already growing to fit
-  // what a finished run has to say, so a button that only exists after a run belongs in it.
+  // in the turn bar beside the way out. The bar is a row of things that cannot wrap — the clock,
+  // the button, the bulb — and a fourth control in it pushed the way out off the edge of a
+  // narrow phone. The panel is the one part of the screen that is already growing to fit what a
+  // finished run has to say, so a button that only exists after a run belongs in it.
   const retryButton = createButton({ cssClass: [CssClass.SECONDARY, styles.retry], onClick: () => startRun(seed) }, [
     createElement({ tag: "span", cssClass: CssClass.EMOJI, text: RETRY_EMOJI }),
     ` ${getTranslation(TranslationKey.RETRY)}`,
   ]);
   // How far through the turns, next to the button that spends them. It is the one number that
   // stayed down here when the scores went up to the chip: the clock and the thing that moves
-  // the clock on belong together, and the turn bar is otherwise all controls.
+  // the clock on belong together, and the turn bar is otherwise the two ways of ending a turn.
   const turnDisplay = counter(TURN_EMOJI, turnCounter);
   // Reached for through counter() rather than built by hand, so every counter in the bar is
   // still made the same way: the emoji span is always the first child of the row.
@@ -592,8 +592,9 @@ export function GameMapComponent(
   const hintButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: showHint }, [
     createElement({ tag: "span", cssClass: CssClass.EMOJI, text: HINT_ACTION_EMOJI }),
   ]);
-  // No ICON_BTN on these two: they live inside the zoom chip, which carries the surface for
-  // all three of its icons, so a round face of their own would be a button on a button.
+  // No ICON_BTN on these two: they live inside the zoom chip (built with the header's controls
+  // below), which carries the surface for all three of its icons, so a round face of their own
+  // would be a button on a button.
   const zoomOutButton = createButton({ cssClass: styles.zoomStep, onClick: () => zoom(-1) }, ["−"]);
   const zoomInButton = createButton({ cssClass: styles.zoomStep, onClick: () => zoom(1) }, ["+"]);
 
@@ -738,25 +739,26 @@ export function GameMapComponent(
   // nesting a second flex box inside it — the chip still centres itself on the header, and
   // the buttons still take the header's gap. Hiding the wrapper hides all of them, which is
   // what the launch screen wants: none of it means anything before a run.
+  // The zoom steps go up here with the counters rather than into the turn bar: they act on the
+  // board's *size*, which is a way of looking at it rather than a move in the turn, and the bar
+  // below is now nothing but the turn — how far through it, ending it, being told what to do in
+  // it. Being part of the run's own controls they are hidden with the rest between runs, which
+  // is what the launch screen wants.
+  const zoomChip = createElement({ cssClass: styles.zoomChip }, [
+    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: ZOOM_EMOJI }),
+    zoomOutButton,
+    zoomInButton,
+  ]);
   const headerControls = createElement({ cssClass: styles.headerControls }, [
     status,
     ...(HAS_DEV_TOOLS ? [createFogButton(), ...createBotControls()] : []),
+    zoomChip,
   ]);
-  // Built here rather than up with its counters, because it holds the zoom steps and they have
-  // to exist first. They are controls for the board and now sit under it with the other one —
-  // the header is what the run counts, this is what the player presses.
-  // The board's own controls lead, labelled by what they act on, and the clock follows them on
-  // its way to the button that moves it on.
-  const turnBar = createElement({ cssClass: styles.turnBar }, [
-    createElement({ cssClass: styles.zoomChip }, [
-      createElement({ tag: "span", cssClass: CssClass.EMOJI, text: ZOOM_EMOJI }),
-      zoomOutButton,
-      zoomInButton,
-    ]),
-    turnDisplay,
-    hintButton,
-    endTurnButton,
-  ]);
+  // The clock leads, and the button that moves it on takes all the room left over — it is the
+  // one thing pressed every turn, so it is the one thing that should be impossible to miss.
+  // The bulb closes the row: it answers "I do not know what to do here" and belongs beside the
+  // way out of the turn rather than in front of it.
+  const turnBar = createElement({ cssClass: styles.turnBar }, [turnDisplay, endTurnButton, hintButton]);
   const hostElement = createElement({ cssClass: styles.host }, [mapArea, infoPanel, turnBar]);
 
   let zoomIndex = 0;

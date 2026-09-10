@@ -42,8 +42,8 @@ function init() {
   // The launch screen and the board take turns in the same row under the header, so whichever
   // is up has the whole window. What the run lends the header — its chip of counters — belongs
   // to the run rather than to the header, and goes with the board: neither has anything to say
-  // before one is being played. The zoom steps need no hiding of their own; they are in the
-  // turn bar, which is part of the board's own component.
+  // before one is being played. The zoom steps are in there too, so they are hidden with it —
+  // there is no board to look closer at until a run is up.
   function showLaunchScreen(show: boolean) {
     // Re-read on the way in: a run just walked away from has written its score to storage, and
     // the stripe it belongs to is what says so. The screen holds nothing of its own about a
@@ -56,7 +56,12 @@ function init() {
 
   // the run's counters sit in the header rather than over the board, so they can never cover
   // a tile; the chip takes itself out of the flow and centres — see its styles
-  document.body.append(HeaderComponent(GAME_TITLE, [headerControls, ...AudioButtons()]), gameArea, launchScreen);
+  //
+  // The audio toggles go in front of what the run lends the header, so the run's own controls
+  // are the outermost thing at that end: the toggles are there whether or not a board is up and
+  // keep their place when one appears, and the zoom steps end up next to the board they act on
+  // rather than with a switch between them.
+  document.body.append(HeaderComponent(GAME_TITLE, [...AudioButtons(), headerControls]), gameArea, launchScreen);
 
   showLaunchScreen(true);
 

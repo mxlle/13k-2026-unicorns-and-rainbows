@@ -1,13 +1,16 @@
 /**
- * Captures the js13k submission artwork out of thumbnail/art.html.
+ * Captures the js13k submission artwork out of thumbnail/art.html and thumbnail/collage.html.
  *
- *   npm run images            both
- *   npm run images -- thumb   just the thumbnail
- *   npm run images -- cover   just the cover
+ *   npm run images              all three
+ *   npm run images -- thumb     just the thumbnail
+ *   npm run images -- cover     just the cover
+ *   npm run images -- collage   the spoiler collage for the description
  *
- * Neither file is part of the zip. They are the two images the js13k submission form asks for,
- * and they have their own limits (see TARGETS below), which this script checks rather than
- * trusts. Everything about how they *look* is in art.html; this file only shoots and squeezes.
+ * None of these is part of the zip. The first two are the images the js13k submission form
+ * asks for, and they have their own limits (see TARGETS below), which this script checks rather
+ * than trusts; the collage is only hosted from the repo and linked from DESCRIPTION.md, so its
+ * limit is a sanity check. Everything about how they *look* is in the two HTML files; this file
+ * only shoots and squeezes.
  *
  * Why a headless browser instead of screenshotting the game: the art is emoji on a CSS gradient,
  * which is exactly what a browser is for, and doing it this way means re-cutting both images
@@ -22,9 +25,12 @@ import { dirname, join } from "node:path";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
 
+// `src` is the page to shoot, art.html unless said otherwise; `transparent` shoots onto a clear
+// background rather than the page's white, for a picture that has to sit on somebody else's.
 const TARGETS = {
   thumb: { w: 320, h: 320, limit: 64 * 1024, out: "thumbnail-320.png" },
   cover: { w: 800, h: 500, limit: 256 * 1024, out: "cover-800x500.png" },
+  collage: { w: 665, h: 665, limit: 256 * 1024, out: "spoilers-tiles.png", src: "collage.html", transparent: true },
 };
 
 /* -------------------------------------------------------------------------- *
@@ -92,7 +98,7 @@ const kb = (n) => `${(n / 1024).toFixed(1)} kB`;
 function build(name) {
   const t = TARGETS[name];
   const chrome = findChrome();
-  const src = join(HERE, "art.html");
+  const src = join(HERE, t.src || "art.html");
   const shot = join(HERE, `.${name}-raw.png`);
   const out = join(ROOT, t.out);
 
@@ -110,6 +116,7 @@ function build(name) {
       "--disable-gpu",
       "--hide-scrollbars",
       "--virtual-time-budget=8000",
+      ...(t.transparent ? ["--default-background-color=00000000"] : []),
       `--force-device-scale-factor=${scale}`,
       `--window-size=${t.w},${t.h}`,
       `--screenshot=${shot}`,

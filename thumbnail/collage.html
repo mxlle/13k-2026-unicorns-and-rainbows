@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Empire of Sugar — spoiler collage source</title>
+    <!--
+      The picture that separates the game description on js13kgames.com from the hints under
+      it. Not part of the game and not in the zip; not even one of the two images the
+      submission form asks for. It is hosted from the repo and linked from DESCRIPTION.md.
+
+      A 3x3 of Emoji Kitchen unicorn mash-ups (thumbnail/kitchen/), each on a rounded pastel
+      tile in the launch screen's ladder colours — the same hues build.mjs reads out of the game
+      for art.html — at the full 665 px width of the description column. Full width on purpose:
+      on a laptop screen it is exactly tall enough to push the first hint below the fold, which
+      is the whole of its job. A strip was tried and hid nothing; bare pictures on transparent
+      were tried and lost their edges against the page's white.
+
+      Open this file directly in a browser to tweak; `npm run images -- collage` captures it.
+
+      The nine are Google's stickers, built on Noto (Apache 2.0 / OFL). Google publishes them
+      to be shared, which a description image is; a font asset in the game would not be.
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+      .grid {
+        display: grid;
+      }
+      .cell {
+        overflow: hidden;
+      }
+      .cell img {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grid" id="grid"></div>
+
+    <script>
+      // The same fallback art.html carries: only what you see opening the file by hand.
+      // build.mjs passes the real values in the URL.
+      const LADDER_DEFAULTS = { rungs: 7, violetHue: 300, warmBias: 1.4, satWarm: 80, satCool: 56 };
+      const passed = new URLSearchParams(location.search).get("ladder");
+      const LADDER = passed ? JSON.parse(passed) : LADDER_DEFAULTS;
+
+      /* ------------------------------------------------------------------ *
+       * Knobs. Everything below is an artwork decision, not a game one.
+       * ------------------------------------------------------------------ */
+
+      // 3 x 213 + 2 x 13 = 665, the description column's width on js13kgames.com.
+      const COLS = 3;
+      const TILE = 213;
+      const GAP = 13;
+      const RADIUS = 38;
+
+      // The ladder's rungs are drawn at 72% lightness, which is a band, not a backing; the same
+      // hues lifted to here sit behind a picture without competing with it.
+      const TILE_LIGHTNESS = 86;
+
+      // Row by row. The top row is the three that say "don't look", which is what the picture
+      // stands in front of. File names as in thumbnail/kitchen/, less the "unicorn_" prefix.
+      const CELLS = ["see_no_evil", "lock", "stop", "warn", "alarm", "balance", "idea", "darts", "gift"];
+
+      /* ------------------------------------------------------------------ */
+
+      // One rung's colour, exactly as art.html computes it: index 0 is the violet end.
+      function rungColour(i) {
+        const rung = (LADDER.rungs - 1 - i) / (LADDER.rungs - 1);
+        const hue = LADDER.violetHue * Math.pow(rung, LADDER.warmBias);
+        const sat = LADDER.satWarm + (LADDER.satCool - LADDER.satWarm) * rung;
+        return `hsl(${hue},${sat}%,${TILE_LIGHTNESS}%)`;
+      }
+
+      const grid = document.getElementById("grid");
+      const rows = Math.ceil(CELLS.length / COLS);
+      grid.style.cssText =
+        `grid-template-columns:repeat(${COLS},${TILE}px);gap:${GAP}px;` +
+        `width:${COLS * TILE + (COLS - 1) * GAP}px;height:${rows * TILE + (rows - 1) * GAP}px`;
+
+      CELLS.forEach((name, i) => {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        // Nine cells over seven rungs: walk the ladder and wrap, so the two colours that repeat
+        // land in the last row rather than side by side.
+        cell.style.cssText = `border-radius:${RADIUS}px;background:${rungColour(i % LADDER.rungs)}`;
+        const img = document.createElement("img");
+        img.src = `kitchen/unicorn_${name}.png`;
+        cell.append(img);
+        grid.append(cell);
+      });
+    </script>
+  </body>
+</html>

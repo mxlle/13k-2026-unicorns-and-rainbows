@@ -1,30 +1,45 @@
-# Submission artwork — thumbnail & cover
+# Submission artwork — thumbnail, cover & spoiler collage
 
-Neither of these is in the zip. They are the two images the js13k submission form asks for, and
-they have their own limits, which `build.mjs` checks rather than trusts:
+None of these is in the zip. The first two are the images the js13k submission form asks for,
+and they have their own limits, which `build.mjs` checks rather than trusts. The collage is the
+picture that separates the description on the competition page from the hints under it (see
+`DESCRIPTION.md`); it is hosted from the repo, so its only limit is a sanity check:
 
-| file                | size      | limit  | currently |
-| ------------------- | --------- | ------ | --------- |
-| `thumbnail-320.png` | 320 × 320 | 64 kB  | ~55 kB    |
-| `cover-800x500.png` | 800 × 500 | 256 kB | ~115 kB   |
+| file                 | size      | limit  | currently |
+| -------------------- | --------- | ------ | --------- |
+| `thumbnail-320.png`  | 320 × 320 | 64 kB  | ~55 kB    |
+| `cover-800x500.png`  | 800 × 500 | 256 kB | ~115 kB   |
+| `spoilers-tiles.png` | 665 × 665 | 256 kB | ~180 kB   |
 
-Both are written to the repo root.
+All are written to the repo root.
 
 ```bash
-npm run images            # both
-npm run images -- thumb   # just the thumbnail
-npm run images -- cover   # just the cover
+npm run images              # all three
+npm run images -- thumb     # just the thumbnail
+npm run images -- cover     # just the cover
+npm run images -- collage   # just the spoiler collage
 ```
 
 ## How it works
 
-`art.html` draws both images; `build.mjs` shoots them with headless Chrome, scales down and runs
-the repo's own `ect` over the result. Nothing is screenshotted out of the running game — the art
+`art.html` draws the thumbnail and the cover, `collage.html` the collage; `build.mjs` shoots
+them with headless Chrome, scales down and runs the repo's own `ect` over the result. Nothing is screenshotted out of the running game — the art
 is emoji on a CSS gradient, so a browser draws it directly, and re-cutting after a visual change
 is one command instead of a session of temporarily breaking the stylesheet to get a clean shot.
 
 **To look at either one while editing, open `thumbnail/art.html` in a browser** — plain, no build
-step. Append `?target=cover` for the cover.
+step. Append `?target=cover` for the cover. The collage is `thumbnail/collage.html`.
+
+## The spoiler collage
+
+Nine [Emoji Kitchen](https://emoji.supply/kitchen/) unicorn mash-ups from `kitchen/`, each on a
+rounded pastel tile in the ladder's own colours (the same scraped hues `art.html` uses, lifted to
+`TILE_LIGHTNESS`), as a 3×3 at the full 665 px width of the description column — full width on
+purpose: on a laptop that is exactly tall enough to push the first hint below the fold. Which
+nine and in what order is `CELLS` at the top of `collage.html`.
+
+The stickers are Google's, built on Noto (Apache 2.0 / OFL) and published to be shared — fine
+in a description, not something to ship inside the game.
 
 ## When the game's visuals change
 

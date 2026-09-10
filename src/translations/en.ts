@@ -1,8 +1,12 @@
 import { TranslationKey } from "./translationKey";
 
-// For texts that should be shorter in the competition build, use per-entry
-// ternaries on the HAS_SHORT_TEXTS flag (env-utils.ts) — the unused variant is
-// tree-shaken: [TranslationKey.START]: HAS_SHORT_TEXTS ? "Go" : "Start game",
+// For texts that should be shorter in the competition build, write a *second whole map* and
+// pick between them — HAS_SHORT_TEXTS (env-utils.ts) ? shortMap : this one — and never a
+// per-entry ternary. The AST transformer only compacts a numeric-keyed map into an array when
+// every value is a literal (see vite.config.ts), so a single ternary anywhere in here costs
+// all of these entries their compaction, which is more than the strings it saves. Two whole
+// maps was measured at −123 bytes against the per-entry version, and the unused one
+// tree-shakes. Nothing reads the flag yet: every build ships these.
 export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.CONTINUE]: "Continue",
   // The end-of-run text shares the info panel's "Name|Description" shape. The score is
@@ -27,7 +31,7 @@ export const enTranslations: Record<TranslationKey, string> = {
   // step. What the tag cannot say is what a 💧 is for — it renders at 0.4em, quiet on purpose —
   // so naming the currency is what ties the sentence to the purse in the turn bar, and answers
   // the question a stuck player actually has: not what a step costs, but why the walking stopped.
-  [TranslationKey.INFO_UNICORN]: "Unicorn|Your explorer. Tap a lit tile — walking costs 💧 and clears ☁️.",
+  [TranslationKey.INFO_UNICORN]: "Unicorn|Your explorer. Tap a lit tile. Walking costs 💧 and clears ☁️.",
   // ...and this is the half that arrives with the first fountain the player finds. The 🦄⛲🌈
   // pattern carries the line-up rule without language, and repeats, so it costs almost nothing.
   // The ladder under it (RANK, see renderGrowth) shows how many turns a rank takes and how far
@@ -57,12 +61,12 @@ export const enTranslations: Record<TranslationKey, string> = {
   // opened, so the words and the arithmetic under them say the same thing.
   [TranslationKey.INFO_GOAL]: "|Build up before the turns run out. Every 🌈 and 🦄 scores 1 point per % of ☁️ you cleared.",
   [TranslationKey.INFO_FOG]: "Cloud|You cannot see here yet. Walk a unicorn closer.",
-  [TranslationKey.INFO_EMPTY]: "Meadow|Free space. A rainbow can appear here.",
-  // "per 🌈" rather than a number: what one rainbow feeds it is that rainbow's own size, so
-  // the sum is on the board — one red line per sweet — rather than in the sentence. It says
-  // "instead of 💧" because that is the whole of the trade: the tree does not add sweets to a
-  // rainbow's water, it drinks the water and makes sweets out of it.
-  [TranslationKey.INFO_TREE]: "Lollipop tree|It turns the 💧 of every 🌈 next to it into 🍬. No rainbow can appear here.",
+  [TranslationKey.INFO_EMPTY]: "Meadow|Free space.",
+  // "every 🌈" rather than a number: what one rainbow feeds it is that rainbow's own size, so
+  // the sum is on the board — one red line per sweet — rather than in the sentence. "Turns 💧
+  // into 🍬" rather than "makes 🍬" because that is the whole of the trade: the tree does not
+  // add sweets to a rainbow's water, it drinks the water and makes sweets out of it.
+  [TranslationKey.INFO_TREE]: "Lollipop tree|It turns the 💧 of every 🌈 next to it into 🍬.",
   // The whole price rather than the surcharge — "one more than a step" is arithmetic the
   // player has to do at exactly the moment they are counting drops. The number repeats
   // PORTAL_COST by hand, the same way the tub's line repeats BASE_INCOME: change them together.
@@ -75,18 +79,24 @@ export const enTranslations: Record<TranslationKey, string> = {
   // charge that gets used up — a unicorn that ends its turn on a custard still walks off it for
   // nothing next turn, and two custards side by side are a free path.
   //
-  // It no longer says that a rainbow cannot land here, though a rainbow still needs bare ground
+  // It does not say that a rainbow cannot land here, though a rainbow still needs bare ground
   // and this is not it. The board generator keeps custards off the ring around every fountain
   // and off the ring around every rubble pile (see crowdsFountain), and a rainbow only ever
   // lands on that ring — so the two cannot meet on any board as dealt, and a rule that never
-  // fires is a line of the panel spent on nothing. The lollipop tree's identical sentence stays:
-  // trees *are* grown beside fountains, so for them it is the whole point.
+  // fires is a line of the panel spent on nothing.
+  //
+  // The lollipop tree's identical sentence has gone too, and on weaker grounds: there the rule
+  // is real and does fire, since trees *are* grown beside fountains. But it is one the board
+  // shows at the moment it matters, and the panel's room is worth more spent on what the board
+  // cannot show. The meadow lost the same rule said the other way round.
   [TranslationKey.INFO_CUSTARD]: "Custard|Bouncy. Every step off it is free.",
-  // It used to list the three outcomes, which was the honest thing to say while a present kept
-  // its secret. It says what it holds now — in the colour it is wrapped in on the board, and in
-  // the glyph this panel puts in place of the 🎁 — so the sentence teaches the rule instead of
-  // the list, and a player who cannot tell two tints apart still gets the answer by tapping.
-  [TranslationKey.INFO_CHEST]: "Present|Step on it to open. Its colour says what is inside.",
+  // It used to list the three outcomes, and then it used to say that the colour gives them
+  // away. It says neither now, because what is inside is *shown* rather than described: the
+  // colour it is wrapped in on the board, and the glyph this panel puts in place of the 🎁
+  // (see LOOT_EMOJIS, which is also why a player who cannot tell two tints apart still gets
+  // the answer by tapping). That leaves the line the one thing neither of those can say —
+  // that stepping on it is the whole of opening it.
+  [TranslationKey.INFO_CHEST]: "Present|Step on it to open.",
   // The three build sites. No price in the text: the button carries it, and it is the button
   // that would go out of date if the numbers moved.
   [TranslationKey.INFO_TUB_SITE]: "Empty tub|A unicorn beside it can fill it up.",
@@ -99,8 +109,8 @@ export const enTranslations: Record<TranslationKey, string> = {
   // opponent ships in every build now, so there was nothing left to weigh against it.
   // What it says is the whole of what the player has to know: it plays the same game, its
   // rainbows are its own, and the fountains are what the two of you are actually racing for.
-  [TranslationKey.INFO_RIVAL]: "Dark unicorn|Your rival. It plays the same game — beat it to the fountains.",
-  [TranslationKey.INFO_DARK_RAINBOW]: "Dark rainbow|It scores for your rival. Its tile is taken; yours cannot land here.",
+  [TranslationKey.INFO_RIVAL]: "Dark unicorn|Your rival. It plays the same game. Beat it to the fountains.",
+  [TranslationKey.INFO_DARK_RAINBOW]: "Dark rainbow|It scores for your rival.",
   // Both endings end the same way — a score to read — so both lines end ready for a number,
   // exactly as WON does. The rival's own total is a row in the breakdown underneath.
   // PLACEHOLDER wording. Shown when nothing on the board can be paid for any more — see canAct.

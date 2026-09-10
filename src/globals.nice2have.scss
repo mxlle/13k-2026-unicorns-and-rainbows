@@ -69,3 +69,21 @@ body > * > :has(> .#{$EMPHASIS}) {
     filter: saturate($hover-saturate);
   }
 }
+
+// The two hovers above name a colour, so they need the dark theme's answer as well. The third —
+// the stripe saturating under the mouse — is a filter and needs nothing.
+@if $has-side-choice {
+  body.#{$DARK} {
+    button.#{$PRIMARY}:not([disabled]) {
+      @include hover {
+        background: rgba($night-main, 0.5);
+      }
+    }
+
+    button.#{$ICON_BTN}.#{$SECONDARY} {
+      @include hover {
+        background-color: $night-glass-2;
+      }
+    }
+  }
+}

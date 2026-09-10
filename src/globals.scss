@@ -97,9 +97,14 @@ button {
     border-color: $glass-4;
   }
 
+  // The quiet button, and the retry at the foot of the result panel is the only one of these
+  // that carries words — the audio toggles wear it too, but they are emoji and take no ink from
+  // here. Secondary rather than the tertiary this was: at 0.8em inside a 0.8rem panel the text
+  // is around 12px, so it wants 4.5:1, and tertiary on the panel's own glass measured 4.29:1 on
+  // the pale theme and 4.11:1 on the dark one. Secondary clears both at 8.3:1 and 7.7:1.
   &.#{$SECONDARY} {
     font-size: 0.8em;
-    color: $text-tertiary;
+    color: $text-secondary;
     padding: 0.25rem 1rem;
   }
 
@@ -150,6 +155,58 @@ button.#{$ICON_BTN} {
 @keyframes pulse {
   50% {
     transform: scale(1.12);
+  }
+}
+
+// ── The dark side ───────────────────────────────────────────────────────────────────────────
+// Everything the page itself owes the dark theme. Compiled only where the side choice exists
+// (see vite.config.ts), so the competition build has not a byte of this — which is also why it
+// is written as a block of overrides at the foot of the file rather than as a palette the light
+// rules above read through. The cost of that: a colour changed above needs its answer changed
+// here too, and nothing enforces it. The alternative was custom properties, which would have
+// taxed every build with a var() indirection for a feature two builds out of three do not have.
+@if $has-side-choice {
+  body.#{$DARK} {
+    background: linear-gradient(to bottom, $night-page-top 60%, $night-page-bottom 100%);
+    color: $night-text-primary;
+
+    button {
+      color: $night-text-primary;
+      border-color: $night-shade-05;
+      background: $night-glass-2;
+
+      // The filled button keeps its deep pink and its pale ink — that pairing reads on either
+      // page, so $main-color and $text-inverse are both left alone.
+      //
+      // The highlight button is the one that cannot be left alone, and it is the mirror of the
+      // ladder's problem: its face is the rainbow, every band of it a pastel, so it needs the
+      // *pale* theme's dark plum ink. Inheriting the page's near-white here would leave the one
+      // button that is the point of the screen unreadable.
+      &.#{$PRIMARY_HIGHLIGHT}:not([disabled]) {
+        color: $text-primary-light;
+      }
+
+      &.#{$SECONDARY} {
+        color: $night-text-secondary;
+      }
+    }
+
+    // The audio toggles, and they are the one pair of glyphs on the page this theme genuinely
+    // breaks: 🎵 is a black note and 🔊 a dark grey speaker, both drawn straight onto the page
+    // because an icon button in this state carries no fill of its own — so on cream they read
+    // and on plum they very nearly vanish. Inverted they come out white and pale grey.
+    //
+    // On the glyph's own span, never on the button: a button carries `backdrop-filter`, and an
+    // element with a filter is a backdrop root, so inverting the button inverted the blurred
+    // page behind it and drew a pale disc. See AudioButton, which is why the span is there.
+    //
+    // The muted state needs nothing of its own for the same reason. It is `filter: grayscale(1)`
+    // on the *button*, and the two no longer collide — the span's negative composes into the
+    // button's greyscale instead of one of them replacing the other. `.#{$ICON_BTN}.#{$SECONDARY}`
+    // is exactly these two buttons and nothing else in the game.
+    button.#{$ICON_BTN}.#{$SECONDARY} > span {
+      filter: invert(1);
+    }
   }
 }
 

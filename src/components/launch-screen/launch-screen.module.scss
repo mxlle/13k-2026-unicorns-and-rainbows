@@ -1,4 +1,5 @@
 @use "../../theme";
+@use "../../names";
 
 // A stripe is the level's own progress bar: solid as far as the best score got towards the
 // target, the pale floor the rest of the way (--p is where the one becomes the other; see the
@@ -241,5 +242,72 @@ $stripe-gap: 0.4rem;
   // hand the button back its pale wash exactly when it is being pointed at.
   &:hover {
     background: theme.$dialog-bg;
+  }
+}
+
+// ── The side choice, and the dark side ──────────────────────────────────────────────────────
+// Both halves are compiled only where the choice exists (see vite.config.ts): the toggle's own
+// three classes, which have no light-or-dark about them, and then the dark theme's answers to
+// this screen.
+@if $has-side-choice {
+  // Which unicorn is yours, under level 1 — see createSideChoice in the component. It is the
+  // ladder's *first* child, the ladder being laid out column-reverse.
+  //
+  // `flex: none` or the row would take a rung's worth of the screen: every stripe is `flex: 1`,
+  // and a bare flex item in among them is sized by the same distribution.
+  .sideChoice {
+    flex: none;
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+  }
+
+  // The dark unicorn, drawn exactly as the board draws it: black body, and the mane put back to
+  // its own violet by a half-turn of the hue wheel. **Keep this in step with `.dark.character`
+  // in game-map.module.scss** — the two say the same thing about the same creature, and they are
+  // restated rather than shared because that one is another file's CSS-module class.
+  .inverted {
+    filter: invert(1) hue-rotate(180deg);
+  }
+
+  // The one that is yours, ringed in exactly what a picked stripe wears: this screen already
+  // says "this one of several" that way, and it says it about the same kind of choice.
+  .pickedSide {
+    outline: 2px solid theme.$text-primary;
+  }
+
+  :global(body.#{names.$DARK}) {
+    .pickedSide {
+      outline-color: theme.$night-text-primary;
+    }
+
+    .stripe {
+      // The rungs stay bright in both themes — they are the game's mark, and a dark rainbow is
+      // not one — so the label on a rung keeps the pale theme's dark plum rather than following
+      // the page into near-white. See the third note in theme.scss's night- block.
+      color: theme.$text-primary-light;
+      border-color: theme.$night-shade-05;
+      // Restated whole, because only the veil layer changes and a background is one property.
+      // **Keep it in step with the light rule above** — the vertical hsl() pair is the same, and
+      // it has to stay in the legacy comma syntax for the same reason it does there.
+      background:
+        linear-gradient(90deg, transparent var(--p), theme.$night-stripe-veil var(--p)),
+        linear-gradient(
+          180deg,
+          hsl(var(--h), var(--s), $stripe-lightness),
+          hsl(var(--h2), var(--s), $stripe-lightness - $stripe-lightness-drop)
+        );
+    }
+
+    .stripe.picked {
+      outline-color: theme.$night-text-primary;
+    }
+
+    // Still "solid enough to sit over anything", which on this page is a dark surface.
+    .play,
+    .play:hover {
+      background: theme.$night-dialog-bg;
+    }
   }
 }

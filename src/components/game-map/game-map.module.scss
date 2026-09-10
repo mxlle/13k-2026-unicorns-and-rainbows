@@ -815,6 +815,206 @@ $win-hop-height: 2rem;
   }
 }
 
+// ── The dark side ───────────────────────────────────────────────────────────────────────────
+// The board's half of the dark theme (see the night- block in theme.scss for what each of these
+// is and why). Compiled only where the side choice exists, so the competition build has none of
+// it. Two rules about editing this block:
+//
+// - **Keep the order.** Every selector here is one class more specific than the rule it
+//   overrides, so the relative order of the light rules is preserved only as long as this block
+//   states them in the same order. .free has to beat .target, .hinted has to beat all of them,
+//   and the three hovers have to beat their own resting states — all of that is source order.
+// - It goes *before* the sidePanels block below, which has to stay last in the file.
+@if $has-side-choice {
+  :global(body.#{names.$DARK}) {
+    // ── Whose unicorn is whose ──────────────────────────────────────────────────────────────
+    // Two things say it, and they are independent: **the mane says who, the body says which
+    // theme.** A human's unicorn keeps the violet mane it has always had and the bot's is green,
+    // on both themes; the body is dark for whichever side the player chose to be and white for
+    // the other. Four combinations, and they come out of `invert(1)` plus a half-turn of the hue
+    // wheel because the negative flips the mane as well as the body:
+    //
+    //             pale theme                    dark theme
+    //   player    plain (white / violet)        invert + rotate (dark / violet)
+    //   rival     invert (dark / green)         rotate (white / green)
+    //
+    // Read down the columns and the whole of it is one sentence: **on this theme every unicorn
+    // takes an extra half-turn.** So `.dark` is left alone — the pale theme is exactly what it
+    // always shipped, down to the byte — and the rotation is added here, to every unicorn at
+    // once, which is why nothing in render() has to work out who is who.
+    .character {
+      filter: hue-rotate(180deg);
+    }
+
+    // The player's own, and the see-through newcomer a tub is offering — which is the player's
+    // prospective unicorn and so wears the player's look, even though nothing has set .dark on
+    // it (nobody is standing there yet, so render() has no living thing to read a side off).
+    .character.dark,
+    .character.ghost {
+      filter: invert(1) hue-rotate(180deg);
+    }
+
+    // A site's promise is not a creature. It borrows the living layer to cross-fade into the
+    // building it becomes, so it wears .character without being anybody's unicorn — and a
+    // half-turn would take 🌱 to magenta and ⛲'s water to orange.
+    .becoming > .character {
+      filter: none;
+    }
+
+    .board {
+      background: theme.$night-ground;
+      outline-color: theme.$night-shade-25;
+    }
+
+    // The player's light, a step brighter; the rival's, muted rather than deepened. Which side
+    // wears which does *not* follow the choice — see the beam's own class in the component.
+    .beam {
+      &.water {
+        --c: #{theme.$night-water};
+      }
+
+      &.candy {
+        --c: #{theme.$night-candy};
+      }
+
+      &.unlit {
+        --c: #{theme.$night-light};
+      }
+
+      &.dark {
+        &.water {
+          --c: #{theme.$night-water-muted};
+        }
+
+        &.candy {
+          --c: #{theme.$night-candy-muted};
+        }
+
+        &.unlit {
+          --c: #{theme.$night-light-muted};
+        }
+      }
+    }
+
+    .lastTurn {
+      color: theme.$night-warning;
+    }
+
+    .status {
+      background: theme.$night-glass-3;
+    }
+
+    .info {
+      background: theme.$night-glass-2;
+      color: theme.$night-text-secondary;
+    }
+
+    .current,
+    .infoName {
+      color: theme.$night-text-primary;
+    }
+
+    .tile {
+      border-right-color: theme.$night-grid;
+      border-bottom-color: theme.$night-grid;
+      background: theme.$night-tile-fog;
+
+      &.revealed {
+        background: theme.$night-tile-clear-alpha;
+      }
+
+      &.glowing {
+        text-shadow: 0 0 0.3em theme.$night-light;
+      }
+
+      &.selected {
+        background: rgba(theme.$night-main, 0.3);
+        box-shadow: inset 0 0 0 2px theme.$night-main;
+
+        &.neutral {
+          background: theme.$night-shade-25;
+          box-shadow: inset 0 0 0 2px theme.$night-text-tertiary;
+        }
+      }
+
+      &.acting {
+        box-shadow: inset 0 0 0 2px theme.$night-text-secondary;
+      }
+
+      &.target {
+        background: rgba(theme.$night-main, 0.16);
+        box-shadow: inset 0 0 0 2px rgba(theme.$night-main, 0.5);
+      }
+
+      &::after {
+        color: var(--r, #{theme.$night-text-tertiary});
+      }
+
+      &.priced::after {
+        background: theme.$night-glass-4;
+      }
+
+      // Both washes are opened up a little on the dark page. An alpha over near-white keeps most
+      // of its own colour; the same alpha over near-black keeps most of the *ground's*, so the
+      // pale theme's numbers come out as two barely-tinted tiles here — and "this step is free"
+      // is the one reading on the board that has to be instant.
+      &.free {
+        background: rgba(theme.$success-wash, 0.3);
+        box-shadow: inset 0 0 0 2px rgba(theme.$success-wash, 0.7);
+      }
+
+      &.build {
+        background: rgba(theme.$night-build, 0.26);
+        box-shadow: inset 0 0 0 2px rgba(theme.$night-build, 0.7);
+      }
+
+      &.hinted {
+        box-shadow: inset 0 0 0 3px theme.$night-light;
+      }
+
+      > span {
+        &.earning {
+          filter: drop-shadow(0 0 0.3em theme.$night-candy);
+        }
+      }
+    }
+  }
+
+  // The won board's outline and the won panel's tint. **Not** nested in the block above, and
+  // that is not a style choice: the WON class goes on <body> (see index.ts), so the light rules
+  // reach it as an ancestor — `:global(.WON) &` — and nesting that inside a `body.DARK` block
+  // asks for a `.WON` above <body>, which is nowhere. Both classes land on the same element, so
+  // the selector has to say so.
+  :global(body.#{names.$DARK}.#{names.$WON}) {
+    .board {
+      outline-color: theme.$night-success;
+    }
+
+    // The same two-layer trick over the dark glass: a won panel is still a frosted panel that has
+    // gone green. A touch stronger than the pale theme's 0.2 — a wash has less to separate itself
+    // from over a dark surface.
+    .info {
+      background: linear-gradient(rgba(theme.$success-wash, 0.28), rgba(theme.$success-wash, 0.28)), theme.$night-glass-2;
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    :global(body.#{names.$DARK}) {
+      .tile.target:hover {
+        background: rgba(theme.$night-main, 0.36);
+      }
+
+      .tile.free:hover {
+        background: rgba(theme.$success-wash, 0.48);
+      }
+
+      .tile.build:hover {
+        background: rgba(theme.$night-build, 0.44);
+      }
+    }
+  }
+}
+
 // Once anything can sit beside the board, the panels leave the space under it and take a
 // column of their own. Three things come of that: the map row gets the full window height
 // back, which is what the biggest board wants on a laptop *and* what a short landscape window

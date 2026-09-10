@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { createHtmlPlugin } from "vite-plugin-html";
 import replace from "@rollup/plugin-replace";
 import { visualizer } from "rollup-plugin-visualizer";
@@ -32,6 +32,12 @@ export default defineConfig(({ mode, command }) => {
   // The headless bot harness (`npm run bot`), which is an --ssr build of a node entry rather
   // than a build of the game. It only wants a predictable output name and no treemap.
   const bot = mode === "bot";
+  // The side choice (and the dark theme that comes with it) — see HAS_SIDE_CHOICE in
+  // src/env-utils.ts. Read here as well as in game code because the *stylesheets* need it too,
+  // and this is the one place that can tell them: see the scss block below.
+  // "." rather than process.cwd(): node's globals are not in this project's types, and loadEnv
+  // resolves a relative envDir against the working directory anyway.
+  const sideChoice = loadEnv(mode, ".", "SIDE_CHOICE_ENABLED").SIDE_CHOICE_ENABLED === "true";
   const analyze = !bot;
   const analyzeOutputJson = false;
 
@@ -41,7 +47,7 @@ export default defineConfig(({ mode, command }) => {
     base: "",
     // "LANG_" exposes every LANG_<code>_ENABLED language toggle without needing
     // a new prefix entry per language.
-    envPrefix: ["LANG_", "POKI_ENABLED", "IS_JS13K"],
+    envPrefix: ["LANG_", "POKI_ENABLED", "IS_JS13K", "SIDE_CHOICE_ENABLED"],
     build: {
       minify: production ? "terser" : false,
       cssMinify: production ? "lightningcss" : false,
@@ -81,6 +87,27 @@ export default defineConfig(({ mode, command }) => {
       modulePreload: { polyfill: false },
     },
     css: {
+      preprocessorOptions: {
+        scss: {
+          // SCSS cannot see the build mode, and the dark theme has to be able to leave the
+          // competition build *entirely*. A stylesheet is not tree-shaken — a `body.dark` rule
+          // ships whether or not any code can still set the class — so the whole of the dark
+          // palette sits behind `@if $has-side-choice`, which is resolved while the SCSS is
+          // compiled. With the flag off, js13k's CSS does not contain a byte of it.
+          //
+          // Injected after the leading `@use` block rather than prepended: dart-sass rejects a
+          // declaration written before a `@use` rule. Every stylesheet in src keeps its `@use`
+          // lines in its header and nothing else says `@use` further down, which is what makes
+          // finding the last one enough.
+          additionalData: (source: string) => {
+            const lastUse = source.lastIndexOf("@use ");
+            const newline = source.indexOf("\n", lastUse);
+            const at = lastUse < 0 ? 0 : newline < 0 ? source.length : newline + 1;
+
+            return source.slice(0, at) + `$has-side-choice: ${sideChoice};\n` + source.slice(at);
+          },
+        },
+      },
       modules: {
         localsConvention: "camelCaseOnly",
         generateScopedName: production ? getCssIdentifier : "[name]__[local]",

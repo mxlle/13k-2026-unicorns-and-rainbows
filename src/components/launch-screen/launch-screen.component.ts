@@ -5,8 +5,10 @@ import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../..
 import { MAP_SIZES } from "../../game/game-map";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
-import { GAME_EMOJI, HAS_GAMEPLAY_NICE_TO_HAVES } from "../../env-utils";
+import { GAME_EMOJI, HAS_GAMEPLAY_NICE_TO_HAVES, HAS_SIDE_CHOICE } from "../../env-utils";
 import { getBestScore, getPercent } from "../../game/levels";
+import { chooseDarkSide, darkSide } from "../../utils/dark-side";
+import { PLAYER } from "../../game/game-objects";
 
 const MAP_EMOJI = "🗺️"; // labels the board a stripe plays on
 const DICE_EMOJI = "🎲"; // the other board: this level's size, dealt fresh (see createDiceButton)
@@ -151,6 +153,54 @@ export function LaunchScreenComponent(
 
   const diceButton = HAS_GAMEPLAY_NICE_TO_HAVES ? createDiceButton() : undefined;
 
+  /**
+   * Which unicorn is yours: the bright one or the dark one. Two buttons rather than one that
+   * flips, because the thing being chosen *is* the two glyphs — a toggle would only ever show
+   * one of them and the player would have to press it to find out what the other was.
+   *
+   * The picked one is ringed in the same outline a picked stripe wears, which is the screen's
+   * own way of saying "this one of several". Both are the same 🦄; the dark one is that glyph
+   * inverted, exactly as the board draws the other side (see .dark in the map's stylesheet) —
+   * so what the buttons show is literally what will be on the board.
+   *
+   * PLACEHOLDER: no label. The pair of glyphs and the ring are the whole of it, which keeps the
+   * feature out of the translations — a string would cost the competition build bytes for a
+   * feature the competition build does not have (every language map ships whole).
+   *
+   * Under level 1 on the screen, which is *before* it in the DOM: the ladder is laid out
+   * column-reverse so that the game's own order — easiest first — reads bottom to top. So this
+   * is prepended rather than appended.
+   *
+   * Built by a function for the same reason createDiceButton is: with the flag folded to false
+   * it is an uncalled declaration and goes out with the tree-shaking.
+   */
+  function createSideChoice(): HTMLElement {
+    // The glyph is in a span of its own so that the inversion lands on it alone. On the board
+    // the negative is only ever put on a glyph, never on the surface under one — put on the
+    // button it inverted the button's own frosted face as well, which came out as a black pill
+    // on the pale theme and a white one on the dark, neither of which is a button of this game.
+    const buttons = [false, true].map((dark) =>
+      createButton(
+        {
+          cssClass: [CssClass.ICON_BTN, CssClass.EMOJI],
+          onClick: () => {
+            chooseDarkSide(dark);
+            updateSideChoice();
+          },
+        },
+        [createElement({ tag: "span", cssClass: dark ? styles.inverted : "", text: GAME_EMOJI })],
+      ),
+    );
+
+    function updateSideChoice() {
+      buttons.forEach((button, index) => button.classList.toggle(styles.pickedSide, index === (darkSide === PLAYER ? 1 : 0)));
+    }
+
+    updateSideChoice();
+
+    return createElement({ cssClass: styles.sideChoice }, buttons);
+  }
+
   // Both offers in one box, moved into the picked stripe together. A wrapper rather than two
   // loose buttons because it is the pick that moves them: appending one element puts both into
   // the new stripe and takes both out of the old one, an element being in one place at a time.
@@ -227,6 +277,8 @@ export function LaunchScreenComponent(
       return stripe;
     }),
   );
+
+  if (HAS_SIDE_CHOICE) host.prepend(createSideChoice());
 
   /**
    * Starts the picked run. The screen steps up a rung as it goes, so it is already offering

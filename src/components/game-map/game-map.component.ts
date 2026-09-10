@@ -2,7 +2,7 @@ import styles from "./game-map.module.scss";
 import { createButton, createElement, createElements } from "../../utils/html-utils";
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
-import { HAS_COUNTER_POPS, HAS_DEV_TOOLS, HAS_GAMEPLAY_NICE_TO_HAVES, HAS_OPPONENT } from "../../env-utils";
+import { HAS_COUNTER_POPS, HAS_DEV_TOOLS, HAS_GAMEPLAY_NICE_TO_HAVES, HAS_OPPONENT, HAS_SIDE_CHOICE } from "../../env-utils";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
@@ -55,7 +55,18 @@ import {
   TURN_LIMIT,
   updateRainbows,
 } from "../../game/game-map";
-import { ChestLoot, GameObjectType, OBJECT_CONFIG, PLAYER, RIVAL, SIDE_BATHTUB, SIDE_UNICORN } from "../../game/game-objects";
+import {
+  ChestLoot,
+  GameObjectType,
+  getSide,
+  followsSideChoice,
+  OBJECT_CONFIG,
+  PLAYER,
+  RIVAL,
+  SIDE_BATHTUB,
+  SIDE_UNICORN,
+} from "../../game/game-objects";
+import { darkSide } from "../../utils/dark-side";
 import { getPercent, LEVEL_SEEDS, LEVEL_TARGETS, setBestScore } from "../../game/levels";
 import { playSoundEffect } from "../../audio/sound-control/sound-control-box";
 import { SoundEffect } from "../../audio/sound-control/sound-effect";
@@ -467,10 +478,25 @@ export function GameMapComponent(
   // HAS_OPPONENT folds to false the whole thing is an uncalled declaration and goes out with
   // the tree-shaking, where a `const` would still run its createElement in every build.
   const rivalScoreCount = createElement({ tag: "span" });
+  // The two glyphs that stand for the rival away from the board: this counter's face and the
+  // end-turn button's badge below. Both are built once and never rebuilt, so they are the two
+  // things that have to be told when the side choice moves — which render() does, because the
+  // choice can only be made on the launch screen and so only ever between runs. Collected only
+  // where there is a choice; with the flag off nothing fills this and nothing reads it, and it
+  // goes out with the rest.
+  const rivalGlyphs: HTMLElement[] = [];
 
   function createRivalScore(): HTMLElement {
     const display = counter(OBJECT_CONFIG[GameObjectType.DARK_UNICORN].emoji, rivalScoreCount);
-    (display.firstChild as HTMLElement).classList.add(styles.dark);
+    const glyph = display.firstChild as HTMLElement;
+    glyph.classList.add(styles.dark);
+    if (HAS_SIDE_CHOICE) {
+      // Marked as a unicorn so the dark theme can turn its mane with the rest of them (see
+      // .character there). Only that theme reads it, so only that build has to carry it — and it
+      // buys no size out here, the `--g` ramp being written as `.tile > span.character`.
+      glyph.classList.add(styles.character);
+      rivalGlyphs.push(glyph);
+    }
 
     return display;
   }
@@ -482,11 +508,17 @@ export function GameMapComponent(
   // "the rival" by, and built through a function for the same reason createRivalScore is: with
   // HAS_OPPONENT folded away this is an uncalled declaration and goes out with the tree-shaking.
   function createRivalGlyph(): HTMLElement {
-    return createElement({
+    const glyph = createElement({
       tag: "span",
       cssClass: [CssClass.EMOJI, styles.dark],
       text: OBJECT_CONFIG[GameObjectType.DARK_UNICORN].emoji,
     });
+    if (HAS_SIDE_CHOICE) {
+      glyph.classList.add(styles.character); // as above: the dark theme's business, and only its
+      rivalGlyphs.push(glyph);
+    }
+
+    return glyph;
   }
 
   const rivalTurnGlyph = HAS_OPPONENT ? createRivalGlyph() : undefined;
@@ -1061,6 +1093,10 @@ export function GameMapComponent(
       rivalScoreDisplay.classList.toggle(CssClass.HIDDEN, !HAS_RIVAL);
       if (HAS_RIVAL) rivalScoreCount.textContent = `${getScore(map, RIVAL)}`;
     }
+    // Both of the rival's stand-ins wear the negative only while the *rival* is the dark one.
+    // Set here rather than where they are built because they are built once and the choice can
+    // move between runs; a run cannot start without a render, so this cannot be missed.
+    if (HAS_SIDE_CHOICE) rivalGlyphs.forEach((glyph) => glyph.classList.toggle(styles.dark, darkSide === RIVAL));
     // While the run is on, the working is the player's to open and close. Once it is over
     // the panel belongs to the result and endGame has already filled it — hence the guard.
     if (isRunning) renderScoreBoard(showsScore);
@@ -1128,6 +1164,9 @@ export function GameMapComponent(
               // three states, and they are the three things light can be doing: turning into
               // sweets, turning into water, or having died in the fountain on the way
               isCandy ? styles.candy : isLit ? styles.water : styles.unlit,
+              // Pinned to the rival rather than to whichever side is drawn dark, and that is
+              // deliberate: the muted triplet is what says "not mine", and the player's own
+              // light should stay the vivid one whichever unicorn they took. See dark-side.ts.
               HAS_OPPONENT && side === RIVAL ? styles.dark : "",
             ],
           });
@@ -1163,6 +1202,7 @@ export function GameMapComponent(
   function setInfo(key: TranslationKey, emoji: string) {
     const [name, description] = getTranslation(key).split("|");
     if (HAS_OPPONENT) infoEmoji.classList.remove(styles.dark); // the caller puts it back if what it names is the rival's
+    if (HAS_SIDE_CHOICE) infoEmoji.classList.remove(styles.character);
     infoEmoji.textContent = emoji;
     infoName.textContent = name; // empty for the hint, which has no name
     infoText.textContent = description;
@@ -1222,6 +1262,9 @@ export function GameMapComponent(
       // The panel names the opponent's things with the opponent's own glyph, so what is being
       // explained is the thing that was tapped rather than the player's version of it.
       if (HAS_OPPONENT) infoEmoji.classList.toggle(styles.dark, isDark(objectType));
+      // Marked as a unicorn so that on the dark theme the glyph explaining one is drawn the way
+      // the board draws it, mane and all. Either side's — both are unicorns.
+      if (HAS_SIDE_CHOICE && SIDE_UNICORN.includes(objectType)) infoEmoji.classList.add(styles.character);
       // The tub's second job is selling unicorns, and it is paid for in candy — which the
       // tutorial board has no trees to make. There it is not on offer, so it is not described
       // either: the tub is introduced as the thing that pays for the walking, and nothing else.
@@ -1263,9 +1306,27 @@ export function GameMapComponent(
     else setInfo(TranslationKey.INFO_FOG, FOG_EMOJI);
   }
 
-  /** Whether a thing on the board belongs to the opponent — the one question the drawing asks. */
+  /** Whether the rival is the side being drawn dark, which it is unless the player took it. */
+  const isRivalDark = () => !HAS_SIDE_CHOICE || darkSide === RIVAL;
+
+  /**
+   * Whether a thing on the board is drawn as the dark side's — the one question the drawing
+   * asks, and it is about presentation rather than ownership. Which side wears the negative is
+   * the player's choice (see darkSide), and the model knows nothing about it either way.
+   *
+   * Only the unicorn and the tub follow that choice; everything else — the rainbow included —
+   * falls through to the constant comparison, which is also what keeps the neutral half of the
+   * board out of it. See followsSideChoice for why the rainbow is the odd one out.
+   *
+   * With HAS_SIDE_CHOICE folded to false the whole ternary folds with it, back to exactly the
+   * expression this was before there was anything to choose.
+   */
   function isDark(objectType: GameObjectType | undefined): boolean {
-    return HAS_OPPONENT && objectType !== undefined && objectType >= GameObjectType.DARK_UNICORN;
+    return (
+      HAS_OPPONENT &&
+      objectType !== undefined &&
+      (HAS_SIDE_CHOICE && followsSideChoice(objectType) ? getSide(objectType) === darkSide : objectType >= GameObjectType.DARK_UNICORN)
+    );
   }
 
   /** Opens the score's working, or closes it again and hands the panel back to the selection. */
@@ -1284,8 +1345,27 @@ export function GameMapComponent(
    * the digits beside it must not be rendered in the emoji font.
    */
   function renderScoreBoard(show: boolean) {
-    const line = (emoji: string, text: string, dark = false) =>
-      createElement({}, [createElement({ tag: "span", cssClass: [CssClass.EMOJI, dark ? styles.dark : ""], text: emoji }), text]);
+    // `unicorn` marks the one row whose glyph is a creature rather than a symbol — the rival's
+    // total — so it is drawn as the board draws it, whichever side is the dark one.
+    //
+    // Two whole alternatives rather than one expression with the flag inside it — the trick the
+    // translation maps use, and for the same reason: the competition build folds to the second
+    // and comes out byte for byte the expression this always was. Here the repetition earns more
+    // than tidiness. **Two nested conditionals inside this one argument measured 550 packed
+    // bytes** (2026-09-10), by putting terser off some inlining it does across renderScoreBoard's
+    // six calls. Not a thing to reason about, only to measure — so if this is ever rewritten as
+    // one clever expression, measure it again.
+    const line = (emoji: string, text: string, unicorn = false) =>
+      createElement({}, [
+        createElement({
+          tag: "span",
+          cssClass: HAS_SIDE_CHOICE
+            ? [CssClass.EMOJI, unicorn ? styles.character : "", unicorn && isRivalDark() ? styles.dark : ""]
+            : [CssClass.EMOJI, unicorn ? styles.dark : ""],
+          text: emoji,
+        }),
+        text,
+      ]);
     // The share of the board that is out from under the clouds, which is also — exactly, not
     // as an approximation — what one rainbow and one unicorn are each worth. It heads the
     // list rather than closing it, because the rows below multiply by it: the panel now reads

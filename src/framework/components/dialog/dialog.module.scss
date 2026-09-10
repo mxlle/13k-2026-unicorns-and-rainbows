@@ -39,3 +39,10 @@
   padding: 1rem;
   padding-bottom: 2rem;
 }
+
+@if $has-side-choice {
+  :global(body.#{$DARK}) .dialog {
+    background: theme.$night-dialog-bg;
+    color: theme.$night-text-primary;
+  }
+}

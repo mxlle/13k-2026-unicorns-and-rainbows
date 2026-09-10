@@ -218,6 +218,110 @@ $tile-clear-light-alpha: rgba($tile-clear-light, 0.1);
 $tile-fog-light: #dec2f4;
 $tile-fog-light-alpha: rgba($tile-fog-light, 1);
 
+// ── The dark side's palette ─────────────────────────────────────────────────────────────────
+// A second theme, reached only by the player choosing the dark unicorn (see HAS_SIDE_CHOICE in
+// env-utils.ts), and it exists only where `$has-side-choice` is true: every rule that reads one
+// of these sits inside an `@if` at the foot of a stylesheet, so the competition build compiles
+// none of them and carries none of their bytes. The flag is injected by vite.config.ts.
+//
+// Named `night-` rather than `-dark`, because `-dark` is taken and means something else entirely
+// in this file: $water-color-dark and its two neighbours are the *rival's* light on the pale
+// page. Nothing here is a variant of those.
+//
+// The whole set is PLACEHOLDER. Three things about it are decisions rather than taste, and are
+// worth keeping if the colours are retuned:
+//
+// 1. **The chrome stays white, and gets much thinner.** The glass scale on the pale page is
+//    45–85% white, which is what it takes for white to separate from a near-white page. Over a
+//    near-black one the same wash is a white panel, so the steps drop back to roughly what the
+//    old dark theme used (5/10/15/25). The base does not change: a white wash over a dark plum
+//    frosts it, which is the same look the pale theme is after from the other side. The other
+//    scale flips outright — $shade-alpha-* is black on the pale page, for the surfaces defined
+//    by being *darker* than what they sit on, and on a dark page no black wash can do that job.
+// 2. **The board is still built the other way up from the page.** On the pale theme explored
+//    ground is the brightest thing on screen and the fog is the one saturated field. Here the
+//    fog is the *lighter* of the two — a cloud on a night page is the thing that is there, and
+//    the ground under it is the void being mapped. Either way a run reads as a board *clearing*
+//    rather than filling in, which is what the exploration multiplier wants it to.
+// 3. **The ladder keeps its own ink.** The launch screen's stripes are bright hsl() bands in
+//    both themes — they are the game's mark and there is no reason for them to go dark — so the
+//    label on one keeps the pale theme's dark plum rather than following the page. Anything
+//    drawn on a loud light fill has to say so; see the highlight button, which has the same
+//    problem and the same answer.
+$night-page-top: #150d16;
+$night-page-bottom: #2b1522;
+$night-text-primary: #f7ecf4;
+$night-text-secondary: #cfbdca;
+$night-text-tertiary: #9b8794;
+$night-glass-1: rgba($alpha-base-light, 0.05);
+$night-glass-2: rgba($alpha-base-light, 0.1);
+$night-glass-3: rgba($alpha-base-light, 0.15);
+$night-glass-4: rgba($alpha-base-light, 0.25);
+$night-shade-05: rgba($alpha-base-light, 0.08);
+$night-shade-25: rgba($alpha-base-light, 0.22);
+$night-dialog-bg: rgba(26, 16, 28, 0.96);
+// The lattice, and it flips with the chrome: a near-black hairline on a near-white board becomes
+// a near-white one on a near-black board. Kept pink rather than neutral for the same reason the
+// pale theme's is — a grey grid on a plum board is the one thing here that would read as a
+// spreadsheet.
+$night-grid: rgba(255, 214, 240, 0.12);
+// The board's substrate and its two tile states. The ground is a step lighter than the page, so
+// the board is an object on it rather than a hole in it; the clearing is a thin white wash over
+// that, thin for the same reason as on the pale theme — beams are drawn *under* the tiles and
+// this is what they are read through.
+$night-ground: #241528;
+// Explored ground, and it is *not* the near-nothing the pale theme's is (0.1 there, and this
+// started at 0.06). On cream, a clearing needs almost no wash to read, because the ground under
+// it is already the brightest thing on the screen. On a dark page the ground has to be lifted to
+// be read as cleared at all, so this is a proper dark grey — #645968 over the ground.
+//
+// The trade it makes is the one $tile-clear-light's own note describes from the other side:
+// beams are drawn *under* the tiles, so a tile passes (1 − alpha) of a beam through. At 0.3 that
+// is seventy per cent rather than the ninety-four the old 0.06 passed, so beams read calmer here
+// than on the pale theme. **This is the dial for that**: if the light ever needs more punch, take
+// it out of this before touching the beam colours.
+$night-tile-clear-alpha: rgba($tile-clear-light, 0.3);
+// Opaque, and that is the same rule about the game it is on the pale theme: fog hides, and a
+// translucent cloud hands the player a beam's worth of information about ground they have not
+// found. See $tile-fog-light.
+$night-tile-fog: #3b2b52;
+// The game's pink, lightened until it is ink again: #c81a7a is tuned to be read on cream and is
+// very nearly invisible on a plum page. This is the title's ink, the selection ring and the
+// selection's wash. The primary *button* does not use it — a filled button keeps the deep pink
+// with pale ink on it, which works on either page.
+$night-main: #ff6ab5;
+// The semantic four, all of them brightened, all for the same reason: every one of them is
+// tuned deep because its job on the pale theme is to be ink or a hairline on near-white.
+$night-success: #3ddd8b;
+$night-warning: #ffb43a;
+$night-build: #a97cff;
+$night-light: #ffc84a;
+// The player's light. Only a step brighter than the pale theme's — a beam is composited against
+// the ground rather than read as ink, so these were already nearly right.
+$night-water: #4fb3ff;
+$night-candy: #ff7a45;
+// The rival's light, and the one place the dark theme cannot take the pale theme's answer at
+// all. On cream the rival's three beams are *deeper* than the player's, which separates them on
+// brightness alone. On a near-black board there is no room below the ground left to be darker
+// in — a deep navy beam over a dark plum board is not a beam, it is nothing. So the distinction
+// moves to the lever $water-color-dark's own note names as the alternative: **saturation**.
+// These are the same three hues taken most of the way to grey, at a step above the ground's
+// brightness, so the rival's light still reads as light and still reads as not the player's.
+$night-water-muted: #5d7492;
+$night-candy-muted: #8f6a5c;
+$night-light-muted: #74684a;
+// The veil over the unearned end of a ladder stripe, which on the pale theme washes it towards
+// white. Towards the page instead, for the plain reason that a stripe is *lighter* than the page
+// here and washing it towards white would make an unplayed rung the loudest thing on the screen.
+//
+// Much weaker than the pale theme's 0.45, and that is forced rather than chosen: washing a
+// saturated colour towards white keeps its hue, and washing the same colour towards near-black
+// does not — it goes grey, then brown. At 0.55 every unplayed rung came out mud and the ladder
+// stopped being a rainbow, which matters more here than anywhere because **an unplayed rung is
+// what a new player sees**: on a first visit every stripe on the screen is in this state. Tuned
+// against that screen rather than against a full one.
+$night-stripe-veil: rgba(21, 13, 22, 0.3);
+
 // theme sass variables
 $text-primary: $text-primary-light;
 $text-secondary: $text-secondary-light;

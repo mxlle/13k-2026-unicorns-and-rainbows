@@ -1,4 +1,5 @@
 @use "../../../theme";
+@use "../../../names";
 
 .host {
   position: relative; // an end element may take itself out of the flow and centre on this
@@ -60,5 +61,13 @@
   // levels down otherwise — inside this box, which would wrap nothing but its own contents.
   .endElements {
     display: contents;
+  }
+}
+
+// The title's ink. The game's pink is tuned to be read on cream and is very nearly invisible on
+// a plum page, so the dark theme has a lightened one — see $night-main.
+@if $has-side-choice {
+  :global(body.#{names.$DARK}) .title {
+    color: theme.$night-main;
   }
 }

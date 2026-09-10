@@ -5,7 +5,8 @@ import { CssClass } from "./utils/css-class";
 import { sleep } from "./utils/promise-utils";
 import { initAudio } from "./audio/music-control";
 import { getLocalStorageItem, LocalStorageKey } from "./utils/local-storage";
-import { GAME_TITLE, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
+import { GAME_TITLE, HAS_SIDE_CHOICE, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
+import { initDarkSide } from "./utils/dark-side";
 import { initSoundEffects, playSoundEffect } from "./audio/sound-control/sound-control-box";
 import { SoundEffect } from "./audio/sound-control/sound-effect";
 import { HeaderComponent } from "./framework/components/header/header.component";
@@ -16,6 +17,11 @@ import { LaunchScreenComponent } from "./components/launch-screen/launch-screen.
 if (HAS_VISUAL_NICE_TO_HAVES) {
   import("./globals.nice2have.scss");
 }
+
+// Before anything is built, so the page is already in the right palette when it is first
+// painted rather than flipping into it. The script tag is the last thing in <body>, so there
+// is a body to put the class on.
+if (HAS_SIDE_CHOICE) initDarkSide();
 
 const initializeMuted = getLocalStorageItem(LocalStorageKey.MUSIC_MUTED) === "true";
 

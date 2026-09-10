@@ -42,6 +42,30 @@ export function getSide(objectType: GameObjectType): Side {
   return objectType >= GameObjectType.DARK_UNICORN ? RIVAL : PLAYER;
 }
 
+/**
+ * Whether a thing's *look* follows the player's choice of side — which two of the three doubled
+ * things do, and the third does not.
+ *
+ * The unicorn and the tub are what a side *is*: the creature and the corner it comes from, and
+ * swapping those two over is the whole of what taking the dark side means on the board. A
+ * rainbow is not either of those — it is light, and light stays pinned to the rival whichever
+ * unicorn the player took, exactly as the beams are and for the same reason: "the vivid ones
+ * are mine" is worth more than the tidiness of a dark unicorn casting dark light.
+ *
+ * Scenery is deliberately absent and needs no mention: everything that falls through to the
+ * other branch is tested for being one of the dark three instead, which a fountain, a donut or
+ * a build site never is. That is what keeps the negative off the neutral half of the board —
+ * getSide() calls all of it the player's, which is right for the rules and wrong for the paint.
+ */
+export function followsSideChoice(objectType: GameObjectType): boolean {
+  return (
+    objectType === GameObjectType.UNICORN ||
+    objectType === GameObjectType.BATHTUB ||
+    objectType === GameObjectType.DARK_UNICORN ||
+    objectType === GameObjectType.DARK_BATHTUB
+  );
+}
+
 // The three doubled things, indexed by side: "a unicorn of this side", "a rainbow of this
 // side", "a bathtub of this side". Everything that used to name one of them by its type now
 // looks it up here instead, which is what keeps the two sides one piece of code.

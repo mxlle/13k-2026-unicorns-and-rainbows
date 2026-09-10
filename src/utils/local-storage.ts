@@ -17,6 +17,7 @@ export const LocalStorageKey = defineEnum({
   // became the custard springboard (see getMoveCost), which changed what a drop buys everywhere.
   SCORES: "l1",
   SIZE: "s1", // the board the launch screen is offering next — one rung above the last one played
+  DARK_SIDE: "d", // "1" while the player is playing the dark unicorn (see dark-side.ts)
 });
 
 // Every access is guarded because the storage getter itself can throw rather than return null:

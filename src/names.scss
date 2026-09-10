@@ -9,3 +9,8 @@ $EMOJI: "global__emoji";
 $HINT: "global__hint";
 $EMPHASIS: "global__emphasis";
 $DIMMED: "global__dimmed";
+// Not in css-class.ts, unlike every other name here: it is the dark theme's switch, it only
+// exists in builds with no byte budget, and keeping it out of that enum keeps the minifier's
+// identifier sequence — and so the competition build's size — exactly where it was. The one
+// thing to keep in sync is DARK_CLASS in src/utils/dark-side.ts.
+$DARK: "global__dark";

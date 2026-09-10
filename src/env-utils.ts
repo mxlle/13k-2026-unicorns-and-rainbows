@@ -42,6 +42,17 @@ export const HAS_BOT_LOGS = IS_DEV || import.meta.env.MODE === "bot";
 // worth switching off again if the last kilobyte ever has to come from somewhere.
 export const HAS_OPPONENT = true;
 export const HAS_SIMPLE_SOUND_EFFECTS = true;
+// Letting the player pick which unicorn is theirs — the bright one or the dark one — and the
+// dark theme that comes with the dark one. Presentation only: whichever is picked, the player
+// plays the same side from the same corner with the same economy, and only which of the two is
+// drawn inverted changes (see src/utils/dark-side.ts). Off in the competition build, where the
+// last kilobyte is spoken for; the friends-&-family and poki builds get it.
+//
+// It is the one flag the *stylesheets* read as well, because the dark theme is a second palette
+// and a stylesheet cannot be tree-shaken. See the scss block in vite.config.ts, which hands the
+// same env var to SCSS as `$has-side-choice`. **The two must agree**: the class this switches on
+// is only styled where that variable is true.
+export const HAS_SIDE_CHOICE = import.meta.env.SIDE_CHOICE_ENABLED === "true";
 
 // Runtime {0}/{1} placeholder substitution in translations. Off, because no string in any
 // language uses one — the numbers the interface shows are appended by the component, not

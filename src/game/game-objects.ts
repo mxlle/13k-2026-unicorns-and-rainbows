@@ -153,8 +153,11 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
   // tile at the moment a building appears on it.
   // They also own the ground layer, so no rainbow can land on one until it is built.
   // Emoji 1.0 or older only (2026-09-10): the bucket and the rock they replaced are Emoji 13.0,
-  // which Windows 10 never got, so both showed as empty squares there. The hole is text-default
-  // and carries the U+FE0F variation selector, or a symbol font may draw it monochrome.
+  // which Windows 10 never got, so both showed as empty squares there. All three are drawn in
+  // colour by default as well, so none of them needs a U+FE0F selector — the hole that briefly
+  // stood in for the fountain site did, and it was dropped for reading as something to jump into.
+  // Two others were passed over on the way: the shovel is Emoji 16.0, newer than the bucket, and
+  // 🚰 is drawn as a signage plaque rather than as a tap by Microsoft and by older Noto.
   [GameObjectType.TUB_SITE]: {
     emoji: "🚿",
     blocksMove: true,
@@ -162,7 +165,7 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
     info: TranslationKey.INFO_TUB_SITE,
   },
   [GameObjectType.FOUNTAIN_SITE]: {
-    emoji: "🕳️",
+    emoji: "🏺",
     blocksMove: true,
     glows: false,
     info: TranslationKey.INFO_FOUNTAIN_SITE,

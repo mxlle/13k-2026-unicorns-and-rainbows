@@ -90,7 +90,7 @@ export const enTranslations: Record<TranslationKey, string> = {
   // The three build sites. No price in the text: the tile carries it, and it is the tile that
   // would go out of date if the numbers moved.
   [TranslationKey.INFO_TUB_SITE]: "Shower|A unicorn beside it can build a tub.",
-  [TranslationKey.INFO_FOUNTAIN_SITE]: "Hole|A unicorn beside it can raise a fountain.",
+  [TranslationKey.INFO_FOUNTAIN_SITE]: "Empty jug|A unicorn beside it can raise a fountain.",
   [TranslationKey.INFO_TREE_SITE]: "Seedling|A unicorn beside it can grow it into a 🍭 tree.",
   // The opponent. Written flat rather than behind a HAS_OPPONENT ternary — see the note at the
   // top of the file about what a single ternary costs the whole map. What it says is the whole

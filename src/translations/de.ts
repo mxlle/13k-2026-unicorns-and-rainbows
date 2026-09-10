@@ -27,7 +27,7 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_CUSTARD]: "Pudding|Federnd. Jeder Schritt von hier ist gratis.",
     [TranslationKey.INFO_CHEST]: "Geschenk|Betritt es, um es zu öffnen.",
     [TranslationKey.INFO_TUB_SITE]: "Dusche|Ein Einhorn daneben kann eine Wanne bauen.",
-    [TranslationKey.INFO_FOUNTAIN_SITE]: "Loch|Ein Einhorn daneben kann einen Brunnen bauen.",
+    [TranslationKey.INFO_FOUNTAIN_SITE]: "Leerer Krug|Ein Einhorn daneben kann einen Brunnen bauen.",
     [TranslationKey.INFO_TREE_SITE]: "Setzling|Ein Einhorn daneben kann daraus einen 🍭-Baum ziehen.",
     [TranslationKey.INFO_RIVAL]: "Dunkles Einhorn|Dein Rivale. Erreiche die Brunnen vor ihm.",
     [TranslationKey.INFO_DARK_RAINBOW]: "Dunkler Regenbogen|Punktet für deinen Rivalen.",

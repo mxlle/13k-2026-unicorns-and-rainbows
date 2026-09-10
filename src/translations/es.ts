@@ -30,7 +30,7 @@ export function getEsTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_CUSTARD]: "Flan|Rebota. Los pasos desde aquí son gratis.",
     [TranslationKey.INFO_CHEST]: "Regalo|Písalo para abrirlo.",
     [TranslationKey.INFO_TUB_SITE]: "Ducha|Un unicornio al lado puede construir una bañera.",
-    [TranslationKey.INFO_FOUNTAIN_SITE]: "Hoyo|Un unicornio al lado puede construir una fuente.",
+    [TranslationKey.INFO_FOUNTAIN_SITE]: "Cántaro vacío|Un unicornio al lado puede construir una fuente.",
     [TranslationKey.INFO_TREE_SITE]: "Brote|Un unicornio al lado puede convertirlo en un árbol de 🍭.",
     [TranslationKey.INFO_RIVAL]: "Unicornio oscuro|Tu rival. Llega a las fuentes antes que él.",
     [TranslationKey.INFO_DARK_RAINBOW]: "Arcoíris oscuro|Suma puntos para tu rival.",

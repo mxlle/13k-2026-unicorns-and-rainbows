@@ -2,7 +2,7 @@ import styles from "./game-map.module.scss";
 import { createButton, createElement, createElements } from "../../utils/html-utils";
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
-import { HAS_DEV_TOOLS, HAS_GAMEPLAY_NICE_TO_HAVES, HAS_OPPONENT } from "../../env-utils";
+import { HAS_COUNTER_POPS, HAS_DEV_TOOLS, HAS_GAMEPLAY_NICE_TO_HAVES, HAS_OPPONENT } from "../../env-utils";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
@@ -174,7 +174,8 @@ const POP_SCALE = 1.35;
 const SPEND_COLOR = "#c22a4a";
 // The colour a counter takes when what it is worth goes *up* — the income growing, the score
 // climbing. The mirror of SPEND_COLOR, and a literal for the same reason: a keyframe cannot
-// read a stylesheet, so keep it in step with theme.scss's $success-color-light by hand.
+// read a stylesheet, so keep it in step with theme.scss's $success-color-light by hand. Only the
+// pop reads it, so it is out of the competition build with the pop (see HAS_COUNTER_POPS).
 const GAIN_COLOR = "#1d8055";
 // PLACEHOLDER spend-feedback timings. One drop rises off the tile per drop paid, so a portal
 // jump throws two and a free step off a custard throws none — the same "one glyph, one unit"
@@ -1518,8 +1519,12 @@ export function GameMapComponent(
    *
    * Takes the counter rather than an index into the currencies: the score is one of these now,
    * and it is not a currency.
+   *
+   * Not in the competition build (HAS_COUNTER_POPS): the guard folds the body away, and with it
+   * every call — the arguments are pure, so terser drops those too, colours and options included.
    */
   function pop(display: HTMLElement, colour?: string) {
+    if (!HAS_COUNTER_POPS) return;
     // The tint is spread in rather than set to undefined: a keyframe value the browser cannot
     // parse is dropped silently, and "silently" is how the mangled options below went unnoticed.
     display.animate([{ "scale": POP_SCALE, ...(colour && { "color": colour }) }], POP_OPTIONS);

@@ -15,6 +15,12 @@ export const HAS_VISUAL_NICE_TO_HAVES = !IS_JS13K && !IS_POKI_ENABLED;
 // the first thing to be worth its bytes outside the competition build and not in it. The poki
 // build gets it too: that audience plays for as long as there is something to play.
 export const HAS_GAMEPLAY_NICE_TO_HAVES = !IS_JS13K;
+// The counters' reaction to their number changing — the swell-and-settle on the purse, the
+// income and the score (pop() in game-map.component.ts). The flights that carry the money to
+// the counter stay in every build: they are what makes income legible on a big board. The pop
+// on landing is the smaller half of that gesture, and the one the competition build can do
+// without — measured at ~93 packed bytes (2026-09-10). Poki keeps it: no reason not to.
+export const HAS_COUNTER_POPS = !IS_JS13K;
 export const HAS_ADVANCED_DEBUGGING = !IS_JS13K;
 // Tools for looking at the game rather than playing it. Tied to the dev server rather than to
 // !IS_JS13K, so they are absent from the friends-&-family build too — that one is played by

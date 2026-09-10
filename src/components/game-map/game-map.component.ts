@@ -1160,9 +1160,12 @@ export function GameMapComponent(
     // be confused, for all that they wear the same colour — the guard only ever arms while there
     // is something else the player could be doing, which is precisely when this is otherwise
     // plain, and the armed one is the one with the question mark on it.
-    endTurnButton.classList.toggle(CssClass.PRIMARY, (needsIncome || confirmsEndTurn) && !isOver);
+    // The fill is the whole of it: this button stretches across the bar, and the pulse every
+    // other hint in the game wears is a scale — 12% of a tile is a nudge, 12% of a bar is a
+    // lurch. So the four states that used to pulse it say so in colour instead, which is what
+    // three of them were already doing; the bulb's own answer ("just end the turn") joins them.
+    endTurnButton.classList.toggle(CssClass.PRIMARY, (needsIncome || confirmsEndTurn || hintsEndTurn) && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
-    endTurnButton.classList.toggle(CssClass.HINT, needsIncome || isOver || hintsEndTurn || confirmsEndTurn);
     // The hint asks the bot, and the bot answers about a board that is standing still: nothing
     // to advise while the income is flying, the rival is walking or the run is over.
     hintButton.disabled = isLocked() || !isRunning;

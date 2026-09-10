@@ -463,6 +463,12 @@ $board-column-max: calc(100dvh - 5rem);
   margin: 0 0.4em; // the only separator between emoji, name and description
   font-size: 1rem;
   color: theme.$text-primary;
+
+  // Nothing to separate: the lines with no name of their own — the tap hint, the goal — would
+  // otherwise keep the margins and open 0.8em of nothing between the emoji and the sentence.
+  &:empty {
+    display: none;
+  }
 }
 
 .tile {

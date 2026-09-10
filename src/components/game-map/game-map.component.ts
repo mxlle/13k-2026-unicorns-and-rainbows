@@ -1248,15 +1248,25 @@ export function GameMapComponent(
   }
 
   /**
-   * The goal line: the same sentence the open score view heads its working with, in the same
-   * ⭐ the score counter wears, so the rate and the total it feeds are visibly one subject.
+   * The line above the description, in the loud voice: the run's own point while the board is
+   * idle, and the prompt to end a spent turn whatever is being read. Both are things that are
+   * true of the run rather than of the tile, which is what earns them the slot — and setInfo
+   * clears it on its way past, so this is always the last word in showInfo.
    * The emoji is a span of its own — the words beside it must not be rendered in the emoji font.
-   * INFO_GOAL has no name, hence its leading "|"; the description is all of it.
+   * Both halves, drawn the way the panel below draws them: the name in the panel's own big ink
+   * and the description after it. INFO_GOAL is all description (hence its leading "|") and its
+   * name span falls away empty, which is what .infoName:empty is for.
+   *
+   * The loud voice goes on the name, and only falls through to the description when there is no
+   * name to put it on: what a line of this slot is *about* is the half that has to carry, and
+   * for the goal that half is the sentence itself.
    */
-  function showGoal() {
+  function showGoal(key: TranslationKey, emoji: string) {
+    const [name, description] = getTranslation(key).split("|");
     infoGoal.replaceChildren(
-      createElement({ tag: "span", cssClass: CssClass.EMOJI, text: SCORE_EMOJI }),
-      createElement({ tag: "span", cssClass: CssClass.EMPHASIS, text: ` ${getTranslation(TranslationKey.INFO_GOAL).split("|")[1]}` }),
+      createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji }),
+      createElement({ tag: "span", cssClass: [styles.infoName, CssClass.EMPHASIS], text: name }),
+      createElement({ tag: "span", cssClass: name ? "" : CssClass.EMPHASIS, text: ` ${description}` }),
     );
   }
 
@@ -1359,23 +1369,29 @@ export function GameMapComponent(
       // updateRainbows), and a unicorn always reveals its own 3x3.
       if (objectType === SIDE_UNICORN[PLAYER] && hasFoundFountain) infoText.textContent = getTranslation(TranslationKey.INFO_UNICORN_SHINE);
     } else if (index === undefined) {
-      // Two resting lines rather than one: "tap something" is no use to a player who has nothing
-      // left to tap. The spent turn has two endings of its own — every turn but the last one is
-      // followed by an income, and the last one is followed by nothing at all, so it says the
-      // run is over instead of promising money that is not coming. Both wear the glyph the turn
-      // counter is wearing at the time, which is where the same distinction is already drawn.
-      const isLast = map.turn >= TURN_LIMIT;
-      const stuckKey = isLast ? TranslationKey.INFO_STUCK_LAST : TranslationKey.INFO_STUCK;
-
-      setInfo(wasStuck ? stuckKey : TranslationKey.INFO_HINT, wasStuck ? (isLast ? LAST_TURN_EMOJI : TURN_EMOJI) : HINT_EMOJI);
       // The idle panel has nothing to explain, which makes it the one place the run's own point
       // fits — above the invitation to tap rather than instead of it, so the arithmetic heads the
-      // panel and the thing to do next stays the line closest to the board.
-      // Not over the two spent-turn lines: those are a prompt to press the button under them, and
-      // a rule above a prompt reads as something to do first.
-      if (!wasStuck) showGoal();
+      // panel and the thing to do next stays the line closest to the board. Not while the turn is
+      // spent: the slot is carrying the prompt below, and a rule above a prompt reads as
+      // something to do first.
+      setInfo(TranslationKey.INFO_HINT, HINT_EMOJI);
+      if (!wasStuck) showGoal(TranslationKey.INFO_GOAL, SCORE_EMOJI);
     } else if (isSeen(map.tiles[index], PLAYER)) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
     else setInfo(TranslationKey.INFO_FOG, FOG_EMOJI);
+
+    // A spent turn is a fact about the run, so it outlives the selection: it heads the panel
+    // whatever is being read, rather than being the panel until the next tap takes it away.
+    // Which is what makes looking things up in this state worth allowing — the board can be
+    // read from end to end with the way out of the turn still on the screen, and nothing on it
+    // can be spent anyway (needsIncome is exactly "no legal action exists").
+    // It has two endings of its own: every turn but the last is followed by an income, and the
+    // last is followed by nothing at all, so it says the run is over instead of promising money
+    // that is not coming. Both wear the glyph the turn counter is wearing at the time, which is
+    // where the same distinction is already drawn — and which is also the glyph now pulsing.
+    if (wasStuck) {
+      const isLast = map.turn >= TURN_LIMIT;
+      showGoal(isLast ? TranslationKey.INFO_STUCK_LAST : TranslationKey.INFO_STUCK, isLast ? LAST_TURN_EMOJI : TURN_EMOJI);
+    }
   }
 
   /** Whether the rival is the side being drawn dark, which it is unless the player took it. */

@@ -19,16 +19,27 @@ export const LocalStorageKey = defineEnum({
   SIZE: "s1", // the board the launch screen is offering next — one rung above the last one played
 });
 
+// Every access is guarded because the storage getter itself can throw rather than return null:
+// Firefox with cookies blocked for the site, and some private modes, raise a SecurityError.
+// The first read happens at start-up, so unguarded it would take the game down before it draws.
 export function setLocalStorageItem(key: LocalStorageKey, value: string, postfix?: string) {
-  localStorage.setItem(LOCAL_STORAGE_PREFIX + "." + key + (postfix ? "." + postfix : ""), value);
+  try {
+    localStorage.setItem(LOCAL_STORAGE_PREFIX + "." + key + (postfix ? "." + postfix : ""), value);
+  } catch {}
 }
 
 export function getLocalStorageItem(key: LocalStorageKey, postfix?: string): string | null {
-  return localStorage.getItem(LOCAL_STORAGE_PREFIX + "." + key + (postfix ? "." + postfix : ""));
+  try {
+    return localStorage.getItem(LOCAL_STORAGE_PREFIX + "." + key + (postfix ? "." + postfix : ""));
+  } catch {
+    return null;
+  }
 }
 
 export function removeLocalStorageItem(key: LocalStorageKey, postfix?: string) {
-  localStorage.removeItem(LOCAL_STORAGE_PREFIX + "." + key + (postfix ? "." + postfix : ""));
+  try {
+    localStorage.removeItem(LOCAL_STORAGE_PREFIX + "." + key + (postfix ? "." + postfix : ""));
+  } catch {}
 }
 
 export function getArrayFromStorage(key: LocalStorageKey) {

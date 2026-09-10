@@ -28,6 +28,7 @@
     "build-poki": "vite build -m poki && npm run package",
     "bot": "vite build -m bot --ssr scripts/bot-harness.ts --outDir dist-bot --emptyOutDir --logLevel error && node dist-bot/bot.js",
     "sweep": "vite build -m bot --ssr scripts/sweep-harness.ts --outDir dist-bot --emptyOutDir --logLevel error && node dist-bot/bot.js",
+    "levels": "vite build -m bot --ssr scripts/level-harness.ts --outDir dist-bot --emptyOutDir --logLevel error && node dist-bot/bot.js",
     "package": "node scripts/package.js",
     "size": "node scripts/package.js --report-only",
     "images": "node thumbnail/build.mjs",

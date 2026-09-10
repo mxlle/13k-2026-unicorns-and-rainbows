@@ -46,6 +46,10 @@ implementation support**. Creative decisions stay on Almut's side.
   opponent (see "The opponent")
 - `npm run sweep` — turns one bot strategy's weights over a grid and plays the whole board
   ladder at every point of it, to find out which bot is worth measuring with (see "Dev tools")
+- `npm run levels` — the bot against the seven **curated levels** (`src/game/levels.ts`) rather
+  than against a board size: what it scores on each of them, beside what that board has been
+  played to, and the band the same bot covers when only its tie-breaks are re-rolled. It is what
+  maintains `BOT_MIN_SCORES` / `BOT_MAX_SCORES`, and prints both ready to paste back
 - `npm run typecheck` — strict `tsc` check (the vendored `small-player*.ts` are `@ts-nocheck`'d,
   typed via `src/audio/player-interface.ts`); CI runs this on every push
 - `npm run lint` — `scripts/lint-invariants.mjs` mechanically checks the size-machinery rules

@@ -37,8 +37,9 @@ export const LEVEL_SEEDS = [10, 12, 8, 14, 11, 35, 16];
  * unicorns, no cloud left (see LEVEL_SEEDS) — so its 100% is perfection rather than a best.
  *
  * Where the bot now sits, which is the honest measure of how hard these are: 96% on the
- * tutorial, then 80 / 76 / 66 / 68 / 61 / 78. So from the 13x13 up, matching the bot is worth
- * about two thirds of a level, and the 21x21 is the steepest board on the ladder.
+ * tutorial, then 78 / 55 / 53 / 59 / 64 / 94. The 9x9 and the 13x13 are the steepest boards on
+ * the ladder — the bot is barely past half of what has been got out of them — and the 25x25 is
+ * the one board where it is nearly the best there has been.
  *
  * **Updating one after a better run:** multiply the old target by the percentage the run came
  * out at. It pins exactly, and not by luck — the panel rounds the percentage to a whole number,
@@ -46,10 +47,36 @@ export const LEVEL_SEEDS = [10, 12, 8, 14, 11, 35, 16];
  * rounds by the same half percent. For any p at or above 100 the whole band comes back out as
  * 100%, whatever the score inside it actually was.
  *
- * The bot scores these replaced, for when the economy moves and the ladder has to be re-read:
- * 384, 960, 1092, 1512, 2565, 4180, 5952 — same seeds, `npm run bot -- --size=N --seed=S`.
+ * The bot's own scores on these boards are in BOT_MIN_SCORES / BOT_MAX_SCORES below, which
+ * `npm run levels` re-measures. Read them whenever the economy moves and the ladder has to be
+ * re-read: what the bot makes of a board is the one reading of it that does not need playing.
  */
-export const LEVEL_TARGETS = [400, 1200, 1441, 2283, 3796, 6897, 7619];
+export const LEVEL_TARGETS = [400, 1296, 1600, 2283, 3910, 6966, 9600];
+
+/**
+ * What the game's own opponent scores on each level, as the two ends of one band: the shipped
+ * `mixed` bot on that exact board, with nothing varied but the seed its tie-breaks come off
+ * (twenty of them, 1000-1019, via `npm run levels`). Both rows are runs the opponent really
+ * had — the same bot on a bad day and on a good one — which is what makes them a pair rather
+ * than a number and an error bar.
+ *
+ * **Nothing reads these yet.** They are here for the second score target — "beat the bot"
+ * beside LEVEL_TARGETS' "beat the author" — and are deliberately unused until that lands. They
+ * cost the bundle nothing while they are: both arrays tree-shake out, measured at no change to
+ * the packed zip.
+ *
+ * The run a player actually faces is neither row: it is `mixed` seeded from the *map* seed,
+ * which is what the game does (resetBot in game-map.component.ts) — 384, 1008, 880, 1204,
+ * 2322, 4450, 9000. It sits near the bottom of the band on the 13x13 and the 21x21 and near
+ * the top on the 25x25, because one seeded run is a fact about that seed and not about the bot.
+ * Whichever row a target ends up reading, the number the player watches on screen on the three
+ * boards with a rival is lower again — the dark side gives up the closing turn (see hasGo).
+ *
+ * MAX is a lower bound rather than a ceiling: twenty seeds is what was rolled, and rolling more
+ * can only ever find a better run. Re-measure both when the economy moves.
+ */
+export const BOT_MIN_SCORES = [368, 936, 800, 960, 2187, 4230, 6111];
+export const BOT_MAX_SCORES = [384, 1032, 1080, 1914, 3420, 6048, 9212];
 
 /**
  * A score as its share of the level's target, as a whole percent. It is what fills the level's

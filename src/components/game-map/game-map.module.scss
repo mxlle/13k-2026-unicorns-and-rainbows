@@ -352,6 +352,22 @@ $win-hop-height: 2rem;
 // The easing is per keyframe, and that is what makes it read as a ball rather than a
 // slide: leaving the ground it decelerates towards the apex, and from every apex it
 // falls back faster and faster.
+// The site's cross-fade — see .becoming. Symmetric, so the same curve run half a cycle late
+// gives the other layer its opposite without a second keyframe.
+@keyframes becoming {
+  0%,
+  35% {
+    opacity: 1;
+  }
+  50%,
+  85% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
 @keyframes hop {
   0%,
   46%,
@@ -442,15 +458,6 @@ $win-hop-height: 2rem;
   color: theme.$text-primary;
 }
 
-// An action offered by the info panel — raising a build site — flowing inline at the end
-// of the line that explains it. The portal's jump used to be the other one; the far donuts
-// are tiles to tap now, so the board carries that offer instead of this row.
-.action {
-  margin-left: 0.6em;
-  vertical-align: middle;
-  white-space: nowrap; // never breaks between what is being built and its price
-}
-
 // The way back into the board just played, on a line of its own at the foot of the result.
 // Centred rather than stretched: the rows above it are lines of text centred in the panel, and
 // a button pulled out to the full width of the panel would read as the panel's own footer
@@ -526,29 +533,35 @@ $win-hop-height: 2rem;
     @include theme.hover {
       background: rgba(theme.$main-color, 0.3);
     }
+  }
 
-    // What this tile costs, written into --p by the tile itself — see render(). Every lit
-    // tile carries one, a tub's fields and a unicorn's steps alike. It sits along the bottom
-    // edge rather than in the middle, so it labels the tile without covering whatever is
-    // lying on it.
-    &::after {
-      content: var(--p);
-      position: absolute;
-      inset: auto 0 0;
-      // The tile carries the emoji font for its glyphs, whose digits are keycap parts
-      // rather than numerals — so the text font comes first here and the sweet falls
-      // through to the emoji one.
-      font-family: theme.$font-family, "Noto Color Emoji";
-      // Small and quiet on purpose: with every lit tile carrying one, a price is an annotation
-      // on the offer rather than part of it, and eight of them at reading size were louder
-      // than the board they were annotating. Still em of the tile's glyph, so it follows the
-      // zoom, and the tertiary tone sits back from the ring's own colour without going so far
-      // that the digit stops reading over the tint.
-      font-size: 0.4em;
-      line-height: 1;
-      text-align: center;
-      color: theme.$text-tertiary;
-    }
+  // What this tile costs, written into --p by the tile itself — see render(). Every lit tile
+  // carries one, a tub's fields and a unicorn's steps alike, and so does a build site the
+  // player is looking at: a site is priced whether or not the purse can reach it yet, because
+  // the price is the thing about a site worth reading, and .priced is the wider of the two
+  // lists for exactly that reason. It sits along the bottom edge rather than in the middle,
+  // so it labels the tile without covering whatever is lying on it.
+  //
+  // Before .free on purpose — the two are equally specific, and .free's rubbing-out of the tag
+  // has to win. (No build site is ever free, so only the steps are affected either way.)
+  &.target::after,
+  &.priced::after {
+    content: var(--p);
+    position: absolute;
+    inset: auto 0 0;
+    // The tile carries the emoji font for its glyphs, whose digits are keycap parts
+    // rather than numerals — so the text font comes first here and the sweet falls
+    // through to the emoji one.
+    font-family: theme.$font-family, "Noto Color Emoji";
+    // Small and quiet on purpose: with every lit tile carrying one, a price is an annotation
+    // on the offer rather than part of it, and eight of them at reading size were louder
+    // than the board they were annotating. Still em of the tile's glyph, so it follows the
+    // zoom, and the tertiary tone sits back from the ring's own colour without going so far
+    // that the digit stops reading over the tint.
+    font-size: 0.4em;
+    line-height: 1;
+    text-align: center;
+    color: theme.$text-tertiary;
   }
 
   // A step that costs no drop, in a green of its own rather than the main colour — see
@@ -569,6 +582,46 @@ $win-hop-height: 2rem;
     @include theme.hover {
       background: rgba(theme.$success-wash, 0.4);
     }
+  }
+
+  // A site this tap would raise. A colour of its own for the same reason the free step has
+  // one: the main pink means "something may move here", and a build is the one offer on the
+  // board where nothing moves at all — the tile the ring is on is one no unicorn can ever
+  // walk onto. Purple sits far enough from the pink to be told apart at a glance and from the
+  // beams' water blue not to be read as a currency.
+  //
+  // Between .free and .hinted on purpose: a site is never a step, so it can never collide
+  // with either of those, and this is where the reading order puts it — the offers first,
+  // then the one ring that has to draw over all of them.
+  &.build {
+    background: rgba(theme.$build-color, 0.18);
+    box-shadow: inset 0 0 0 2px rgba(theme.$build-color, 0.6);
+
+    @include theme.hover {
+      background: rgba(theme.$build-color, 0.36);
+    }
+  }
+
+  // The same sites, cross-fading between what they are and what they become. The two glyph
+  // layers do it between them: a site blocks movement, so nothing can ever be standing on one
+  // and the living layer over it is free for the building it is promising.
+  //
+  // One keyframe and a negative delay rather than two animations: half the duration puts the
+  // second layer exactly out of phase with the first, and each glyph holds still for a third
+  // of its half before it starts going. Under prefers-reduced-motion the global rule in
+  // globals.scss turns both off, which lands on the site's own glyph — the honest resting
+  // state, with the price tag above still saying what it would cost.
+  &.priced > span {
+    animation: becoming 2.4s infinite;
+  }
+
+  &.priced > .character {
+    // A building, not a unicorn: .character's ladder is about how grown a thing is, and this
+    // glyph is a promise rather than a member of the herd. Written flat, at the size the
+    // object will actually be drawn once it is standing here.
+    --g: 1;
+    opacity: 0;
+    animation-delay: -1.2s;
   }
 
   // Where the hint says to go — see showHint. Last of the ring rules on purpose: a hinted tile

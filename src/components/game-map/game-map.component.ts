@@ -20,6 +20,7 @@ import {
   getIndex,
   endTurn,
   getBuild,
+  getBuildTargets,
   getUnicornPrice,
   getExploration,
   getFeedingRainbows,
@@ -198,6 +199,19 @@ const AUTO_STEP_DELAY = 120;
 const CONFIRM_TIMEOUT = 3000;
 
 /**
+ * What a build site costs, as the tag written on the tile — in the currencies it is actually
+ * paid in, so a fountain shows only water, a lollipop tree only sweets and the tub both.
+ *
+ * One − for the pair rather than one each. Both halves are leaving the purse, which the single
+ * sign already says, and the tag is drawn at 0.4em on a tile that also has a glyph on it: six
+ * characters fit there and eight do not.
+ */
+function getPriceTag(objectType: GameObjectType): string {
+  const [, drops, candy] = getBuild(objectType)!;
+  return `−${drops ? `${drops}${DROP_EMOJI}` : ""}${candy ? `${candy}${CANDY_EMOJI}` : ""}`;
+}
+
+/**
  * Where an element sits on the screen, as its centre — a tile a glyph leaves from and a
  * counter it flies to are both aimed at by their middle.
  *
@@ -271,7 +285,18 @@ export function GameMapComponent(
   // The build site the selection is sitting on, if it is one. Like the tub, a site blocks
   // movement, so nothing can be standing on it and this can never be true at the same time as
   // isCharacter — the three kinds of selection stay cleanly apart.
+  //
+  // It is what the panel explains and what the dev bot's ▶ raises; whether it can be *built*
+  // is buildTargets below, which is a narrower question.
   let buildSite: Position | undefined;
+  // The sites a tap would raise right now. Two selections fill it, and they are the two halves
+  // of the same offer: a unicorn lights every site it is standing beside, and a site the player
+  // has tapped directly lights *itself* — so a build is always finished by tapping the site,
+  // whichever end of it was picked up first. Kept apart from `targets` on purpose: those are
+  // tiles something moves onto, and folding the two together would have a unicorn on a
+  // springboard drawing its build sites as free steps and rubbing out their prices with
+  // .free's own rule.
+  let buildTargets: Position[] = [];
   // What the hint is pointing at, as a tile index: the tile the bot would act on if it were
   // playing this side — see showHint. Set only by 💡 and dropped again by the next thing the
   // player does, so an arrow can never outlive the question it was answering.
@@ -492,24 +517,18 @@ export function GameMapComponent(
   const infoEmoji = createElement({ tag: "span", cssClass: [styles.infoEmoji, CssClass.EMOJI] });
   const infoName = createElement({ tag: "span", cssClass: styles.infoName });
   const infoText = createElement({ tag: "span" });
-  // The build action, offered on the site itself: an action on the board turns up where the
-  // thing it acts on is being explained. Its face is filled in by renderBuildButton: what the
-  // site becomes and what that costs, which is why it carries no text of its own.
-  // The portal used to have a button of its own beside it. It has not needed one since the
-  // far donuts became tiles to tap: the board can say "here, and here, and here", which no
-  // one button ever could.
-  const buildButton = createButton({ cssClass: [CssClass.SECONDARY, styles.action], onClick: raise });
+  // The build used to have a button here, and it was the last action in the game that lived
+  // off the board. It has not needed one since a site became a tile to tap — the board says
+  // what it becomes and what it costs on the site itself, which no button beside a paragraph
+  // ever could. The portal lost its button to the same argument when the far donuts became
+  // tiles to tap.
   // The end-of-run breakdown, one line per scoring category, stacked under the result line.
   // Empty while the run is on, and CSS hides it then, so it takes no room until it has any.
   const scoreBoard = createElement({ cssClass: styles.scoreBoard });
   // The unicorn's ladder, a row of its own under the line — see renderGrowth. Empty for
   // everything that is not a unicorn, and CSS hides it then, so it takes no room until it has any.
   const growthBar = createElement({ cssClass: styles.growth });
-  const infoPanel = createElement({ cssClass: styles.info }, [
-    createElement({}, [infoEmoji, infoName, infoText, buildButton]),
-    growthBar,
-    scoreBoard,
-  ]);
+  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText]), growthBar, scoreBoard]);
 
   // The board takes its size from the map and the zoom step; this row scrolls to reach the
   // parts of it that do not fit. Panning is the browser's own scrolling — which brings touch
@@ -606,7 +625,8 @@ export function GameMapComponent(
 
       select(action.from); // the actions below all read the selection, exactly as the taps do
       if (action.kind === BotActionKind.BUY) buy(action.to!);
-      else if (action.kind === BotActionKind.BUILD) raise();
+      else if (action.kind === BotActionKind.BUILD)
+        raise(action.from!); // the site is what a build acts on, and its own target
       // a jump is a move at the portal's price; undefined lets a plain step price itself
       else move(action.to!, action.kind === BotActionKind.PORTAL ? PORTAL_COST : undefined);
     }
@@ -770,6 +790,10 @@ export function GameMapComponent(
     const freeIndices = selected && !getMoveCost(map, selected, PLAYER) ? targetIndices : [];
     // The far donuts, which are lit like steps and priced like nothing else — see move()
     const portalIndices = portalTargets.map(getIndex);
+    // The sites a tap would raise. A handful of tiles at most: there are only ever two or three
+    // sites of each kind on the whole board (see SITE_COUNT).
+    const buildIndices = buildTargets.map(getIndex);
+    const buildSiteIndex = buildSite && getIndex(buildSite);
     // What every lit tile costs, written on the tile. The tub's fields have always carried
     // their price this way and it was the one offer on the board that did — a step's cost was
     // only ever findable in the purse, after the step. Now the board states the price of
@@ -809,7 +833,14 @@ export function GameMapComponent(
       // A site that can be raised right now pulses for the same reason a tub that can spawn
       // does: it is an affordance nothing else on the board hints at, so it says so where it
       // happens. Short-circuited on getBuild, so canBuild runs only on the handful of sites.
-      const canRaiseHere = !!getBuild(tile.object) && canBuild(map, getPosition(index), PLAYER);
+      //
+      // Not while it is one of the lit ones, though: a tile already wearing the build ring, its
+      // price and the glyph it is turning into has said all of that four times over, and the
+      // pulse is the one of the four that means "over here" rather than "this, now". So it
+      // keeps pointing at the sites the current selection is *not* offering, and gets out of
+      // the way of the one it is.
+      const isBuildTarget = buildIndices.includes(index);
+      const canRaiseHere = !isBuildTarget && !!getBuild(tile.object) && canBuild(map, getPosition(index), PLAYER);
       // What the tile *shows*, as opposed to what the game has revealed to the player — the
       // two are the same for everyone but a developer who has switched the clouds off. It is
       // the player's own fog throughout: the opponent's is never drawn, and the only thing
@@ -842,13 +873,26 @@ export function GameMapComponent(
       // target too, and often a free one. See .hinted for why it is the light's amber.
       element.classList.toggle(styles.hinted, index === hintIndex);
       element.classList.toggle(styles.selected, isSelectedTile);
-      // no steps lit means the selection is only being looked at — see select()
-      element.classList.toggle(styles.neutral, isSelectedTile && !targets.length);
+      // no steps lit and nothing to raise means the selection is only being looked at — see select()
+      element.classList.toggle(styles.neutral, isSelectedTile && !targets.length && !isBuildTarget);
       element.classList.toggle(styles.target, targetIndices.includes(index));
       element.classList.toggle(styles.free, freeIndices.includes(index));
+      // A colour of its own, and it has to be one: a build is not a step, and the tile it is
+      // offered on is one the unicorn can never walk onto. Purple against the main pink for
+      // the same reason the free step is green against it — a second kind of offer needs a
+      // second colour or it reads as the first.
+      element.classList.toggle(styles.build, isBuildTarget);
+      // A site being read: it says what it costs and what it turns into. The armed ones and
+      // the one being looked at alike — a site the purse cannot reach yet still has a price
+      // worth reading, which is the half of the old panel button worth keeping.
       // Only the lit tiles are written on, and only they read it — a stale tag on a tile that
-      // has stopped being a target is a property nothing draws.
+      // has stopped being a target is a property nothing draws. A site is priced by what it
+      // becomes rather than by the one number a step or a field costs, so it is the one tag
+      // built per tile; the other two are built once per render, above.
+      const isPriced = isBuildTarget || index === buildSiteIndex;
+      element.classList.toggle(styles.priced, isPriced);
       if (targetIndices.includes(index)) element.style.setProperty("--p", `"${portalIndices.includes(index) ? jumpTag : priceTag}"`);
+      else if (isPriced) element.style.setProperty("--p", `"${getPriceTag(tile.object!)}"`);
 
       // The fog belongs to the ground layer: under it there is nothing else to show.
       const hasLiving = isVisible && tile.living !== undefined;
@@ -885,8 +929,17 @@ export function GameMapComponent(
         livingGlyphs[index].classList.toggle(styles.dark, hasLiving && isDark(tile.living));
       }
 
+      // What the site is turning into, drawn in the living layer — which on a site is always
+      // free, because a site blocks movement and nothing can ever be standing on one. The
+      // stylesheet cross-fades the two layers (see .priced), so the tile says "this becomes
+      // that" in the one place the player is already looking, and it costs no element, no
+      // second class and no timer to say it.
       ground.textContent = isVisible ? (tile.object === undefined ? "" : OBJECT_CONFIG[tile.object].emoji) : FOG_EMOJI;
-      livingGlyphs[index].textContent = hasLiving ? OBJECT_CONFIG[tile.living!].emoji : "";
+      livingGlyphs[index].textContent = hasLiving
+        ? OBJECT_CONFIG[tile.living!].emoji
+        : isPriced
+          ? OBJECT_CONFIG[getBuild(tile.object)![0]].emoji
+          : "";
       // How grown it is, handed to the stylesheet to draw it at: a unicorn that has been
       // shining stands taller than the newcomer beside it, which is the level said in the one
       // place the player is already looking. Only worth writing when somebody is home — an
@@ -947,15 +1000,6 @@ export function GameMapComponent(
     // the panel belongs to the result and endGame has already filled it — hence the guard.
     if (isRunning) renderScoreBoard(showsScore);
     renderBeams();
-
-    // Three states for the build action: shown on a site, lit while the build is
-    // really on, greyed out while it is only being looked at. Greyed rather than hidden is the
-    // point — a site the player cannot afford yet still has to say what it would cost.
-    const canRaise = !!buildSite && canBuild(map, buildSite, PLAYER);
-    buildButton.classList.toggle(CssClass.HIDDEN, !buildSite);
-    buildButton.classList.toggle(CssClass.HINT, canRaise);
-    buildButton.disabled = !canRaise;
-    if (buildSite) renderBuildButton(map.tiles[getIndex(buildSite)].object!);
 
     // While the rival is walking, the button stops being an action and becomes the answer to "why
     // will nothing respond": whose turn it is, in the glyph that means the rival everywhere else.
@@ -1261,6 +1305,16 @@ export function GameMapComponent(
     // A site under the fog is not a site yet, for the same reason a character under it is not
     // a character: offering to build on it would give away that something is there.
     buildSite = isSeen(tile, PLAYER) && getBuild(tile!.object) ? position : undefined;
+    // What a tap would raise. A unicorn offers the sites around it — the same question its lit
+    // steps answer, asked of the other thing it can do from where it stands — and a site
+    // offers itself, which is what turns the second tap on it into the yes. Both go through
+    // canBuild (getBuildTargets is nothing but a loop over it), so what the board lights up
+    // and what the build actually takes can never come apart.
+    //
+    // A site that cannot be afforded yet lights nothing and arms nothing. It still says what
+    // it would cost the moment it is selected — see render() — which is the half of the old
+    // panel button worth keeping: a price is what a site is *for* reading.
+    buildTargets = isCharacter ? getBuildTargets(map, position!, PLAYER) : buildSite && canBuild(map, buildSite, PLAYER) ? [buildSite] : [];
     showInfo(index);
   }
 
@@ -1290,9 +1344,9 @@ export function GameMapComponent(
     // Nothing to do, or nothing worth doing: the only advice left is the clock, and the button
     // that moves it on is where that is already said.
     hintsEndTurn = !action || action.kind === BotActionKind.END_TURN;
-    // A build acts on the site itself and has no second tile, so the site is its own target:
-    // selecting it is what puts the raise button up, and the ring says which of several sites
-    // was meant.
+    // A build acts on the site itself and has no second tile, so the site is its own target —
+    // and now literally so: selecting it arms it, and the hint's ring lands on the very tile
+    // the next tap carries the advice out on.
     const target = hintsEndTurn ? undefined : (action!.to ?? action!.from);
     hintIndex = target && getIndex(target);
     showsScore = false; // the board takes the panel back, exactly as a tap on it does
@@ -1312,7 +1366,13 @@ export function GameMapComponent(
     showsScore = false; // the board takes the panel back, whether the tap moves or just looks
     clearHint(); // whatever the tap is, it is the player deciding for themselves again
 
-    if (targets.some((target) => getIndex(target) === index)) {
+    // A build is finished by tapping the site, whichever end of it was picked up: with a
+    // unicorn in hand this is the one tap, and with the site in hand it is the second one on
+    // the tile itself. So it comes before the deselect below — a site is the one thing on the
+    // board that a tap-again does not put down, and the ring plus the price it is wearing are
+    // what say that it is asking rather than just selected.
+    if (buildTargets.some((target) => getIndex(target) === index)) raise(getPosition(index));
+    else if (targets.some((target) => getIndex(target) === index)) {
       // the same second tap either way — what it finishes depends on what is selected, and
       // for a character on whether the lit tile it landed on is next door or across the board
       if (isTubSelected) buy(getPosition(index));
@@ -1349,34 +1409,24 @@ export function GameMapComponent(
   }
 
   /**
-   * The build button's face: what the site becomes, then what it costs, in the currencies it
-   * is actually paid in — a fountain shows only water, a tree only sweets, and the tub both.
-   * No verb on it: the info panel beside it has just said what a unicorn can do here, and a
-   * price tag in the currency you hold reads the same in every language.
-   * The digits are kept out of the emoji spans, or they would render in the emoji font.
+   * Raises what the site on `site` is for, and hands the board back with the building on
+   * it. The position is passed in rather than read off `buildSite`, because a build now has
+   * two ways in and only one of them has the site selected: the other has the unicorn beside
+   * it in hand. It is always one of `buildTargets`, so canBuild has already said yes.
    */
-  function renderBuildButton(objectType: GameObjectType) {
-    const [built, drops, candy] = getBuild(objectType)!;
-    const price = (amount: number, emoji: string) =>
-      amount ? [` ${amount}`, createElement({ tag: "span", cssClass: CssClass.EMOJI, text: emoji })] : [];
-
-    buildButton.replaceChildren(
-      createElement({ tag: "span", cssClass: CssClass.EMOJI, text: OBJECT_CONFIG[built].emoji }),
-      ...price(drops, DROP_EMOJI),
-      ...price(candy, CANDY_EMOJI),
-    );
-  }
-
-  /** Raises what the selected site is for, and hands the board back with the building on it. */
-  function raise() {
+  function raise(site: Position) {
     clearHint(); // the advice has been taken (or ignored); either way it is spent
-    const site = buildSite!;
     const [, drops, candy] = getBuild(map.tiles[getIndex(site)].object)!; // before the site is spent
+    // Whether the site was the thing in hand, asked before the build changes what is on it.
+    const wasSelected = !!selected && getIndex(selected) === getIndex(site);
 
     build(map, site, PLAYER);
-    // The tile is a building now, so the selection follows it into what it became — and a tub
-    // that has just been filled goes straight on to offering the fields it can put a unicorn on.
-    select(site);
+    // The selection stays with whatever did the acting, which is the rule a step and a purchase
+    // already follow: a unicorn that built from beside a site is still in hand and walks on with
+    // one tap, and a site tapped on its own becomes the building and is still what the panel is
+    // explaining — a tub that has just been filled going straight on to offering the fields it
+    // can put a unicorn on.
+    select(wasSelected ? site : selected);
     render();
     // Counted out of the field it was built on, one currency after the other, in the same
     // gesture a step and a unicorn already use.

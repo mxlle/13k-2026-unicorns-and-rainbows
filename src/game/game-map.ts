@@ -1152,6 +1152,34 @@ export function canBuild(map: GameMap, position: Position, side: Side): boolean 
 }
 
 /**
+ * The sites in the surrounding 3x3 that `side` could raise right now — the build's answer to
+ * getMoveTargets, and asked of the unicorn rather than of the site: what the thing the player
+ * has picked up can do from where it is standing.
+ *
+ * Every one that comes back satisfies canBuild, so the price and "somebody is beside it" come
+ * along for free — the neighbour canBuild is looking for is the very unicorn being asked. No
+ * fog rule is needed either: VISION_RADIUS is 1, so a tile beside one of your unicorns has
+ * been seen by that unicorn since the moment it arrived.
+ *
+ * Empty for anything that is not one of this side's unicorns, which is what lets the
+ * interface ask it of whatever has been selected without checking what that is first.
+ */
+export function getBuildTargets(map: GameMap, { x, y }: Position, side: Side): Position[] {
+  const sites: Position[] = [];
+
+  if (getTile(map, { x, y })?.living === SIDE_UNICORN[side]) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const position = { x: x + dx, y: y + dy };
+        if ((dx || dy) && canBuild(map, position, side)) sites.push(position);
+      }
+    }
+  }
+
+  return sites;
+}
+
+/**
  * Raises what the site on `position` is for — which must satisfy canBuild. The site is spent:
  * the building stands in its place, and there is nothing left to build there.
  *

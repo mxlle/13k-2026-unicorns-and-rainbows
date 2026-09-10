@@ -54,6 +54,13 @@ $light-color: #f0a500;
 // was a light blue on near-white. See .beam in the map's stylesheet.
 $water-color: #2b8ad6;
 $candy-color: #ef5a20;
+// A build site the board is offering: the ring on the tile and the wash inside it. The one
+// colour on the board that belongs to an *action* rather than to a currency or to light, and
+// it has to stay clear of all three — the main pink says "something may move here", the water
+// blue is a beam paying the purse, the amber is light. A violet is what is left, and it reads
+// as the stone-and-scaffolding end of the palette rather than the sweet end, which is what a
+// building site should look like on a board made of candy.
+$build-color: #7b3fe4;
 // The same two, for the opponent's light, plus a dimmed sunlight for light that earned nothing.
 // Darker, which is the direction that works here: on the dark theme "darker" ran out of room
 // almost immediately and hue had to carry the distinction, but against a pale page a deep colour

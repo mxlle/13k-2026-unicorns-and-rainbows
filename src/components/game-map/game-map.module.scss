@@ -206,7 +206,7 @@ $board-column-max: calc(100dvh - 5rem);
   grid-area: 3 / 1;
   display: flex;
   align-items: center;
-  gap: 0.5rem; // tight enough that the 🔍 and its two steps read as one group of three
+  gap: 0.5rem; // the zoom chip is one item now, so this only has to keep the bar's items apart
   width: 100%;
   max-width: $panel-width;
 
@@ -224,14 +224,41 @@ $board-column-max: calc(100dvh - 5rem);
     margin-right: auto;
   }
 
-  // The end-turn button alone — :last-child rather than every button, now that the zoom steps
-  // are in here too and must keep the round icon face the header gave them.
+  // The end-turn button alone — :last-child rather than every button, because the bulb beside
+  // it is an icon button and must keep its round face.
   > button:last-child {
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
     font-size: 0.9em;
   }
+}
+
+// The board's own controls as one control: the 🔍 that says what they act on and the two steps
+// that do it, on a single glass pill. The same pill as the header's chip of counters, so the
+// two things the run puts on the screen that are groups rather than single items look like it.
+// Three loose siblings held together by nothing but the bar's gap read as three things, and the
+// − and the + are one thing with two ends.
+.zoomChip {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem; // the two steps sit against each other; the chip's padding is what holds them in
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px; // pill, whatever the chip's height turns out to be
+  background: theme.$glass-2;
+}
+
+// The two steps, stripped of the icon button's face: the chip under them is the surface, so
+// all these keep is a square hit area big enough for a finger and a glyph large enough to
+// aim at. Bigger type than the round button had — with no disc around it, the − and the +
+// have nothing but their own size to be seen by.
+.zoomStep {
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  background: none;
+  font-size: 1.2rem;
+  line-height: 1;
 }
 
 .count {

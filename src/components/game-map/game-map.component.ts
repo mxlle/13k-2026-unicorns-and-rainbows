@@ -87,9 +87,10 @@ const TURN_EMOJI = "⏳";
 // stays out of the end-turn button, which already carries three states of its own.
 const LAST_TURN_EMOJI = "⌛";
 const SCORE_EMOJI = "⭐";
-// Labels the two zoom steps in the turn bar, the way every counter in the game is labelled by
-// the thing it counts. Without it a bare − and + beside a clock read as something to do with
-// the turns rather than with the board.
+// Labels the two zoom steps, the way every counter in the game is labelled by the thing it
+// counts. Without it a bare − and + beside a clock read as something to do with the turns
+// rather than with the board. It sits inside the chip with them, so the label cannot drift
+// from what it labels — see .zoomChip.
 const ZOOM_EMOJI = "🔍";
 // Stand-ins for the object emoji in the info panel, for the things that are not objects.
 const HINT_EMOJI = "👆";
@@ -591,8 +592,10 @@ export function GameMapComponent(
   const hintButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: showHint }, [
     createElement({ tag: "span", cssClass: CssClass.EMOJI, text: HINT_ACTION_EMOJI }),
   ]);
-  const zoomOutButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: () => zoom(-1) }, ["−"]);
-  const zoomInButton = createButton({ cssClass: CssClass.ICON_BTN, onClick: () => zoom(1) }, ["+"]);
+  // No ICON_BTN on these two: they live inside the zoom chip, which carries the surface for
+  // all three of its icons, so a round face of their own would be a button on a button.
+  const zoomOutButton = createButton({ cssClass: styles.zoomStep, onClick: () => zoom(-1) }, ["−"]);
+  const zoomInButton = createButton({ cssClass: styles.zoomStep, onClick: () => zoom(1) }, ["+"]);
 
   /**
    * Dev-only: the switch that takes the clouds off, for checking how a board actually came
@@ -745,9 +748,11 @@ export function GameMapComponent(
   // The board's own controls lead, labelled by what they act on, and the clock follows them on
   // its way to the button that moves it on.
   const turnBar = createElement({ cssClass: styles.turnBar }, [
-    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: ZOOM_EMOJI }),
-    zoomOutButton,
-    zoomInButton,
+    createElement({ cssClass: styles.zoomChip }, [
+      createElement({ tag: "span", cssClass: CssClass.EMOJI, text: ZOOM_EMOJI }),
+      zoomOutButton,
+      zoomInButton,
+    ]),
     turnDisplay,
     hintButton,
     endTurnButton,

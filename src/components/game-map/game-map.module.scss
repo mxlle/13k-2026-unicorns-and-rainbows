@@ -23,6 +23,9 @@ $panel-width: min(92vw, 55vh);
 //
 // To re-measure after changing a description or adding a language: narrowest screen, longest
 // string, three ✨ after the name (a fully grown unicorn), and the build button showing.
+// Not re-measured since the English texts were shortened (2026-09-10): the reservation is now
+// generous for English and bounded by German in the builds that carry it. Shrinking it is a
+// layout change of its own, and hands the board the room it gives back.
 $info-height: 7rem;
 // Beam thickness, in em against the board font-size — a fraction of a tile, whatever the screen.
 $beam-width: 0.08em;

@@ -84,10 +84,9 @@ friends-&-family build carry extra content without costing the js13k build a sin
 - js13k mode: no console logs, no manifest/meta tags, no nice-to-have styles, no bot working
   (`HAS_BOT_LOGS` — the labels on the bot's actions and the RANDOM strategy, which only a
   measurement ever plays). The opponent is in it (`HAS_OPPONENT`, on in every mode); see
-  "The opponent" below.
-  `HAS_SHORT_TEXTS` is wired up but **nothing reads it yet** — the competition build ships the
-  same full-length texts as the others. Writing the short variants is worth ~123 bytes, and the
-  way to do it is two whole literal maps rather than per-entry ternaries (see byte-golfing)
+  "The opponent" below. The texts are the same in every build: the English map was shortened
+  for everyone (2026-09-10, ~100 packed bytes) rather than split into a long and a short map
+  behind a flag — one wording, one panel height to measure
 - poki mode: loads the Poki SDK (`src/poki-integration.ts`), gameplayStart/Stop wired in `index.ts`;
   terser property mangling is DISABLED for poki (their SDK breaks otherwise)
 
@@ -268,7 +267,7 @@ The unusual parts of this codebase exist to make minification maximally effectiv
   numeric-keyed object literal when *every* value is a literal (see `replaceMapsTransformer`), so a
   single `FLAG ? "a" : "b"` in a 25-entry translation map leaves all 25 keys written out longhand —
   measured at 68 bytes, more than the strings the ternaries were saving. Where a map needs two
-  variants, write **two whole literal maps** and pick between them (`FLAG ? shortMap : longMap`):
+  variants, write **two whole literal maps** and pick between them (`FLAG ? mapA : mapB`):
   both compact, and the unused one tree-shakes. Measured at −123 bytes against per-entry ternaries.
 - **Don't refactor for repetition — gzip already has it.** Wrapping a builtin that appears 28 times
   (`classList.toggle`, 448 raw chars) in a helper was worth *2 bytes*; the 32 identical 3x3

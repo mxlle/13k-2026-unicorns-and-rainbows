@@ -27,7 +27,6 @@ export const HAS_DEV_TOOLS = IS_DEV;
 // Wider than HAS_DEV_TOOLS on purpose: `npm run bot` is a `vite build` and so has DEV false,
 // which would have taken the harness's own verbose output out with the competition build's.
 export const HAS_BOT_LOGS = IS_DEV || import.meta.env.MODE === "bot";
-export const HAS_SHORT_TEXTS = IS_JS13K;
 // The opponent: a second unicorn racing the player on the three biggest boards, played by the
 // game's own bot. It is the one feature that is a whole second player — a second economy, a
 // second fog and a second score — and it was off in the competition build until the byte count

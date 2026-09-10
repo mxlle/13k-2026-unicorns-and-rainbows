@@ -451,7 +451,7 @@ export function GameMapComponent(
   const turnDisplay = counter(TURN_EMOJI, turnCounter);
   // Reached for through counter() rather than built by hand, so every counter in the bar is
   // still made the same way: the emoji span is always the first child of the row.
-  const turnEmoji = turnDisplay.firstChild!;
+  const turnEmoji = turnDisplay.firstChild as HTMLElement;
   // The score opens its own working: the same breakdown that closes a run, on demand while
   // it is still being played, so "where are my points coming from" is answerable in time to
   // act on the answer rather than only afterwards.
@@ -838,10 +838,8 @@ export function GameMapComponent(
     // endGame had finished writing the score into it.
     if (isRunning && needsIncome !== wasStuck) {
       wasStuck = needsIncome; // before select(), which asks showInfo for the resting line
-      if (wasStuck) {
-        hopInfo();
-        select();
-      } else showInfo(selected && getIndex(selected)); // the income landed; the line goes back
+      if (wasStuck) select();
+      else showInfo(selected && getIndex(selected)); // the income landed; the line goes back
     }
     const selectedIndex = selected && getIndex(selected);
     const targetIndices = targets.map(getIndex);
@@ -1096,6 +1094,12 @@ export function GameMapComponent(
     const isLastTurn = map.turn >= TURN_LIMIT;
     turnEmoji.textContent = isLastTurn ? LAST_TURN_EMOJI : TURN_EMOJI;
     turnDisplay.classList.toggle(styles.lastTurn, isLastTurn);
+    // A turn with nothing left to spend on it, said in the one way the screen can still say
+    // anything: the sand pulses. The panel says it in words and the button says it in colour,
+    // and both of those are already there when the player looks — this is the bit that asks
+    // them to look. On the glyph rather than on the button beside it, which is the shape the
+    // pulse was drawn for: 12% of an hourglass is a nudge, 12% of a bar is a lurch.
+    turnEmoji.classList.toggle(CssClass.HINT, needsIncome && !isOver);
     dropCount.textContent = `${map.drops[PLAYER]}`;
     candyCount.textContent = `${map.candy[PLAYER]}`;
     // What the board will pay next turn, reacting when it moves. It is the one number in the
@@ -1226,21 +1230,6 @@ export function GameMapComponent(
         });
       }),
     );
-  }
-
-  /**
-   * The panel's bounce, from the top. Two things ask for it — the turn going spent, and the run
-   * ending — and either may ask while it is already wearing the class, which on its own does
-   * nothing: a CSS animation restarts only when the browser recomputes a style whose animation
-   * name has changed. Hence the measurement in the middle, which is a forced reflow and nothing
-   * else. It has to be a *call* and not a property read: the build tree-shakes reads it thinks
-   * nobody wants (propertyReadSideEffects, see vite.config.ts), and the side effect is the whole
-   * point of this one.
-   */
-  function hopInfo() {
-    infoPanel.classList.remove(styles.hop);
-    infoPanel.getBoundingClientRect();
-    infoPanel.classList.add(styles.hop);
   }
 
   /** The info panel is one line: an emoji plus a "Name|Description" text. */
@@ -2027,10 +2016,6 @@ export function GameMapComponent(
     infoText.textContent += ` ${score}`; // the text ends ready for the number
     showsScore = false; // the result owns the panel now; there is nothing left to toggle
     renderScoreBoard(true); // the total above, its working below — and the rival's total under that
-    // The same bounce the spent turn gets, and asked for the same way — the last turn is spent
-    // when the run ends, so more often than not this panel is already mid-hop, and it is the
-    // result that has to be announced rather than the turn before it.
-    hopInfo();
     render();
 
     pubSubService.publish(PubSubEvent.GAME_END, { isWon });

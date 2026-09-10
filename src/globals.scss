@@ -210,8 +210,8 @@ button.#{$ICON_BTN} {
   }
 }
 
-// In every build, not just the friends-&-family one: the hint pulse and the win hop ship
-// everywhere, so this is the only place the preference can be honoured everywhere too. The
+// In every build, not just the friends-&-family one: the hint pulse ships everywhere, so this
+// is the only place the preference can be honoured everywhere too. The
 // pseudo-element selectors are for the rainbow wash, which is only in some builds — `!important`
 // beats it whichever order the two stylesheets end up in.
 @media (prefers-reduced-motion: reduce) {

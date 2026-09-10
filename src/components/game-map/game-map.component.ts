@@ -569,18 +569,17 @@ export function GameMapComponent(
   // what it becomes and what it costs on the site itself, which no button beside a paragraph
   // ever could. The portal lost its button to the same argument when the far donuts became
   // tiles to tap.
-  // The end-of-run breakdown, one line per scoring category, stacked under the result line.
-  // Empty while the run is on, and CSS hides it then, so it takes no room until it has any.
-  const scoreBoard = createElement({ cssClass: styles.scoreBoard });
+  // The score's working, and at the end of a run the result's: one line per scoring category.
+  // A panel of its own rather than a block inside the one above, because in the side-panel
+  // layout it is always up — the column has the room to say what the run is worth without
+  // being asked, and a grid cell can only be given to a child of .host. What that costs is
+  // that it is a second panel in the stacked layout too, opening under the info panel rather
+  // than inside it. Whether it is *shown* is CSS's business either way; see .scoreBoard.
   // The unicorn's ladder, a row of its own under the line — see renderGrowth. Empty for
   // everything that is not a unicorn, and CSS hides it then, so it takes no room until it has any.
   const growthBar = createElement({ cssClass: styles.growth });
-  const infoPanel = createElement({ cssClass: styles.info }, [
-    infoGoal,
-    createElement({}, [infoEmoji, infoName, infoText]),
-    growthBar,
-    scoreBoard,
-  ]);
+  const scoreBoard = createElement({ cssClass: styles.scoreBoard });
+  const infoPanel = createElement({ cssClass: styles.info }, [infoGoal, createElement({}, [infoEmoji, infoName, infoText]), growthBar]);
 
   // The board takes its size from the map and the zoom step; this row scrolls to reach the
   // parts of it that do not fit. Panning is the browser's own scrolling — which brings touch
@@ -759,7 +758,7 @@ export function GameMapComponent(
   // The bulb closes the row: it answers "I do not know what to do here" and belongs beside the
   // way out of the turn rather than in front of it.
   const turnBar = createElement({ cssClass: styles.turnBar }, [turnDisplay, endTurnButton, hintButton]);
-  const hostElement = createElement({ cssClass: styles.host }, [mapArea, infoPanel, turnBar]);
+  const hostElement = createElement({ cssClass: styles.host }, [mapArea, infoPanel, scoreBoard, turnBar]);
 
   let zoomIndex = 0;
 
@@ -1417,7 +1416,12 @@ export function GameMapComponent(
     );
   }
 
-  /** Opens the score's working, or closes it again and hands the panel back to the selection. */
+  /**
+   * Opens the score's working, or closes it again and hands the panel back to the selection.
+   * Only the stacked layout ever gets here: beside the board the working is always up, and the
+   * counter stops taking taps at all (see .tappable under sidePanels) rather than being guarded
+   * here — the media query already knows which layout it is and nothing in here does.
+   */
   function toggleScore() {
     if (!isRunning || isLocked()) return; // the end-of-run panel is already showing the working
     showsScore = !showsScore;
@@ -1433,6 +1437,10 @@ export function GameMapComponent(
    * the digits beside it must not be rendered in the emoji font.
    */
   function renderScoreBoard(show: boolean) {
+    // Built whether or not anybody is looking: the side-panel layout shows this panel the whole
+    // time and decides that in a media query, which cannot reach in and fill it. So `show` is
+    // down to one job — the stacked layout's ⭐ toggle — and it is said in a class.
+    scoreBoard.classList.toggle(styles.shown, show);
     // `unicorn` marks the one row whose glyph is a creature rather than a symbol — the rival's
     // total — so it is drawn as the board draws it, whichever side is the dark one.
     //
@@ -1483,18 +1491,14 @@ export function GameMapComponent(
       HAS_OPPONENT && HAS_RIVAL ? [line(OBJECT_CONFIG[GameObjectType.DARK_UNICORN].emoji, ` ${getScore(map, RIVAL)}`, true)] : [];
 
     scoreBoard.replaceChildren(
-      ...(show
-        ? [
-            line(EXPLORE_EMOJI, ` ${rate}%`),
-            ...getScoreParts(map, PLAYER).map((count, index) => line(SCORE_EMOJIS[index], ` ${count} × ${rate} = ${count * rate}`)),
-            // The total the rows above add up to, in the loud voice: the one number in the working
-            // that is the score itself rather than a step towards it.
-            line(SCORE_EMOJI, ` ${getScore(map, PLAYER)}`, false, true),
-            ...rivalLine,
-            ...targetLine,
-            ...retryLine,
-          ]
-        : []),
+      line(EXPLORE_EMOJI, ` ${rate}%`),
+      ...getScoreParts(map, PLAYER).map((count, index) => line(SCORE_EMOJIS[index], ` ${count} × ${rate} = ${count * rate}`)),
+      // The total the rows above add up to, in the loud voice: the one number in the working
+      // that is the score itself rather than a step towards it.
+      line(SCORE_EMOJI, ` ${getScore(map, PLAYER)}`, false, true),
+      ...rivalLine,
+      ...targetLine,
+      ...retryLine,
     );
   }
 
@@ -2032,6 +2036,13 @@ export function GameMapComponent(
     infoText.textContent += ` ${score}`; // the text ends ready for the number
     showsScore = false; // the result owns the panel now; there is nothing left to toggle
     renderScoreBoard(true); // the total above, its working below — and the rival's total under that
+    // A finished run is one thing to read, so it is one panel to read it in: the working moves
+    // inside the panel that announces the result rather than sitting under it in a second box.
+    // Nothing is told about this — the panel look is written for a child of .host, and being a
+    // child of .info is the whole of the difference (see .info > .scoreBoard). startRun puts it
+    // back. Grid placement is by area either way, so where it lands among .host's children on
+    // the way back does not matter.
+    infoPanel.append(scoreBoard);
     render();
 
     pubSubService.publish(PubSubEvent.GAME_END, { isWon });
@@ -2071,6 +2082,7 @@ export function GameMapComponent(
     if (tileElements.length !== MAP_SIZE * MAP_SIZE) buildBoard();
     clearHint(); // an arrow drawn on the last board must not open the next one
     showsScore = false; // render() clears last run's working with it, before the new board shows
+    hostElement.append(scoreBoard); // out of the result panel and back to a panel of its own
     newRun = true; // the first render of a board seeds the bar rather than reacting to it
     wasStuck = false; // the last board's spent turn must not be the new one's opening line
     isRunning = true; // before render(), which reads it for the turn button

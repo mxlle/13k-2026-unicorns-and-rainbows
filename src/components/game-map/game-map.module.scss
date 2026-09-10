@@ -8,25 +8,18 @@
 // The info row and the turn bar keep a comfortable reading width of their own, independent
 // of however wide the board has become.
 $panel-width: min(92vw, 55vh);
-// Tall enough for the longest description, so switching objects never resizes the row
-// and the board never moves. Raise it if a description ever wraps to a fourth line — or
-// if an action button is added to a line and pushes it past this.
 // Tall enough for the longest description, so switching objects never resizes the row and the
-// board never moves. It had fallen behind what the texts had grown to — reserving 4.6rem for
-// content that runs to 6.83rem meant the reservation did nothing on a phone and the board
-// jumped on nearly every tap.
+// board never moves. Raise it if a description ever wraps to a fourth line on a phone.
 //
-// 7rem is the measured worst case plus a little: the tallest panel any string produces is the
-// unicorn's at 123px on a 320px screen, in English and German alike. There is no one rogue
-// string to shorten — the next four descriptions come in at 107-119px — so the room has to be
-// reserved rather than written away.
+// 7rem was the measured worst case for the old, longer texts: the unicorn's line at 123px on a
+// 320px screen. The texts were shortened for every build on 2026-09-10 and this came down with
+// them to 6rem — an estimate rather than a measurement: the longest description (the unicorn's
+// shine line plus its rank ladder) should now come to roughly 85px on a 320px screen.
 //
 // To re-measure after changing a description or adding a language: narrowest screen, longest
-// string, three ✨ after the name (a fully grown unicorn), and the build button showing.
-// Not re-measured since the English texts were shortened (2026-09-10): the reservation is now
-// generous for English and bounded by German in the builds that carry it. Shrinking it is a
-// layout change of its own, and hands the board the room it gives back.
-$info-height: 7rem;
+// string, three ✨ after the name (a fully grown unicorn), the ladder showing. In the builds that
+// carry German, that is the language to measure — its lines are the longer ones.
+$info-height: 6rem;
 // Beam thickness, in em against the board font-size — a fraction of a tile, whatever the screen.
 $beam-width: 0.08em;
 // PLACEHOLDER: how far the ground glyph peeks out from behind a character standing on it.

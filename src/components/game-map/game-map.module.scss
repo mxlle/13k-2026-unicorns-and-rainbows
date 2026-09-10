@@ -430,6 +430,16 @@ $win-hop-height: 2rem;
   }
 }
 
+// The goal line above the description (see showGoal): the run's arithmetic while nothing is
+// selected. Empty for every selection, and then gone, so a tapped tile keeps the row at exactly
+// its old height. Nothing separates it from the hint underneath but the change of voice — its
+// words wear the global emphasis class, and that is enough to read as two lines rather than one.
+.infoGoal {
+  &:empty {
+    display: none;
+  }
+}
+
 // The unicorn's ladder under its description (see renderGrowth): one span per rung, the rungs
 // it has climbed at full strength, the rest of the way up dimmed, the rank it holds in bold.
 // Flex with a gap rather than spaces in the text, so the steps are evenly spaced whatever glyph

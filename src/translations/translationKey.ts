@@ -20,7 +20,7 @@ export const TranslationKey = defineEnum({
   // stopped being the truth the moment a second button beside it started a new game for real —
   // this one picks a level, and now says so.
   LEVELS: 10,
-  INFO_GOAL: 11, // what the run is about, in place of INFO_HINT on the opening turn — no name either
+  INFO_GOAL: 11, // what the run is about: above INFO_HINT while nothing is selected, and heads the score view — no name either
   INFO_TREE: 12,
   INFO_DONUT: 13,
   // 14 was JUMP, the portal's own button in the info panel. The far donuts are tiles to tap

@@ -559,8 +559,12 @@ export function GameMapComponent(
   // cover the board and never shifts it either. Empty selection shows a hint instead.
   // Spans, not divs: emoji, name and description flow as one wrapping line of text.
   const infoEmoji = createElement({ tag: "span", cssClass: [styles.infoEmoji, CssClass.EMOJI] });
-  const infoName = createElement({ tag: "span", cssClass: styles.infoName });
+  const infoName = createElement({ tag: "span", cssClass: [styles.infoName, CssClass.EMPHASIS] });
   const infoText = createElement({ tag: "span" });
+  // What the run is *for*, on a line of its own above the description — see showGoal. Only the
+  // idle panel has room for it, and CSS hides it while it is empty, so every selection keeps
+  // the row at exactly its old height.
+  const infoGoal = createElement({ cssClass: styles.infoGoal });
   // The build used to have a button here, and it was the last action in the game that lived
   // off the board. It has not needed one since a site became a tile to tap — the board says
   // what it becomes and what it costs on the site itself, which no button beside a paragraph
@@ -572,7 +576,12 @@ export function GameMapComponent(
   // The unicorn's ladder, a row of its own under the line — see renderGrowth. Empty for
   // everything that is not a unicorn, and CSS hides it then, so it takes no room until it has any.
   const growthBar = createElement({ cssClass: styles.growth });
-  const infoPanel = createElement({ cssClass: styles.info }, [createElement({}, [infoEmoji, infoName, infoText]), growthBar, scoreBoard]);
+  const infoPanel = createElement({ cssClass: styles.info }, [
+    infoGoal,
+    createElement({}, [infoEmoji, infoName, infoText]),
+    growthBar,
+    scoreBoard,
+  ]);
 
   // The board takes its size from the map and the zoom step; this row scrolls to reach the
   // parts of it that do not fit. Panning is the browser's own scrolling — which brings touch
@@ -1206,7 +1215,24 @@ export function GameMapComponent(
     infoEmoji.textContent = emoji;
     infoName.textContent = name; // empty for the hint, which has no name
     infoText.textContent = description;
+    // The goal is the one description that speaks in the loud voice, and it says it in both the
+    // places it turns up: here, heading the score's working, and above the tap hint (see showGoal).
+    infoText.classList.toggle(CssClass.EMPHASIS, key === TranslationKey.INFO_GOAL);
     growthBar.replaceChildren(); // only a unicorn has a ladder; showInfo draws it after this
+    infoGoal.replaceChildren(); // only the idle panel states the goal; showInfo draws it after this
+  }
+
+  /**
+   * The goal line: the same sentence the open score view heads its working with, in the same
+   * ⭐ the score counter wears, so the rate and the total it feeds are visibly one subject.
+   * The emoji is a span of its own — the words beside it must not be rendered in the emoji font.
+   * INFO_GOAL has no name, hence its leading "|"; the description is all of it.
+   */
+  function showGoal() {
+    infoGoal.replaceChildren(
+      createElement({ tag: "span", cssClass: CssClass.EMOJI, text: SCORE_EMOJI }),
+      createElement({ tag: "span", cssClass: CssClass.EMPHASIS, text: ` ${getTranslation(TranslationKey.INFO_GOAL).split("|")[1]}` }),
+    );
   }
 
   /**
@@ -1302,6 +1328,12 @@ export function GameMapComponent(
       const stuckKey = isLast ? TranslationKey.INFO_STUCK_LAST : TranslationKey.INFO_STUCK;
 
       setInfo(wasStuck ? stuckKey : TranslationKey.INFO_HINT, wasStuck ? (isLast ? LAST_TURN_EMOJI : TURN_EMOJI) : HINT_EMOJI);
+      // The idle panel has nothing to explain, which makes it the one place the run's own point
+      // fits — above the invitation to tap rather than instead of it, so the arithmetic heads the
+      // panel and the thing to do next stays the line closest to the board.
+      // Not over the two spent-turn lines: those are a prompt to press the button under them, and
+      // a rule above a prompt reads as something to do first.
+      if (!wasStuck) showGoal();
     } else if (isSeen(map.tiles[index], PLAYER)) setInfo(TranslationKey.INFO_EMPTY, EMPTY_EMOJI);
     else setInfo(TranslationKey.INFO_FOG, FOG_EMOJI);
   }
@@ -1355,8 +1387,8 @@ export function GameMapComponent(
     // bytes** (2026-09-10), by putting terser off some inlining it does across renderScoreBoard's
     // six calls. Not a thing to reason about, only to measure — so if this is ever rewritten as
     // one clever expression, measure it again.
-    const line = (emoji: string, text: string, unicorn = false) =>
-      createElement({}, [
+    const line = (emoji: string, text: string, unicorn = false, emphasis = false) =>
+      createElement({ cssClass: emphasis ? CssClass.EMPHASIS : "" }, [
         createElement({
           tag: "span",
           cssClass: HAS_SIDE_CHOICE
@@ -1399,7 +1431,9 @@ export function GameMapComponent(
         ? [
             line(EXPLORE_EMOJI, ` ${rate}%`),
             ...getScoreParts(map, PLAYER).map((count, index) => line(SCORE_EMOJIS[index], ` ${count} × ${rate} = ${count * rate}`)),
-            line(SCORE_EMOJI, ` ${getScore(map, PLAYER)}`),
+            // The total the rows above add up to, in the loud voice: the one number in the working
+            // that is the score itself rather than a step towards it.
+            line(SCORE_EMOJI, ` ${getScore(map, PLAYER)}`, false, true),
             ...rivalLine,
             ...targetLine,
             ...retryLine,

@@ -382,6 +382,16 @@ export function GameMapComponent(
    */
   const isLocked = () => isPaying || isRivalTurn;
 
+  /**
+   * Whether something is advising the clock rather than the board: the bulb's own answer, or
+   * the tutorial's standing one, and an action with no tile to act on is what both say it with.
+   *
+   * Two things read it and they are one rule — the button's loud, pulsing face, and its skipping
+   * the confirmation. Whatever is being advised, the player is being told to end the turn, and a
+   * button that asks whether that was meant is the game arguing with its own advice.
+   */
+  const advisesEndTurn = () => hintsEndTurn || (!!advice && !advice.from);
+
   // Two stacked glyph layers per tile, mirroring the two layers of the model: the ground
   // first, the character standing on it painted over it (later sibling, same grid cell).
   // A character therefore never hides what it stands on — the donut under a unicorn still
@@ -854,9 +864,6 @@ export function GameMapComponent(
     // on the site through both halves, which is exactly what the bulb does with it too.
     const adviceFrom = advice?.from && getIndex(advice.from);
     const advisedIndex = selectedIndex === adviceFrom && advice?.to ? getIndex(advice.to) : adviceFrom;
-    // The one piece of advice with no tile to point at: "there is nothing here worth doing".
-    // It lights the end-turn button, where the bulb's own version of that answer already goes.
-    const advisesEndTurn = !!advice && !advice.from;
     const targetIndices = targets.map(getIndex);
     // A step off a custard costs nothing, and the purse is the only place that would otherwise
     // say so — after the fact. These get a highlight of their own instead. One question about
@@ -1188,20 +1195,24 @@ export function GameMapComponent(
     // The fill is most of it: the four states that ask for this button say so in colour, which
     // is what three of them were already doing, and the bulb's own answer ("just end the turn")
     // joins them there.
-    endTurnButton.classList.toggle(CssClass.PRIMARY, (needsIncome || confirmsEndTurn || hintsEndTurn || advisesEndTurn) && !isOver);
+    endTurnButton.classList.toggle(CssClass.PRIMARY, (needsIncome || confirmsEndTurn || advisesEndTurn()) && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
-    // And the nudge on top, for the one state that is a dead end: a spent turn the player has
-    // gone back to reading the board in. Not while the selection is empty, because that is the
-    // moment the turn went spent — the panel is saying so in words right then (see showGoal),
-    // and a button that starts moving in the same instant is two things asking at once. Tapping
-    // anything is the signal that the words have been read and the board is being looked over;
-    // from there the way out of the turn is the thing that has not been done yet.
+    // And the nudge on top, for the two states where the clock is the answer. A spent turn the
+    // player has gone back to reading the board in — but not while the selection is empty,
+    // because that is the moment the turn went spent: the panel is saying so in words right then
+    // (see showGoal), and a button that starts moving in the same instant is two things asking
+    // at once. Tapping anything is the signal that the words have been read and the board is
+    // being looked over; from there the way out of the turn is the thing that has not been done
+    // yet. And a turn something is advising the end of, which has no such moment to wait for —
+    // it is an answer to a question, asked by the bulb or standing on the tutorial board, and
+    // nothing else on the screen is saying it. The board never pulses at the same time: advice
+    // about the clock is advice with no tile to point at (see advisesEndTurn).
     //
     // The game's own pulse, whatever its width: 12% of a button this wide does reach into the
     // gap beside it, and that is accepted rather than worked around — by the time it runs, the
     // taps it is answering are aimless ones, and a button that swells into the room next to it
     // is exactly the wrong thing to be subtle about.
-    endTurnButton.classList.toggle(CssClass.HINT, needsIncome && !isOver && !!selected);
+    endTurnButton.classList.toggle(CssClass.HINT, ((needsIncome && !!selected) || advisesEndTurn()) && !isOver);
     // The hint asks the bot, and the bot answers about a board that is standing still: nothing
     // to advise while the income is flying, the rival is walking or the run is over.
     hintButton.disabled = isLocked() || !isRunning;
@@ -1927,11 +1938,12 @@ export function GameMapComponent(
    * back into the bundle), and a hold has to teach itself to a player who has never been asked
    * to hold anything.
    *
-   * It is skipped when the game can prove there is nothing else to do, and once the run is over,
-   * where the button is the way out to the levels and there is nothing left to lose. The first of
-   * those is the same question the button's own look is drawn from (see render), so the two are
-   * one rule and the button is always telling the truth about which of them it is: plain means it
-   * will ask, loud means it will not.
+   * It is skipped when the game can prove there is nothing else to do, when something is
+   * advising the clock (see advisesEndTurn), and once the run is over, where the button is the
+   * way out to the levels and there is nothing left to lose. The first two are the same
+   * questions the button's own look is drawn from (see render), so those are one rule and the
+   * button is always telling the truth about which of them it is: plain means it will ask, loud
+   * means it will not. Nothing else may join the loud face without joining this line too.
    *
    * That line is deliberately drawn wide rather than at the slip itself. Measured over the
    * ladder, a turn ends with some legal move still on the board on anything from half to nearly three
@@ -1943,7 +1955,7 @@ export function GameMapComponent(
    */
   function endTurnPressed() {
     if (!isRunning) return onExit();
-    if (confirmsEndTurn || !canAct(map, PLAYER)) return finishTurn();
+    if (confirmsEndTurn || advisesEndTurn() || !canAct(map, PLAYER)) return finishTurn();
 
     confirmsEndTurn = true;
     clearTimeout(confirmTimer);

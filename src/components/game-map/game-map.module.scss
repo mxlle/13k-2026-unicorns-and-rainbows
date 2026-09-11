@@ -12,14 +12,16 @@ $panel-width: min(92vw, 55vh);
 // board never moves. Raise it if a description ever wraps to a fourth line on a phone.
 //
 // 7rem was the measured worst case for the old, longer texts: the unicorn's line at 123px on a
-// 320px screen. The texts were shortened for every build on 2026-09-10 and this came down with
-// them to 6rem — an estimate rather than a measurement: the longest description (the unicorn's
-// shine line plus its rank ladder) should now come to roughly 85px on a 320px screen.
+// 320px screen. Shortening the texts on 2026-09-10 brought it down to 6rem, and the lollipop
+// becoming a light source has put it straight back: INFO_UNICORN_SHINE now names both line-ups
+// (🦄⛲🌈 or 🦄🍭🌈), which is a line longer than the one 6rem was estimated from. It is a
+// min-height, so too small costs a board that jumps when the selection changes rather than text
+// that is cut off — which is exactly what this height exists to prevent.
 //
 // To re-measure after changing a description or adding a language: narrowest screen, longest
 // string, three ✨ after the name (a fully grown unicorn), the ladder showing. In the builds that
 // carry German, that is the language to measure — its lines are the longer ones.
-$info-height: 6rem;
+$info-height: 7rem;
 // Beam thickness, in em against the board font-size — a fraction of a tile, whatever the screen.
 $beam-width: 0.08em;
 // PLACEHOLDER: how far the ground glyph peeks out from behind a character standing on it.
@@ -147,11 +149,11 @@ $board-column-max: calc(100dvh - 5rem);
   // rather than six times over.
   background: linear-gradient(90deg, transparent, var(--c) 25%, var(--c) 75%, transparent);
 
-  // What the light is worth, said in colour. A rainbow paying the purse is water blue all the way
-  // from the unicorn that cast it; one feeding a lollipop tree is candy red all the way from
-  // the unicorn, through the rainbow, to the tree — the feed beam and the light that makes it
-  // carry the same class, which is what makes a path read as one thing (see updateRainbows).
-  // The tree's own glow is drawn in the same red, so the two ends of it agree.
+  // What the light is for, said in colour, and it is the tile in the middle of the line-up that
+  // says it: light bent through a fountain is water blue from the unicorn to the rainbow, light
+  // bent through a lollipop is candy red over the same two tiles (see updateRainbows). Every beam
+  // carries one of the two, dead ones included — what a line-up would have paid is worth saying
+  // before it pays anything.
   &.water {
     --c: #{theme.$water-color};
   }
@@ -160,17 +162,16 @@ $board-column-max: calc(100dvh - 5rem);
     --c: #{theme.$candy-color};
   }
 
-  // the light died in the fountain — nothing at the far end, so it just peters out, and it keeps
-  // the plain sunlight of light that earned nothing
+  // the light died inside its source — nothing at the far end, so it keeps the colour of what it
+  // was for and fades out instead of arriving anywhere
   &.unlit {
-    --c: #{theme.$light-color};
     opacity: 0.4;
     background: linear-gradient(90deg, var(--c), transparent);
   }
 
-  // The opponent's light: the same three states in darker shades of the same colours, so what a
-  // beam is *doing* still reads at a glance and whose it is reads with it. Three classes deep,
-  // which is what puts these ahead of the two-class rules above.
+  // The opponent's light: the same two colours in darker shades, so what a beam is *for* still
+  // reads at a glance and whose it is reads with it. Three classes deep, which is what puts
+  // these ahead of the two-class rules above.
   &.dark {
     // The glyph layers' shared .dark inverts what it is on (see .dark below) and lands on a beam
     // as well, so it has to be turned off here — a beam says whose it is in its colour instead.
@@ -182,10 +183,6 @@ $board-column-max: calc(100dvh - 5rem);
 
     &.candy {
       --c: #{theme.$candy-color-dark};
-    }
-
-    &.unlit {
-      --c: #{theme.$light-color-dark};
     }
   }
 }
@@ -735,7 +732,7 @@ $board-column-max: calc(100dvh - 5rem);
   // A `filter` sidesteps it, because the glyph is then drawn untransformed into a surface that
   // is transformed as a picture — which is why the dormant tree kept its 45° while the lit one
   // lost it. So sizes are font-size, and the one transform left, the tree's `rotate`, is
-  // always accompanied by a filter (see .earning).
+  // always accompanied by a filter (see .tree).
   > span {
     grid-area: 1 / 1;
     pointer-events: none; // a click belongs to the tile, whatever glyph is drawn on it
@@ -761,7 +758,7 @@ $board-column-max: calc(100dvh - 5rem);
     // once when the board is built and never touched again — the same custard is the same
     // colour all game, which is what makes it a landmark rather than a light show.
     // Nothing else on this layer filters at the same time: .dark is for the rival's things and
-    // a springboard is neutral, .tree and .earning are the lollipop tree's.
+    // a springboard is neutral, .tree is the lollipop's.
     &.small {
       --g: #{$small-scale};
       filter: hue-rotate(var(--h, 0deg));
@@ -794,12 +791,18 @@ $board-column-max: calc(100dvh - 5rem);
     }
 
     // PLACEHOLDER art: the lollipop emoji is drawn on a 45° stick, so it is turned
-    // upright to read as a tree until it gets art of its own.
-    // A tree with no rainbow beside it is dormant and gives up a little saturation — just
-    // enough to sit back from the one that is working, without looking broken.
+    // upright to stand it on its own stick until it gets art of its own.
+    //
+    // There is no dormant state to draw any more — a lollipop is a light source and is one
+    // whether anybody is standing beside it, exactly as a fountain is — so the saturation that
+    // used to separate a working tree from an idle one is gone. PLACEHOLDER value: what is left
+    // is a filter that barely changes the glyph and is kept because the *rotation* needs one.
+    // Taking the filter off a rotated glyph is what made Firefox on Linux draw it untilted — see
+    // the note on the glyph layers — and an identity saturate(1) is the kind of thing a browser
+    // is free to optimise away.
     &.tree {
       rotate: 45deg;
-      filter: saturate(0.6);
+      filter: saturate(0.9);
     }
 
     // A present, wrapped in what is inside it — see LOOT_HUES. Its own variable rather than the
@@ -814,19 +817,6 @@ $board-column-max: calc(100dvh - 5rem);
     // ignore rather than as an offer.
     &.site {
       font-size: 0.7em;
-    }
-
-    // Earning: next to a rainbow, turning that light into candy. The glow means the same
-    // here as it does on the sun and the unicorns — this thing is producing — in candy
-    // pink rather than sunlight, after what comes out of it. The shadow has no offset, so
-    // the 45° rotation above leaves it perfectly symmetrical.
-    //
-    // A drop-shadow filter rather than a text-shadow, and it must stay a filter: it replaces
-    // the dormant saturate above, and taking the filter off a rotated glyph is exactly what
-    // made Firefox on Linux draw the lit tree upright — see the note on the glyph layers.
-    &.earning {
-      // the candy red of the beams feeding it, so the tree and its light are one thing
-      filter: drop-shadow(0 0 0.3em theme.$candy-color);
     }
 
     // Ground under a character: out of the middle entirely and into the top-right corner, as
@@ -1039,12 +1029,6 @@ $board-column-max: calc(100dvh - 5rem);
 
       &.hinted {
         box-shadow: inset 0 0 0 3px theme.$night-light;
-      }
-
-      > span {
-        &.earning {
-          filter: drop-shadow(0 0 0.3em theme.$night-candy);
-        }
       }
     }
   }

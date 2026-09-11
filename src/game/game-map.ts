@@ -1,4 +1,4 @@
-import { setSeed } from "../utils/random-utils";
+import { random, setSeed } from "../utils/random-utils";
 import { getRandomItem } from "../utils/array-utils";
 import {
   ChestLoot,
@@ -38,7 +38,7 @@ export const MAP_SIZES = [5, 7, 9, 13, 17, 21, 25];
 // and stays that way: it is still cheaper at runtime than Math.round.
 export let MAP_SIZE = MAP_SIZES[0];
 export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are none in the open any more
-export let TREE_COUNT = 0; // free-roaming, on top of the one growing next to every fountain
+export let TREE_COUNT = 0; // the other kind of light source, and the only way onto the board of sweets
 export let CUSTARD_COUNT = 0; // springboards scattered over the meadow — see getMoveCost
 export let CHEST_COUNT = 0; // what the fog is worth walking into
 // What one of them holds. Derived from the board like the counts above rather than fixed, so a
@@ -62,13 +62,17 @@ export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
  */
 const TREE_SIZE = 7; // and with the trees comes candy, which is what gives the tub its second job
 /**
- * PLACEHOLDER: how many lollipop trees may stand on one fountain's ring — the eight tiles around
- * it, which are exactly the tiles its light can land on. A tree there is the point of a tree, so
- * the first one is placed deliberately (see createGameMap) and one more may wander in; anything
- * past that and a fountain starts running out of pairings. Everything else keeps off the ring
- * entirely — see crowdsFountain.
+ * PLACEHOLDER: how often a light source is allowed to stand on the ring of a source of the
+ * *other* kind — a lollipop on a fountain's eight tiles, or the other way round.
+ *
+ * A ring is the four lines a source can cast along, so anything owning the ground there costs it
+ * a pairing, and everything else keeps off both rings entirely (see crowdsSource). The two kinds
+ * of source are the one exception, because what they cost each other they also give back: the
+ * tile beside both of them is the one tile on the board where a single unicorn lights a rainbow
+ * of each currency at once. Half the time, so a board carries a few of those without the two
+ * kinds ending up welded together in pairs.
  */
-const TREES_PER_FOUNTAIN = 2;
+const SHARES_RING = 0.5;
 /**
  * The tutorial's run, which is the one board whose turns are not its width. The ceiling — 100%
  * uncovered, the two unicorns the board can hold, the two rainbows its one fountain can hold —
@@ -139,8 +143,8 @@ let isTutorial = false;
  *
  * On top of that, the feature ladder above zeroes whole kinds of thing out on the early
  * boards. A count of 0 is all it takes: every placement loop is bounded by its count, and the
- * three things that are not loops — the middle tub site, the portal pair and the tree beside
- * each fountain — read the count as the condition they are placed under.
+ * two things that are not loops — the middle tub site and the portal pair — read the count as
+ * the condition they are placed under.
  */
 function setMapSize(size: number) {
   const tiles = size * size;
@@ -307,14 +311,21 @@ export interface Tile {
   growth?: number;
   /**
    * How big the rainbow lying here is — the level of the unicorn whose light made it, which is
-   * what it pays in drops a turn and what it feeds a lollipop tree beside it in sweets. Written
-   * as the rainbow is cast (see updateRainbows) and only ever read of a tile that holds one, so
-   * it cannot go stale: every rainbow there is was lit in the same pass that stamped this.
+   * how much it pays a turn in whichever currency it pays. Written as the rainbow is cast (see
+   * updateRainbows) and only ever read of a tile that holds one, so it cannot go stale: every
+   * rainbow there is was lit in the same pass that stamped this.
    *
    * A field of its own rather than the caster's `growth`, because the two can be on one tile: a
    * unicorn may walk onto a tile a rainbow was lying on, and its own growth goes with it.
    */
   light?: number;
+  /**
+   * Which currency the rainbow lying here pays: sweets when the light that made it came through
+   * a lollipop, water when it came through a fountain. The same guarantee as `light` and written
+   * in the same breath — a rainbow is stamped with what it is worth and what it is worth it in
+   * at the moment it is cast, so nothing downstream has to go looking for the source again.
+   */
+  candy?: boolean;
 }
 
 /**
@@ -354,19 +365,16 @@ export interface Beam extends Position {
   dx: number;
   dy: number;
   isLit: boolean; // the light got through and made a rainbow, instead of dying in the fountain
-  // Whether this beam's light is being turned into sweets rather than water — the one thing that
-  // decides its colour, and it is stamped on every beam of a path so the path reads as one.
-  // Two kinds of beam carry it: the light from a unicorn to a rainbow that is feeding a tree,
-  // and the feed itself, from that rainbow to that tree. The feed is never lit — it spans the one
-  // tile between the two, the same reach as a beam that stopped inside a fountain, so the two
-  // share the width the renderer works out from isLit.
+  // Whether this light bent through a lollipop rather than through a fountain, which is the one
+  // thing that decides both its colour and the currency at the far end of it. Stamped from the
+  // source rather than read back off the rainbow, so an *unlit* beam carries it too: light dying
+  // inside a lollipop is drawn pink, and what a line-up would pay can be read before it pays.
   isCandy: boolean;
   side: Side; // whose light it is — the renderer draws the opponent's inverted, like its rainbows
   // How many parallel lines this beam is drawn as: the level of the unicorn whose light it is,
-  // which is what the rainbow at the end of it pays and what it feeds a tree. So a grown
-  // unicorn's whole light path — the beam through the fountain and the pink feed beyond the
-  // rainbow — comes out three lines wide, and what it is worth can be counted off the board.
-  // A beam that died in a fountain never sets it: an unlit one pays nothing to count.
+  // which is exactly what the rainbow at the end of it pays. So a grown unicorn's light comes
+  // out three lines wide, and what it is worth can be counted off the board.
+  // A beam that died in its source never sets it: an unlit one pays nothing to count.
   lines?: number;
 }
 
@@ -382,7 +390,7 @@ export interface GameMap {
   drops: number[]; // water drops in the purse; they buy steps and are banked across turns
   candy: number[]; // sweets in the jar; they buy unicorns and are banked the same way
   dropIncome: number[]; // the bathtubs' flat pay plus every rainbow paying water — recomputed with them
-  candyIncome: number[]; // every rainbow a lollipop tree is powering — recomputed alongside them too
+  candyIncome: number[]; // every rainbow cast through a lollipop — recomputed alongside them too
   turn: number; // the turn being played, 1 to TURN_LIMIT
 }
 
@@ -472,15 +480,15 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   const middle = MAP_SIZE >> 1;
   if (SITE_COUNT) getTile(map, { x: middle, y: middle })!.object = GameObjectType.TUB_SITE;
 
-  // Fountains keep one tile of distance to the border, so every side of a fountain has an
-  // opposite tile to cast a rainbow onto, and their share of the board from each other.
-  for (let i = 0; i < FOUNTAIN_COUNT; i++) {
-    const position = placeObject(map, GameObjectType.FOUNTAIN, FOUNTAIN_COUNT, 1);
-    // A lollipop tree grows next to every fountain, taking one of its eight rainbow
-    // slots away — once the board is one that has trees at all.
-    const spots = TREE_COUNT && position ? getFreeNeighbours(map, position) : [];
-    if (spots.length) getTile(map, getRandomItem(spots))!.object = GameObjectType.TREE;
-  }
+  // The light, both kinds of it, and they are placed alike because they *are* alike: a fountain
+  // and a lollipop differ in nothing but the currency at the end of the line-up. One tile of
+  // distance to the border, so every side of a source has an opposite tile to cast a rainbow
+  // onto, and their share of the board from the others of their own kind — the two kinds keep
+  // off each other through their rings instead (see crowdsSource), which is what lets a pair of
+  // them turn up close enough to share a unicorn.
+  // Fussiest first, so the sources get the emptiest board there is to find room on.
+  for (let i = 0; i < FOUNTAIN_COUNT; i++) placeObject(map, GameObjectType.FOUNTAIN, FOUNTAIN_COUNT, 1);
+  for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, TREE_COUNT, 1);
 
   // The portal network: placed early, because its rule is the hardest on the board to satisfy.
   // The donuts keep their distance along *both* axes rather than as the crow flies, so no two
@@ -504,9 +512,6 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
 
   // No unicorns are placed here: the one at the start position is the whole herd a run
   // begins with, and every other one is bought from a tub. Nothing waits in the fog.
-  // Twice TREE_COUNT: one tree already grew beside every fountain, and the spacing is
-  // worked out from how many end up on the board, not from how many this loop places.
-  for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, TREE_COUNT * 2);
   for (let i = 0; i < CUSTARD_COUNT; i++) placeObject(map, GameObjectType.CUSTARD, CUSTARD_COUNT);
 
   // Chests and build sites last, and they can only land under the fog like everything else —
@@ -526,19 +531,12 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // is always somewhere a run can work around rather than pinned against an edge.
   for (let i = 1; i < SITE_COUNT; i++) placeObject(map, GameObjectType.TUB_SITE, SITE_COUNT, 1);
 
-  // The rubble keeps a fountain's own margin: a fountain on the border has sides with no tile
-  // opposite to cast a rainbow onto, and a rebuilt one is no different from a found one.
-  // Before the seedlings, which are placed against it.
+  // The two site kinds keep a source's own margin, because that is what they become: a source on
+  // the border has sides with no tile opposite to cast a rainbow onto, and a raised one is no
+  // different from a found one. They are placed alike for the same reason their buildings are —
+  // rubble is a fountain that has not happened yet, a seedling a lollipop that has not.
   for (let i = 0; i < SITE_COUNT; i++) placeObject(map, GameObjectType.FOUNTAIN_SITE, SITE_COUNT, 1);
-
-  // Seedlings go only where the tree they become would have something to feed on. A tree earns
-  // off a rainbow and a rainbow lands beside a fountain, so a seedling anywhere else is an
-  // offer that could never pay for itself — and an offer the player has to learn to turn down
-  // is worse than no offer at all.
-  for (let i = 0; i < SITE_COUNT; i++) {
-    const spots = getSeedlingSpots(map);
-    if (spots.length) getTile(map, getRandomItem(spots))!.object = GameObjectType.TREE_SITE;
-  }
+  for (let i = 0; i < SITE_COUNT; i++) placeObject(map, GameObjectType.TREE_SITE, SITE_COUNT, 1);
 
   updateRainbows(map);
   // The opening purse is one turn's income — the tub's, since nothing shines yet. Both sides
@@ -644,89 +642,61 @@ function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin
 }
 
 /**
- * The free tiles beside a fountain, or beside rubble that may yet become one — the only places
- * a seedling is worth offering, since a lollipop tree pays only off a rainbow and a rainbow
- * only ever lands beside a fountain. Rubble counts: the player who rebuilds it has every
- * reason to grow the tree next to it, and the two together are a plan rather than two offers.
+ * A lollipop, or the seedling that becomes one — and below it, either of those or a fountain or
+ * its rubble. A site counts as the thing it will be for every purpose that is about where light
+ * will come out: a raised source is no different from a found one, so anything that gives a
+ * source room has to give a site the same room, or the room is gone by the time it is raised.
  */
-function getSeedlingSpots(map: GameMap): Position[] {
-  // A seedling is a tree-to-be, so it is offered where a tree may stand and counted like one:
-  // a ring that already has its trees does not get a third in seedling form either.
-  return getPlaceableSpots(map, GameObjectType.TREE, 0).filter(({ x, y }) => {
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if ((dx || dy) && isFountainish(getTile(map, { x: x + dx, y: y + dy })?.object)) return true;
-      }
-    }
+function isSweet(objectType: GameObjectType | undefined): boolean {
+  return objectType === GameObjectType.TREE || objectType === GameObjectType.TREE_SITE;
+}
 
-    return false;
-  });
+function isLightish(objectType: GameObjectType | undefined): boolean {
+  return objectType === GameObjectType.FOUNTAIN || objectType === GameObjectType.FOUNTAIN_SITE || isSweet(objectType);
 }
 
 /**
- * A fountain, or the rubble that becomes one. The two are the same thing for every purpose that
- * is about where light will come out: a rebuilt fountain is no different from a found one, so
- * anything that gives a fountain room has to give rubble the same room, or the room is gone by
- * the time it is rebuilt.
- */
-function isFountainish(objectType: GameObjectType | undefined): boolean {
-  return objectType === GameObjectType.FOUNTAIN || objectType === GameObjectType.FOUNTAIN_SITE;
-}
-
-/**
- * How many trees — grown or still a seedling — stand on the eight tiles around this one. The
- * seedling counts because it is a tree-to-be that is already taking the tile up: a ring of
- * seedlings is a fountain with nowhere to put a rainbow now and nowhere later either.
- */
-function countTrees(map: GameMap, { x, y }: Position): number {
-  let count = 0;
-
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const object = getTile(map, { x: x + dx, y: y + dy })?.object;
-      if ((dx || dy) && (object === GameObjectType.TREE || object === GameObjectType.TREE_SITE)) count++;
-    }
-  }
-
-  return count;
-}
-
-/**
- * Whether putting `objectType` here would crowd a fountain out of its own light.
+ * Whether putting `objectType` here would crowd a light source out of its own light.
  *
- * A fountain's eight neighbours are not ordinary tiles: they pair up into the four lines its
- * light can travel along, and each line needs a tile to stand a unicorn on at one end and empty
- * ground to land a rainbow on at the other. So anything that owns the ground layer and lands on
- * that ring does not merely sit near the fountain — it costs it a whole pairing, and a fountain
- * ringed by scenery is a fountain that cannot be used at all. That was being decided by the roll
- * of the dice, and this is what decides it on purpose instead.
+ * A source's eight neighbours are not ordinary tiles: they pair up into the four lines its light
+ * can travel along, and each line needs a tile to stand a unicorn on at one end and empty ground
+ * to land a rainbow on at the other. So anything that owns the ground layer and lands on that
+ * ring does not merely sit near the source — it costs it a whole pairing, and a source ringed by
+ * scenery is a source that cannot be used at all. That was being decided by the roll of the
+ * dice, and this is what decides it on purpose instead.
  *
  * Read from both sides, because a ring can be crowded either way round:
- *  - a fountain arriving wants a ring that is empty ground to begin with;
- *  - anything else arriving must keep off every ring — except a lollipop tree, which is welcome
- *    up to TREES_PER_FOUNTAIN, a tree beside a fountain being the whole point of a tree.
+ *  - a source arriving wants a ring that is empty ground to begin with;
+ *  - anything else arriving must keep off every ring.
+ *
+ * `sharesRing` is the one exception, rolled once per placement (see SHARES_RING and
+ * getPlaceableSpots): a source that has won that flip may stand on the ring of a source of the
+ * *other* kind, which is how a board comes by the tile that lights one rainbow of each currency.
  *
  * It is only ever advice: getPlaceableSpots falls back to the unfiltered board when nothing
  * satisfies this, the same way the spacing rule steps down rather than dropping a placement.
  */
-function crowdsFountain(map: GameMap, { x, y }: Position, objectType: GameObjectType): boolean {
-  const isLight = isFountainish(objectType);
+function crowdsSource(map: GameMap, { x, y }: Position, objectType: GameObjectType, sharesRing: boolean): boolean {
+  const isLight = isLightish(objectType);
 
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
-      const neighbour = { x: x + dx, y: y + dy };
-      const object = getTile(map, neighbour)?.object;
+      const object = getTile(map, { x: x + dx, y: y + dy })?.object;
 
       if (!dx && !dy) continue;
+      // The shared ring, and it is one rule read from both ends at once: this tile is on that
+      // source's ring exactly as that source is on this one's, so allowing it here allows it
+      // there. Only ever between a watery source and a sweet one.
+      if (sharesRing && isLightish(object) && isSweet(object) !== isSweet(objectType)) continue;
 
-      // A fountain arriving: whatever is already on the ring is what it would have to work
+      // A source arriving: whatever else is already on the ring is what it would have to work
       // around, so it goes somewhere emptier instead.
       if (isLight) {
         if (object !== undefined) return true;
         continue;
       }
 
-      if (isFountainish(object) && (objectType !== GameObjectType.TREE || countTrees(map, neighbour) >= TREES_PER_FOUNTAIN)) return true;
+      if (isLightish(object)) return true;
     }
   }
 
@@ -735,29 +705,25 @@ function crowdsFountain(map: GameMap, { x, y }: Position, objectType: GameObject
 
 /**
  * The free tiles this kind of thing may actually be put on: `margin` clear of the border, and
- * clear of the fountains' light — see crowdsFountain, whose rule this is the one place that
- * applies. The whole board comes back rather than nothing at all when the rule cannot be met,
- * so a filling board still places what it is asked to, as close to the rule as it can.
+ * clear of the sources' light — see crowdsSource, whose rule this is the one place that applies.
+ * The whole board comes back rather than nothing at all when the rule cannot be met, so a
+ * filling board still places what it is asked to, as close to the rule as it can.
+ *
+ * The shared-ring flip is rolled here, once per placement rather than once per candidate tile:
+ * this is a thing being placed asking where it may go, and "may I share a ring this time" is a
+ * question about that thing and not about each tile it is looking at.
+ *
+ * Not rolled at all on a board with no lollipops on it, and that is not a saving — a draw that
+ * nothing can act on still moves the seeded generator on, and the tutorial is a board whose deal
+ * has been measured to the last tile (see TUTORIAL_TURNS). A flip with no second kind of source
+ * to share a ring with would have rebuilt it for nothing.
  */
 function getPlaceableSpots(map: GameMap, objectType: GameObjectType, margin: number): Position[] {
   const free = getFreePositions(map, margin);
-  const clear = free.filter((position) => !crowdsFountain(map, position, objectType));
+  const sharesRing = !!TREE_COUNT && isLightish(objectType) && random() < SHARES_RING;
+  const clear = free.filter((position) => !crowdsSource(map, position, objectType, sharesRing));
 
   return clear.length ? clear : free;
-}
-
-/** The free tiles of the surrounding 3x3 — the spots where a fountain's tree may grow. */
-function getFreeNeighbours(map: GameMap, { x, y }: Position): Position[] {
-  const free: Position[] = [];
-
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const position = { x: x + dx, y: y + dy };
-      if ((dx || dy) && isFree(getTile(map, position))) free.push(position);
-    }
-  }
-
-  return free;
 }
 
 /**
@@ -793,8 +759,20 @@ function glows(objectType: GameObjectType | undefined): boolean {
 }
 
 /**
+ * The two things a unicorn's light bends through. They are one kind of thing in every respect
+ * the rules read — same line-up, same reach, same empty tile needed opposite — and differ only
+ * in what comes out at the far end, which is the whole of the game's economy: 🦄⛲🌈 pays water,
+ * 🦄🍭🌈 pays sweets.
+ */
+function refracts(objectType: GameObjectType | undefined): boolean {
+  return objectType === GameObjectType.FOUNTAIN || objectType === GameObjectType.TREE;
+}
+
+/**
  * Rainbows are pure light, not scenery: the glow of a unicorn (or of the sun) refracts
- * through a fountain it stands next to and lands on the tile directly opposite.
+ * through the light source it stands next to — a fountain or a lollipop, see refracts — and
+ * lands on the tile directly opposite. Which of the two it passed through decides what the
+ * rainbow pays, and nothing else does.
  * Recomputed from scratch after every move, so a rainbow fades the moment its unicorn
  * walks away. A tile that is off the map or already taken swallows the light — that
  * angle produces no rainbow, only an unlit beam that stops inside the fountain.
@@ -825,23 +803,28 @@ export function updateRainbows(map: GameMap) {
 
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
-        // the fountain sits one step away, the rainbow one further along the same line
-        if ((!dx && !dy) || getTile(map, { x: x + dx, y: y + dy })?.object !== GameObjectType.FOUNTAIN) continue;
+        // the source sits one step away, the rainbow one further along the same line
+        const source = getTile(map, { x: x + dx, y: y + dy })?.object;
+        if ((!dx && !dy) || !refracts(source)) continue;
+        // Which currency this line-up is for. Decided once here, from the one tile that says it,
+        // and stamped on both the beam and the rainbow it makes.
+        const isCandy = source === GameObjectType.TREE;
         const position = { x: x + 2 * dx, y: y + 2 * dy };
         const target = getTile(map, position);
         // An occupied tile swallows the light, and that is the whole of the contest over a
-        // fountain: the first rainbow onto a tile holds it, and the other side's light dies in
-        // the fountain until whoever is holding it walks away. Nothing new had to be written
+        // source: the first rainbow onto a tile holds it, and the other side's light dies in
+        // the source until whoever is holding it walks away. Nothing new had to be written
         // for that — a rainbow has always needed empty ground, and the other side's rainbow is
         // ground like any other. Two glowers can never want the *same* tile off the same
-        // fountain (the target is fixed by where the glower stands), so the only collisions
-        // are two different fountains casting onto one tile, which row-major order settles.
+        // source (the target is fixed by where the glower stands), so the only collisions
+        // are two different sources casting onto one tile, which row-major order settles.
         const isLit = !!target && target.object === undefined && target.living === undefined;
 
         if (isLit) {
           target.object = SIDE_RAINBOW[side];
           target.seen |= 1 << side; // its own light lifts its own side's fog over it
           target.light = level; // how big this rainbow is, for everything that reads it later
+          target.candy = isCandy; // and which of the two counters it pays into
           map.rainbowCounts[side]++;
         }
 
@@ -849,19 +832,17 @@ export function updateRainbows(map: GameMap) {
         // light that came to nothing, and three lines of nothing would read as three times as
         // much of it. The count stays the rainbow's worth throughout.
         //
-        // And it is drawn in the colour of whatever it is about to become: the water blue of the
-        // purse, or — when a lollipop tree at the far end is powering that rainbow instead — the
-        // candy red of the jar, the same colour as the feed beyond it. So the whole path from the
-        // unicorn through the fountain to the tree is one colour, and which of the two things a
-        // unicorn is doing can be read off the board at a glance rather than worked out from
-        // where the trees happen to be.
+        // And it is drawn in the colour of what it is carrying: the water blue of the purse, or
+        // the candy red of the jar. That colour is the tile in the middle of the line-up and
+        // nothing else, so which of the two things a unicorn is doing can be read off the board
+        // at a glance — including where the light died, which is where a player was one tile off.
         map.beams.push({
           x,
           y,
           dx,
           dy,
           isLit,
-          isCandy: isLit && !!getRainbowIncome(map, position, side)[0],
+          isCandy,
           side,
           lines: isLit ? level : 1,
         });
@@ -874,26 +855,21 @@ export function updateRainbows(map: GameMap) {
   // built mid-run starts paying without anything having to be told about it — and a tub site
   // raised by the opponent starts paying the opponent for exactly the same reason.
   //
-  // **The rainbow is the earner, and the trees only change what it earns in.** What one pays
-  // goes through getRainbowIncome, the one place that answers it. The sweets used to be counted
-  // off the trees instead — a tree asked which rainbows fed it — which read as though the tree
-  // were the source and the rainbow only its supply. It is the other way round: a rainbow always
-  // earns, and a lollipop tree beside it *powers* it into paying sweets rather than water. The
-  // numbers are identical either way; where they are attributed is the whole of the change, and
-  // being attributed to a tile is what lets that tile say what it is making.
+  // **The rainbow is the earner, and the source it came through only says what it earns in.**
+  // Which one that was is already on the tile (see Tile.candy), so this pass asks nothing about
+  // the board around a rainbow: getRainbowIncome reads the stamp, and it is the one place the
+  // question is answered.
   //
   // Rainbows are summed by their `light` rather than counted, which is the one place a grown
   // unicorn's water actually arrives; `rainbowCounts` stays a count, because the score is about
   // how much is built and not about how big it is.
   //
-  // A second pass, after the first has put every rainbow on the board: what a rainbow pays
-  // depends on nothing but the trees beside it, but *whether there is a rainbow here* is what
-  // the first pass decided. Every rainbow-tree pairing gets a pink beam of its own, pushed here,
-  // so the lines the player sees and the sweets the jar is paid are counted off the same list.
+  // A second pass, after the first has put every rainbow on the board: the bathtubs are counted
+  // in the same sweep, and a tub is not something the first pass knows about.
   //
-  // A lollipop tree is neutral scenery, like the fountain it stands beside: it powers whoever's
-  // light reaches it. So one tree between the two herds can be feeding a rainbow of each at once,
-  // off different sides of itself, and there is nothing to own or to take.
+  // A lollipop is neutral scenery, exactly like the fountain beside it: it bends whoever's light
+  // reaches it. So one lollipop can be casting a rainbow for each side at once, off opposite
+  // sides of itself, and there is nothing to own or to take.
   map.dropIncome = [0, 0];
   map.candyIncome = [0, 0];
 
@@ -904,50 +880,10 @@ export function updateRainbows(map: GameMap) {
       if (tile.object === SIDE_BATHTUB[side]) map.dropIncome[side] += BASE_INCOME;
       if (tile.object !== SIDE_RAINBOW[side]) return;
 
-      const [currency, amount] = getRainbowIncome(map, position, side);
+      const [currency, amount] = getRainbowIncome(map, position);
       (currency ? map.candyIncome : map.dropIncome)[side] += amount;
-
-      // One beam per tree, each at the rainbow's own size in lines — so a rainbow between two
-      // trees is drawn paying both, exactly as it is counted paying both.
-      if (currency)
-        getTreesBeside(map, position, side).forEach((tree) =>
-          map.beams.push({
-            ...position,
-            dx: tree.x - position.x,
-            dy: tree.y - position.y,
-            isLit: false,
-            isCandy: true,
-            side,
-            lines: tile.light!,
-          }),
-        );
     });
   });
-}
-
-/**
- * The lollipop trees this side has found standing beside this tile — the ones powering a rainbow
- * here, so that its light comes out as sweets instead of water.
- *
- * The fog rule, and it is the same one a fogged glower obeys: a tree nobody has found powers
- * nothing, because an unseen one paying into the jar would give its position away.
- *
- * Positions rather than a count, because a pairing is a thing the player sees: the income is the
- * rainbow's size per tree — so one standing between two of them pays both, and the bot has to be
- * able to prefer that tile to the one next to it — and every pairing is drawn as a beam of its own.
- */
-export function getTreesBeside(map: GameMap, { x, y }: Position, side: Side): Position[] {
-  const trees: Position[] = [];
-
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const position = { x: x + dx, y: y + dy };
-      const tile = getTile(map, position);
-      if ((dx || dy) && isSeen(tile, side) && tile!.object === GameObjectType.TREE) trees.push(position);
-    }
-  }
-
-  return trees;
 }
 
 /**
@@ -955,26 +891,20 @@ export function getTreesBeside(map: GameMap, { x, y }: Position, side: Side): Po
  * The currency is the index the interface already sorts everything by — 0 water, 1 sweets; the
  * same numbering ChestLoot is deliberately built on.
  *
- * **A rainbow earns either water or sweets, never both**, and this is the whole of that rule. On
- * bare ground it pays its own size into the purse. With lollipop trees beside it, they take that
- * light and turn it into sweets — its size again, once per tree, so a rainbow between two of them
- * pays twice and the purse gets nothing. It used to pay a drop into the purse *and* a sweet into
- * the jar per tree, which made a tree-side tile strictly better than a bare one and was where a
- * well-played board's water surplus came from. Now which side of a fountain to light is a choice
- * between the two currencies rather than a tile with a right answer.
- *
- * The earning is the rainbow's, whichever currency comes out. That the sweets were once counted
- * off the trees instead is why the rule reads as a redirection at all — there is no redirection,
- * only one earner and two things it can be earning.
+ * **A rainbow earns either water or sweets, never both**, and what decides it is the tile the
+ * light bent through on the way here: a fountain pays into the purse, a lollipop into the jar.
+ * Both were decided when the rainbow was cast and are lying on the tile, so this is a read and
+ * not a search — which is also what makes the rule sayable in one line to a player: line the
+ * unicorn up with the thing you want.
  *
  * The one place that question is answered, so the income the counter promises, what flies out of
  * the tile at the end of the turn, the colour the light is drawn in and what the tile says it is
  * making cannot come apart.
  */
-export function getRainbowIncome(map: GameMap, position: Position, side: Side): [currency: number, amount: number] {
-  const trees = getTreesBeside(map, position, side).length;
+export function getRainbowIncome(map: GameMap, position: Position): [currency: number, amount: number] {
+  const tile = getTile(map, position)!;
 
-  return [trees ? 1 : 0, getTile(map, position)!.light! * (trees || 1)];
+  return [tile.candy ? 1 : 0, tile.light!];
 }
 
 function blocksMove(objectType: GameObjectType | undefined): boolean {

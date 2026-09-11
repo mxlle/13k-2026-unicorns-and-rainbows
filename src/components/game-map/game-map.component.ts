@@ -903,18 +903,6 @@ export function GameMapComponent(
     // Filtered by what the player can see for the same reason the beams themselves are — see
     // showsBeam. Without it a cloud hiding an opponent's unicorn wears that unicorn's halo.
     const shining = new Set(map.beams.filter((beam) => beam.isLit && showsBeam(beam)).map(getIndex));
-    // And which lollipop trees are powering one of them into paying sweets, gathered the same
-    // way and for the same reason. A candy beam runs from the rainbow to the tree it is being
-    // turned into sweets by, so the tree is the far end of it — and because the beams are what
-    // the income was counted off, the glow on a working tree can never promise candy that never
-    // comes. The player's own light only: a tree powering the rival's rainbow is earning for the
-    // rival, and lighting it up here would be crediting the player with somebody else's sweets.
-    const powering = new Set(
-      map.beams
-        .filter((beam) => beam.isCandy && !beam.isLit && beam.side === PLAYER)
-        .map(({ x, y, dx, dy }) => getIndex({ x: x + dx, y: y + dy })),
-    );
-
     map.tiles.forEach((tile, index) => {
       const element = tileElements[index];
       const isSelectedTile = index === selectedIndex;
@@ -1053,7 +1041,7 @@ export function GameMapComponent(
       // Indexed straight off the currency getRainbowIncome answers with: LOOT_EMOJIS is the
       // drop and the sweet in that order, which is the whole reason ChestLoot is numbered the
       // way it is (see game-objects.ts).
-      if (isPaying) element.style.setProperty("--i", `"${LOOT_EMOJIS[getRainbowIncome(map, getPosition(index), PLAYER)[0]]}"`);
+      if (isPaying) element.style.setProperty("--i", `"${LOOT_EMOJIS[getRainbowIncome(map, getPosition(index))[0]]}"`);
       // The finger the idle panel says "tap anything" with, said about one tile instead. It is
       // the same glyph on purpose: the panel's is the invitation in general and this is the
       // invitation pointed at something, and a second hand shape for the second one would be
@@ -1080,7 +1068,6 @@ export function GameMapComponent(
       const hasLoot = isVisible && tile.loot !== undefined;
       ground.classList.toggle(styles.loot, hasLoot);
       if (hasLoot) ground.style.setProperty("--l", `${LOOT_HUES[tile.loot!]}deg`);
-      ground.classList.toggle(styles.earning, powering.has(index)); // a tree with light to turn into sweets
       ground.classList.toggle(styles.covered, hasLiving); // out of the way, into the corner
       // The opponent's things are drawn as the negative of the player's — see .dark. Both
       // layers can carry one: a dark rainbow on the ground, a dark unicorn standing on it.
@@ -1245,17 +1232,21 @@ export function GameMapComponent(
         const tileSize = 100 / MAP_SIZE; // one tile as a percentage of the board
         const length = Math.hypot(dx, dy); // diagonals are longer by exactly the hypotenuse of a 1x1 tile
 
-        // One line per sweet the pairing pays, side by side across the gap — so what a grown
-        // tree is worth can be counted off the board rather than guessed from a thickness.
+        // One line per point the rainbow pays, side by side across the gap — so what a grown
+        // unicorn's light is worth can be counted off the board rather than guessed at.
         // Spread along the perpendicular (-dy, dx), which needs dividing by the length to be a
         // direction rather than a diagonal that spreads further than a straight one.
         return Array.from({ length: lines }, (_, i) => {
           const element = createElement({
             cssClass: [
               styles.beam,
-              // three states, and they are the three things light can be doing: turning into
-              // sweets, turning into water, or having died in the fountain on the way
-              isCandy ? styles.candy : isLit ? styles.water : styles.unlit,
+              // Two questions, asked separately because they are separate: what this light is
+              // for — the source it bent through, which is the whole of the colour — and whether
+              // it got there. So light dying in a lollipop is a pink stub and light dying in a
+              // fountain a blue one, which says what the tile *would* have paid. Standing one
+              // tile off the line-up is the mistake the board most needs to be able to show.
+              isCandy ? styles.candy : styles.water,
+              isLit ? "" : styles.unlit,
               // Pinned to the rival rather than to whichever side is drawn dark, and that is
               // deliberate: the muted triplet is what says "not mine", and the player's own
               // light should stay the vivid one whichever unicorn they took. See dark-side.ts.
@@ -1370,14 +1361,15 @@ export function GameMapComponent(
       // the board draws it, mane and all. Either side's — both are unicorns.
       if (HAS_SIDE_CHOICE && SIDE_UNICORN.includes(objectType)) infoEmoji.classList.add(styles.character);
       // The tub's second job is selling unicorns, and it is paid for in candy — which the
-      // tutorial board has no trees to make. There it is not on offer, so it is not described
+      // tutorial board has no lollipops to make. There it is not on offer, so it is not described
       // either: the tub is introduced as the thing that pays for the walking, and nothing else.
       // The rival's tub sells to the rival, so the offer is not described on it at all.
       if (objectType === GameObjectType.BATHTUB && TREE_COUNT)
         infoText.textContent += ` ${getTranslation(TranslationKey.INFO_BATHTUB_SELL)}`;
-      // And a rainbow says what it is paying *this* turn. The sentence above states the rule in
-      // the abstract — sweets beside a tree, water otherwise — and this is the same rule with
-      // this tile's own numbers in it, which is the half a player can act on. Through
+      // And a rainbow says what it is paying *this* turn, which is the whole of what its own
+      // description leaves out: INFO_RAINBOW says what every rainbow does and the rule about
+      // which currency is said at the source, two tiles away, so this line is where a tapped
+      // rainbow answers "how much, in what" with a number instead of a rule to apply. Through
       // getRainbowIncome, so the figure here, the badge in the tile's corner, the lines in the
       // beam and the header's "(+n)" are one answer said four ways.
       //
@@ -1387,18 +1379,22 @@ export function GameMapComponent(
       // The player's own, for the reason the badge is: INFO_DARK_RAINBOW describes the rival's,
       // and a figure under it would be the player reading somebody else's books.
       if (objectType === GameObjectType.RAINBOW) {
-        const [currency, amount] = getRainbowIncome(map, getPosition(index!), PLAYER);
+        const [currency, amount] = getRainbowIncome(map, getPosition(index!));
         infoText.textContent += ` ${getTranslation(TranslationKey.INCOME)} ${amount} ${LOOT_EMOJIS[currency]}`;
       }
-      // Whether the player has found a fountain yet — the one thing a rank is about, so the
-      // ladder and the shine line below both wait for it. Either side's unicorn gets the ladder
-      // once it is on: the rival's rank is worth looking up as soon as ranks mean anything.
-      const hasFoundFountain = map.tiles.some((t) => t.object === GameObjectType.FOUNTAIN && isSeen(t, PLAYER));
-      if (hasFoundFountain && SIDE_UNICORN.includes(objectType)) renderGrowth(map.tiles[index!]);
+      // Whether the player has found something to shine through yet — a fountain or a lollipop,
+      // which are one kind of thing to this question — since that is the one thing a rank is
+      // about, so the ladder and the shine line below both wait for it. Either side's unicorn
+      // gets the ladder once it is on: the rival's rank is worth looking up as soon as ranks
+      // mean anything.
+      const hasFoundSource = map.tiles.some(
+        (t) => (t.object === GameObjectType.FOUNTAIN || t.object === GameObjectType.TREE) && isSeen(t, PLAYER),
+      );
+      if (hasFoundSource && SIDE_UNICORN.includes(objectType)) renderGrowth(map.tiles[index!]);
       // The unicorn's own description is the one that changes with the run. INFO_UNICORN is what
       // it is for and how to walk it, which is all the opening position can act on: every board
-      // starts as a 3x3 of bare meadow with clouds past it, and the fountain the line-up rule is
-      // about is under one of them. Once the player has found a fountain, the rule becomes
+      // starts as a 3x3 of bare meadow with clouds past it, and the light the line-up rule is
+      // about is under one of them. Once the player has found a source, the rule becomes
       // readable and takes the line over.
       //
       // A swap and not an append, unlike the tub's second job: the two halves together outrun
@@ -1408,9 +1404,9 @@ export function GameMapComponent(
       // The player's own unicorn only. SIDE_UNICORN above is deliberately both sides, but the
       // rival's is described by INFO_RIVAL, and overwriting that would explain the player's
       // piece on the opponent's tile. The sparkles can never turn up on a unicorn of the
-      // player's without this line: a beam needs the fountain one step away (see
+      // player's without this line: a beam needs the source one step away (see
       // updateRainbows), and a unicorn always reveals its own 3x3.
-      if (objectType === SIDE_UNICORN[PLAYER] && hasFoundFountain) infoText.textContent = getTranslation(TranslationKey.INFO_UNICORN_SHINE);
+      if (objectType === SIDE_UNICORN[PLAYER] && hasFoundSource) infoText.textContent = getTranslation(TranslationKey.INFO_UNICORN_SHINE);
     } else if (index === undefined) {
       // The idle panel has nothing to explain, which makes it the one place the run's own point
       // fits — above the invitation to tap rather than instead of it, so the arithmetic heads the
@@ -1889,15 +1885,14 @@ export function GameMapComponent(
     map.tiles.forEach((tile, index) => {
       // A rainbow throws what it earns, in whichever of the two it earns it: one glyph per level
       // of the unicorn whose light made it, so a grown one is counted out in three and the size
-      // of the herd's income can be watched arriving rather than only read off the counter — and
-      // again per tree beside it when the trees are turning that light into sweets, so a rainbow
-      // between two of them throws for both. Through getRainbowIncome, the same call the counter's
-      // "+" came from, so the flight cannot promise what the jar is not paid.
+      // of the herd's income can be watched arriving rather than only read off the counter.
+      // Through getRainbowIncome, the same call the counter's "+" came from, so the flight cannot
+      // promise what the jar is not paid.
       //
-      // The sweets leave the rainbow rather than the tree, which is the point of the tile being
-      // the earner: what flies out of a tile is what that tile made.
+      // The sweets leave the rainbow rather than the lollipop that coloured them, which is the
+      // point of the tile being the earner: what flies out of a tile is what that tile made.
       if (tile.object === GameObjectType.RAINBOW) {
-        const [currency, amount] = getRainbowIncome(map, getPosition(index), PLAYER);
+        const [currency, amount] = getRainbowIncome(map, getPosition(index));
         groups[currency].push(...Array<number>(amount).fill(index));
       }
       // A tub pays its flat drops out of itself, one glyph each, so the income that needs no

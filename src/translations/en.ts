@@ -31,23 +31,39 @@ export const enTranslations: Record<TranslationKey, string> = {
   // what ties the sentence to the purse in the turn bar, and answers the question a stuck
   // player actually has: not what a step costs, but why the walking stopped.
   [TranslationKey.INFO_UNICORN]: "Unicorn|Tap a lit tile to walk. Costs 💧, clears ☁️.",
-  // ...and this is the half that arrives with the first fountain the player finds. The 🦄⛲🌈
-  // pattern carries the line-up rule without language, and repeats, so it costs almost nothing.
-  // The ladder under it (RANK, see renderGrowth) shows how many turns a rank takes and how far
-  // this unicorn has come, so the sentence only has to say what earns one and that it is worth
-  // having. "worth more" rather than a number because a grown rainbow pays more of whichever
-  // currency it is on — see INFO_RAINBOW.
+  // ...and this is the half that arrives with the first light source the player finds. The two
+  // patterns carry the line-up rule without language, and repeat, so they cost almost nothing.
+  // Both are named here rather than only the fountain: they are one rule and the panel is where
+  // a player learns that, and a unicorn that has found only a lollipop would otherwise be shown
+  // a rule about a thing it has not met. The ladder under it (RANK, see renderGrowth) shows how
+  // many turns a rank takes and how far this unicorn has come, so the sentence only has to say
+  // what earns one and that it is worth having. "worth more" rather than a number because a
+  // grown rainbow pays more of whichever currency it is on — see INFO_RAINBOW.
   // Its length is load-bearing: it is the longest description in the file, and $info-height is
-  // the room reserved for exactly it plus the ladder. Re-measure that if this line grows.
-  [TranslationKey.INFO_UNICORN_SHINE]: "Line up 🦄⛲🌈 to shine. Shining raises its rank. Each rank makes its 🌈 worth more.",
-  // Both halves of the earning rule in one line, because a rainbow is where the choice is made:
-  // the same tile pays a different currency depending on what is standing next to it. The
-  // beams say it in colour — blue for the purse, red for the jar — and this says it in words.
-  [TranslationKey.INFO_RAINBOW]: "Rainbow|Scores while it shines. Makes 🍬 beside a 🍭, else 💧.",
-  [TranslationKey.INFO_FOUNTAIN]: "Fountain|Needed to create a rainbow: 🦄⛲🌈",
+  // the room reserved for exactly it plus the ladder. It grew by one line-up when the lollipop
+  // became a source, so that height wants re-measuring on a 320px screen — and "Shining raises
+  // its rank." is the sentence to drop if it no longer fits, the ladder saying as much wordlessly.
+  [TranslationKey.INFO_UNICORN_SHINE]: "Line up 🦄⛲🌈 or 🦄🍭🌈 to shine. Shining raises its rank. Each rank makes its 🌈 worth more.",
+  // What every rainbow has in common, and nothing else — which is the whole of what the change
+  // to the light rule bought this line. A rainbow used to be where the currency was decided, so
+  // it had to carry both halves of the rule; now the decision was made two tiles away, at the
+  // source, and is said there. What this tile pays is still said on it: the component appends
+  // the tile's own income (see INCOME), so a tap answers "how much, in what" with a number
+  // rather than with a rule to apply.
+  [TranslationKey.INFO_RAINBOW]: "Rainbow|Scores while it shines.",
+  // The two sources, and they are deliberately the same sentence twice: one line-up, one "its
+  // rainbows make", and only the middle glyph and the currency differ. That is the rule — a
+  // fountain and a lollipop are one kind of thing — said in the shape of the text rather than
+  // stated. It is also free: the repeated halves cost the zip almost nothing.
+  //
+  // The lollipop's line carries one sentence the fountain's does not, and it is the reason to
+  // want one: sweets buy unicorns. The tub says so too (see INFO_BATHTUB_SELL), but a player
+  // reading this is standing in front of the thing that *makes* them, several turns before
+  // meeting a tub with a price on it.
+  [TranslationKey.INFO_FOUNTAIN]: "Fountain|Line up 🦄⛲🌈. Its 🌈 make 💧.",
   // The two halves of what the tub is, kept apart because the tutorial board only has the
-  // first: the flat income it pays wherever it stands, and — once there are trees on the board
-  // to make sweets — the fields it can put a new unicorn on. The info panel joins them.
+  // first: the flat income it pays wherever it stands, and — once there are lollipops on the
+  // board to make sweets — the fields it can put a new unicorn on. The info panel joins them.
   // The number repeats BASE_INCOME by hand — change them together. The price is not a number
   // here on purpose: it is the size of the herd, so it moves every time one is bought.
   [TranslationKey.INFO_BATHTUB]: "Bathtub|Makes 2 💧 a turn.",
@@ -60,11 +76,10 @@ export const enTranslations: Record<TranslationKey, string> = {
   [TranslationKey.INFO_GOAL]: "|Every 🌈 and 🦄 scores 1 point per % of ☁️ cleared.",
   [TranslationKey.INFO_FOG]: "Cloud|Unknown. Walk closer.",
   [TranslationKey.INFO_EMPTY]: "Meadow|Free space.",
-  // "each 🌈" rather than a number: what one rainbow feeds it is that rainbow's own size, so
-  // the sum is on the board — one red line per sweet — rather than in the sentence. "Turns 💧
-  // into 🍬" rather than "makes 🍬" because that is the whole of the trade: the tree does not
-  // add sweets to a rainbow's water, it drinks the water and makes sweets out of it.
-  [TranslationKey.INFO_TREE]: "Lollipop tree|Turns the 💧 of each 🌈 beside it into 🍬.",
+  // "Lollipop" and not "Lollipop tree": a tree says grow and harvest, and this thing is a
+  // fountain. Nothing is said about how much — a rainbow's size is its own, and the rainbow
+  // says it when tapped — so the line is about what to build towards and not about arithmetic.
+  [TranslationKey.INFO_TREE]: "Lollipop|Line up 🦄🍭🌈. Its 🌈 make 🍬. 🍬 buy unicorns.",
   // The whole price rather than the surcharge — "one more than a step" is arithmetic the
   // player has to do at exactly the moment they are counting drops. The number repeats
   // PORTAL_COST by hand, the same way the tub's line repeats BASE_INCOME: change them together.
@@ -77,10 +92,10 @@ export const enTranslations: Record<TranslationKey, string> = {
   // nothing next turn, and two custards side by side are a free path.
   //
   // It does not say that a rainbow cannot land here, though a rainbow still needs bare ground
-  // and this is not it. The board generator keeps custards off the ring around every fountain
-  // and off the ring around every rubble pile (see crowdsFountain), and a rainbow only ever
-  // lands on that ring — so the two cannot meet on any board as dealt, and a rule that never
-  // fires is a line of the panel spent on nothing.
+  // and this is not it. The board generator keeps custards off the ring around every light
+  // source and every site that becomes one (see crowdsSource), and a rainbow only ever lands on
+  // such a ring — so the two cannot meet on any board as dealt, and a rule that never fires is
+  // a line of the panel spent on nothing.
   [TranslationKey.INFO_CUSTARD]: "Custard|Bouncy. Steps off it are free.",
   // What is inside is *shown* rather than described: the colour it is wrapped in on the board,
   // and the glyph this panel puts in place of the 🎁 (see LOOT_EMOJIS, which is also why a
@@ -91,11 +106,13 @@ export const enTranslations: Record<TranslationKey, string> = {
   // would go out of date if the numbers moved.
   [TranslationKey.INFO_TUB_SITE]: "Shower|A unicorn beside it can build a tub.",
   [TranslationKey.INFO_FOUNTAIN_SITE]: "Empty jug|A unicorn beside it can raise a fountain.",
-  [TranslationKey.INFO_TREE_SITE]: "Seedling|A unicorn beside it can grow it into a 🍭 tree.",
+  [TranslationKey.INFO_TREE_SITE]: "Seedling|A unicorn beside it can grow it into a 🍭.",
   // The opponent. Written flat rather than behind a HAS_OPPONENT ternary — see the note at the
   // top of the file about what a single ternary costs the whole map. What it says is the whole
-  // of what the player has to know: it is a rival, and the fountains are what the two of you
-  // are actually racing for.
+  // of what the player has to know: it is a rival, and the light is what the two of you are
+  // actually racing for. Still "the fountains" and not "the light": it is the word for the thing
+  // on the board, a player who has met a lollipop has met the rule both of them share, and a
+  // sentence about light in general would be the one line on the panel that names no object.
   [TranslationKey.INFO_RIVAL]: "Dark unicorn|Your rival. Beat it to the fountains.",
   [TranslationKey.INFO_DARK_RAINBOW]: "Dark rainbow|Scores for your rival.",
   // Shown when nothing on the board can be paid for any more — see canAct. Deliberately not

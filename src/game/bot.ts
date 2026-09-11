@@ -4,7 +4,6 @@ import {
   buyUnicorn,
   canBuild,
   canUsePortal,
-  getTreesBeside,
   endTurn,
   GameMap,
   getBuild,
@@ -395,7 +394,7 @@ const lastTurn = [0, 0];
  * than against the live numbers, and the reason is a loop that took some finding.
  *
  * A tub site is only worth walking to if the run can still pay for it, and paying for it needs
- * candy, and the candy income comes from a lollipop tree lit by a rainbow — which was being
+ * candy, and the candy income comes from a rainbow cast through a lollipop — which was being
  * cast by the very unicorn setting off to build the tub. One step and its rainbow went out,
  * the jar's income fell to nothing, the site it was walking to became unaffordable and
  * therefore worthless, and the best thing on the board was the tile it had just left. Back it
@@ -607,33 +606,38 @@ function say({ x, y }: Position): string {
 }
 
 /**
- * Where the rainbows a glower standing on `position` accounts for are — as positions rather
- * than a count, because a rainbow beside a lollipop tree is worth more than one that is not.
+ * The rainbows a glower standing on `position` accounts for, one entry each, and each entry is
+ * what that rainbow pays in: true for sweets, false for water. A count would not do — the two
+ * currencies are worth different amounts to a run (see candyWorth and dropWorth) — and the
+ * positions are no longer needed for anything, now that what a rainbow pays is decided by the
+ * tile the light bends through rather than by what is lying around the rainbow.
+ *
  * `lit` picks which question is being asked: the ones shining there right now, which walking
  * away would put out, or the ones that are not there yet and would appear if something walked in.
  *
- * Only fountains the player has found are counted, which is the fair-play rule — the game
+ * Only sources the player has found are counted, which is the fair-play rule — the game
  * itself would light a rainbow off a fogged fountain, but the bot has no business planning
  * for one it cannot see. The lit count is an over-estimate where two unicorns are lighting
  * the same rainbow between them, which is rare enough to leave alone.
  */
-function getRainbows(map: GameMap, { x, y }: Position, lit: boolean, side: Side): Position[] {
-  const rainbows: Position[] = [];
+function getRainbows(map: GameMap, { x, y }: Position, lit: boolean, side: Side): boolean[] {
+  const rainbows: boolean[] = [];
 
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
-      const fountain = getTile(map, { x: x + dx, y: y + dy });
-      if ((!dx && !dy) || !isSeen(fountain, side) || fountain!.object !== GameObjectType.FOUNTAIN) continue;
+      const source = getTile(map, { x: x + dx, y: y + dy });
+      const object = source?.object;
+      if ((!dx && !dy) || !isSeen(source, side) || (object !== GameObjectType.FOUNTAIN && object !== GameObjectType.TREE)) continue;
 
-      const position = { x: x + 2 * dx, y: y + 2 * dy };
-      const target = getTile(map, position);
+      const target = getTile(map, { x: x + 2 * dx, y: y + 2 * dy });
       if (!target) continue;
 
       // Only ours count as lit, and only a genuinely *empty* tile counts as lightable — which
-      // is where the whole contest over a fountain lands in the value model without a word
+      // is where the whole contest over a source lands in the value model without a word
       // about the opponent. A side of a fountain already holding somebody else's rainbow is
       // occupied ground: walking there buys nothing, so the bot goes elsewhere.
-      if (lit ? target.object === SIDE_RAINBOW[side] : target.object === undefined && target.living === undefined) rainbows.push(position);
+      if (lit ? target.object === SIDE_RAINBOW[side] : target.object === undefined && target.living === undefined)
+        rainbows.push(object === GameObjectType.TREE);
     }
   }
 
@@ -655,9 +659,9 @@ function countFog(map: GameMap, { x, y }: Position, side: Side): number {
 }
 
 /**
- * Whether a fountain here could ever carry a rainbow: somewhere to stand on one side of it
- * and an empty tile directly opposite. A rebuilt fountain with neither is worth nothing, and
- * the bot has to be able to see that before it spends six drops finding out.
+ * Whether a light source here could ever carry a rainbow: somewhere to stand on one side of it
+ * and an empty tile directly opposite. A rebuilt fountain or a grown lollipop with neither is
+ * worth nothing, and the bot has to be able to see that before it pays for one to find out.
  */
 function hasRainbowSpot(map: GameMap, { x, y }: Position): boolean {
   for (let dy = -1; dy <= 1; dy++) {
@@ -681,36 +685,6 @@ function canStand(map: GameMap, position: Position): boolean {
   const tile = getTile(map, position);
 
   return !!tile && tile.living === undefined && (tile.object === undefined || !OBJECT_CONFIG[tile.object].blocksMove);
-}
-
-/**
- * How many sweets a turn a lollipop tree grown here would earn — one per rainbow beside it,
- * which is the game's own rule. A fountain beside it with no rainbow on this side yet counts
- * for one: the light is not there, but it is the light this seedling is being offered for,
- * and a bot that would not grow a tree until the rainbow already existed would never grow one
- * next to rubble it was about to rebuild.
- *
- * Deliberately the smaller of the two guesses where both apply — a tree already catching two
- * rainbows is worth two, not two plus its fountains — because the fountain term is a promise
- * and the rainbow term is a fact.
- */
-function countFeeding(map: GameMap, { x, y }: Position, side: Side): number {
-  let rainbows = 0;
-  let fountains = 0;
-
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const object = getTile(map, { x: x + dx, y: y + dy })?.object;
-      if (!dx && !dy) continue;
-      // Ours only: the tree is neutral and would happily earn off the other side's light, but
-      // it would be earning for *them*. A seedling whose only neighbour is a dark rainbow is
-      // a tree that pays somebody else, which is worth nothing to grow.
-      if (object === SIDE_RAINBOW[side]) rainbows++;
-      else if (object === GameObjectType.FOUNTAIN || object === GameObjectType.FOUNTAIN_SITE) fountains++;
-    }
-  }
-
-  return rainbows || Math.min(fountains, 1);
 }
 
 /**
@@ -828,6 +802,10 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
   // the herd to spend is a jar whose sweets are worth less than the tally says, which is what
   // makes buying a unicorn out of a hoard worth doing at all.
   const candyWorth = CANDY_VALUE * Math.min(1, (SPENDABLE_UNICORNS * income[side].herd) / Math.max(1, income[side].candy));
+  // The jar's copy of rainbowValue, and the one thing that reads it is a seedling: a lollipop is
+  // a fountain that pays in sweets, so what growing one is worth is what rebuilding a fountain is
+  // worth with the other currency's price on it.
+  const candyRainbowValue = thingValue + turnsLeft * candyWorth;
   const candyPrice = candyWorth * spendability;
   // A unicorn is both halves of the game at once: another pair of eyes and another light.
   // So it is bought on the average of the two weights rather than under either of them.
@@ -842,26 +820,21 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
 
   /**
    * What a set of rainbows cast by a `level` unicorn is worth. Every one of them scores, and
-   * pays its level in drops a turn, and pays a lollipop tree beside it the same again in sweets —
-   * so which side of a fountain gets lit is a real choice, and a grown unicorn holding a post is
-   * worth several times a newcomer holding the same one. A bot pricing them all alike could see
-   * neither. That is the whole reason the rainbows are carried around as positions.
+   * pays its level a turn in water or in sweets depending on what it was cast through — so which
+   * side of a unicorn gets lit is a real choice, and a grown unicorn holding a post is worth
+   * several times a newcomer holding the same one. A bot pricing them all alike could see
+   * neither. That is the whole reason the rainbows are carried around as currency flags.
    *
    * The score half does not scale: a rainbow is one thing built however big it is, which is what
    * the game's own score says.
    *
-   * Water *or* sweets, never both — see getRainbowIncome, which is the rule this mirrors. A bot
-   * counting both would light the tree side for the pair of them and then wonder where the purse
-   * went, so which side of a fountain gets lit is a choice here in the same way it is on the
-   * board: sweets if a tree is beside it, water if not.
+   * Water *or* sweets, never both — see getRainbowIncome, which is the rule this mirrors. Which
+   * of the two is decided by the source the light bent through, so the choice the bot is making
+   * here is the same one the player makes on the board: line up with the fountain or with the
+   * lollipop, and take the currency that comes out.
    */
-  const getRainbowsValue = (rainbows: Position[], level: number) =>
-    rainbows.reduce((total, rainbow) => {
-      const trees = getTreesBeside(map, rainbow, side).length;
-      const perTurn = trees ? trees * candyWorth : dropWorth;
-
-      return total + thingValue + level * turnsLeft * perTurn;
-    }, 0);
+  const getRainbowsValue = (rainbows: boolean[], level: number) =>
+    rainbows.reduce((total, candy) => total + thingValue + level * turnsLeft * (candy ? candyWorth : dropWorth), 0);
 
   /**
    * What raising a site is worth, already carrying its own strategy weight — the tub is the
@@ -874,10 +847,10 @@ function getBestAction(map: GameMap, [explore, economy]: [explore: number, econo
       return economy * (turnsLeft * BASE_INCOME * dropWorth + TUB_UNICORN_VALUE) + explore * countFog(map, position, side) * TILE_VALUE;
     if (objectType === GameObjectType.FOUNTAIN_SITE) return economy * (hasRainbowSpot(map, position) ? rainbowValue : 0);
 
-    // A lollipop tree: one sweet a turn per rainbow it catches, so a spot that would catch two
-    // is worth twice a spot that would catch one, and a spot with no light at all is worth
-    // nothing at any price.
-    return economy * turnsLeft * candyWorth * countFeeding(map, position, side);
+    // A seedling, which is the same offer in the other currency: a source that will carry a
+    // rainbow paying sweets, or — with nowhere to stand beside it or nowhere for the light to
+    // land — nothing at all, at any price.
+    return economy * (hasRainbowSpot(map, position) ? candyRainbowValue : 0);
   };
 
   /**

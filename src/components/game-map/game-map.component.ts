@@ -130,7 +130,6 @@ const LOSE_EMOJI = "🌑";
 // turn can be thirty actions long, so this is deliberately quicker than the dev bot's own
 // step: fast enough that a turn passes in a couple of seconds, slow enough to see what moved.
 const RIVAL_STEP_DELAY = 60;
-const FIRST_TURN = 1; // the opening turn is the only one that hints "pick up a character"
 // PLACEHOLDER zoom steps, as multiples of "the whole board fits in the view". Expressing
 // them as multiples rather than tile sizes is what makes step 0 a true overview on any map
 // size and any screen — a fixed tile size that suits a 9x9 phone board would leave a 20x20
@@ -324,6 +323,13 @@ export function GameMapComponent(
   // playing this side — see showHint. Set only by 💡 and dropped again by the next thing the
   // player does, so an arrow can never outlive the question it was answering.
   let hintIndex: number | undefined;
+  // The tutorial's standing advice: the same answer the bulb gives, kept up on its own for the
+  // whole of level 1 rather than asked for a tap at a time — see refreshAdvice. Held between
+  // actions rather than worked out per render, because two things about the bot make a
+  // per-render answer unusable: ties are broken at random, so an unchanged board can advise
+  // two different moves a paint apart, and every call files the plan it settled on (see
+  // rememberGoal), so asking twice about one board tells it a move was made twice.
+  let advice: ReturnType<typeof getBotAction>;
   // The end-turn button has been pressed once and is asking whether that was meant — see the
   // guard on it. Only ever armed while the player still has something they could do instead:
   // a turn that is genuinely spent ends on one tap, which is every ordinary turn.
@@ -842,6 +848,15 @@ export function GameMapComponent(
       else showInfo(selected && getIndex(selected)); // the income landed; the line goes back
     }
     const selectedIndex = selected && getIndex(selected);
+    // Where the tutorial's standing advice is pointing, as the one tile a tap should land on
+    // next: the piece to pick up while it is not the one in hand, and the step to take once it
+    // is. A build has no second tile — the site is what acts and what is acted on — so it stays
+    // on the site through both halves, which is exactly what the bulb does with it too.
+    const adviceFrom = advice?.from && getIndex(advice.from);
+    const advisedIndex = selectedIndex === adviceFrom && advice?.to ? getIndex(advice.to) : adviceFrom;
+    // The one piece of advice with no tile to point at: "there is nothing here worth doing".
+    // It lights the end-turn button, where the bulb's own version of that answer already goes.
+    const advisesEndTurn = !!advice && !advice.from;
     const targetIndices = targets.map(getIndex);
     // A step off a custard costs nothing, and the purse is the only place that would otherwise
     // say so — after the fact. These get a highlight of their own instead. One question about
@@ -873,7 +888,6 @@ export function GameMapComponent(
     // every purchase, which is exactly why it is worth writing on the board rather than leaving
     // it to an info text that would be read once and remembered wrong.
     const unicornPrice = getUnicornPrice(map, PLAYER);
-    const hintCharacters = !isOver && !needsIncome && !selected && map.turn === FIRST_TURN;
     // Which tiles are actually turning light into a rainbow this turn. Read off the beams the
     // model already worked out, so the halo can never promise a rainbow that is not there —
     // the same guarantee the candy beams give the trees. A beam is stamped with the tile
@@ -946,16 +960,23 @@ export function GameMapComponent(
       // Either side's, exactly as a visible rival unicorn haloes: the glow says "this is
       // earning", not "this is yours".
       element.classList.toggle(styles.glowing, shining.has(index) || isTub);
-      element.classList.toggle(
-        CssClass.HINT,
-        canSpawn ||
-          canRaiseHere ||
-          index === hintIndex ||
-          (hintCharacters && isSeen(tile, PLAYER) && tile.living === GameObjectType.UNICORN),
-      );
+      // The opening turn used to pulse every unicorn on it, to say that a character is a thing
+      // you pick up. It is gone: level 1 now rings the one worth picking up for the whole run
+      // (see refreshAdvice), and everywhere else a board that opens with every character
+      // flashing is the game shouting its first word.
+      // Only the pick-up half of the tutorial's advice, and that is the whole point of it: a
+      // ring says "this one", and until a piece is in hand what a first-time player is missing
+      // is that a piece is a thing you pick up at all. Once it is picked up the lit steps are
+      // already saying where a tap goes, and a finger among eight of them would be pointing at
+      // the least useful tile on the board.
+      const isPointed = index === advisedIndex && !selected;
+      element.classList.toggle(CssClass.HINT, canSpawn || canRaiseHere || index === hintIndex || isPointed);
       // The hint's own ring, over whatever the tile is already wearing — a hinted step is a lit
       // target too, and often a free one. See .hinted for why it is the light's amber.
-      element.classList.toggle(styles.hinted, index === hintIndex);
+      // The standing advice wears the same ring and not the pulse the bulb's own answer comes
+      // with: it is up for a whole level rather than for one question, and a tile pulsing from
+      // the first turn to the last is the loudest thing on a board it is only annotating.
+      element.classList.toggle(styles.hinted, index === hintIndex || index === advisedIndex);
       element.classList.toggle(styles.selected, isSelectedTile);
       // no steps lit and nothing to raise means the selection is only being looked at — see select()
       element.classList.toggle(styles.neutral, isSelectedTile && !targets.length && !isBuildTarget);
@@ -1019,13 +1040,18 @@ export function GameMapComponent(
       //
       // Written into --i, and the class is what gates the drawing — so a tile that has stopped
       // being a rainbow needs nothing rubbed out, exactly as a stale --p on a tile that has
-      // stopped being a target is a property nothing reads. See .paying in the stylesheet.
+      // stopped being a rainbow is a property nothing reads. See .badged in the stylesheet.
       const isPaying = isVisible && tile.object === GameObjectType.RAINBOW;
-      element.classList.toggle(styles.paying, isPaying);
+      element.classList.toggle(styles.badged, isPaying || isPointed);
       // Indexed straight off the currency getRainbowIncome answers with: LOOT_EMOJIS is the
       // drop and the sweet in that order, which is the whole reason ChestLoot is numbered the
       // way it is (see game-objects.ts).
       if (isPaying) element.style.setProperty("--i", `"${LOOT_EMOJIS[getRainbowIncome(map, getPosition(index), PLAYER)[0]]}"`);
+      // The finger the idle panel says "tap anything" with, said about one tile instead. It is
+      // the same glyph on purpose: the panel's is the invitation in general and this is the
+      // invitation pointed at something, and a second hand shape for the second one would be
+      // two symbols for one idea.
+      else if (isPointed) element.style.setProperty("--i", `"${HINT_EMOJI}"`);
 
       // The fog belongs to the ground layer: under it there is nothing else to show.
       const hasLiving = isVisible && tile.living !== undefined;
@@ -1162,7 +1188,7 @@ export function GameMapComponent(
     // The fill is most of it: the four states that ask for this button say so in colour, which
     // is what three of them were already doing, and the bulb's own answer ("just end the turn")
     // joins them there.
-    endTurnButton.classList.toggle(CssClass.PRIMARY, (needsIncome || confirmsEndTurn || hintsEndTurn) && !isOver);
+    endTurnButton.classList.toggle(CssClass.PRIMARY, (needsIncome || confirmsEndTurn || hintsEndTurn || advisesEndTurn) && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
     // And the nudge on top, for the one state that is a dead end: a spent turn the player has
     // gone back to reading the board in. Not while the selection is empty, because that is the
@@ -1582,11 +1608,33 @@ export function GameMapComponent(
    * ignores leaves that plan behind on a tile nobody moved to — the same harmless leftover a
    * player moving a unicorn by hand already leaves, worth one inherited goal at most.
    */
+  /**
+   * Asks the bot what it would do and keeps the answer, for the board that shows its advice
+   * without being asked — which is level 1 and only level 1. It is where the whole loop is
+   * taught (see LEVEL_SEEDS), so the ring is simply up: on the tile to pick up until it is the
+   * one in hand, then on the tile to tap next. Every other board keeps the bulb as the one-shot
+   * question it has always been, and `advice` stays undefined there.
+   *
+   * Called from the four places the board can change under the player — a step, a build, a
+   * purchase and a new turn — plus the new board itself, rather than from render(): see
+   * `advice` for why once per board is not the same as once per paint.
+   *
+   * A random deal at the tutorial's size counts as level 1 too. It is the same rung played by
+   * somebody who has just been taught on it, and singling it out would spend a condition on
+   * making the first board after the lesson harder than the lesson.
+   */
+  function refreshAdvice() {
+    advice = level ? undefined : getBotAction(map, BotStrategy.MIXED, PLAYER);
+  }
+
   function showHint() {
     if (!isRunning || isLocked()) return;
 
     disarmEndTurn(); // asking what to do is an answer to the button's own question
-    const action = getBotAction(map, BotStrategy.MIXED, PLAYER);
+    // The standing advice where there is one, so the bulb and the ring can never disagree:
+    // asking again would roll the bot's own tie-breaks a second time and could come back with
+    // a different move than the one the board is already pointing at.
+    const action = advice ?? getBotAction(map, BotStrategy.MIXED, PLAYER);
     // Nothing to do, or nothing worth doing: the only advice left is the clock, and the button
     // that moves it on is where that is already said.
     hintsEndTurn = !action || action.kind === BotActionKind.END_TURN;
@@ -1652,6 +1700,7 @@ export function GameMapComponent(
     updateRainbows(map);
     // after the fog lifts, so a step into the unknown still reads its own tile
     select(target); // stays selected, so walking on is a single tap per step
+    refreshAdvice(); // the board has moved on, so the advice about it has to
     render();
     showSpending(target, cost); // after render(), which is what puts the tile where it is measured
     if (loot !== undefined) showLoot(target, loot);
@@ -1678,6 +1727,7 @@ export function GameMapComponent(
     // explaining — a tub that has just been filled going straight on to offering the fields it
     // can put a unicorn on.
     select(wasSelected ? site : selected);
+    refreshAdvice();
     render();
     // Counted out of the field it was built on, one currency after the other, in the same
     // gesture a step and a unicorn already use.
@@ -1692,6 +1742,7 @@ export function GameMapComponent(
     const price = getUnicornPrice(map, PLAYER); // read before the newcomer joins the herd and puts the price up
     buyUnicorn(map, target, PLAYER);
     select(selected); // the tub stays picked up, but the jar may no longer stretch to another
+    refreshAdvice();
     render();
     // The jar empties the same way the purse does, from the field the unicorn appeared on —
     // sweets rather than drops, but the same gesture, so a price is always counted out in the
@@ -1923,6 +1974,7 @@ export function GameMapComponent(
     // and the result comes up the moment the button is pressed instead of after a flight of
     // glyphs carrying money the run has no more use for.
     clearHint(); // the turn the advice was about is over
+    advice = undefined; // and the standing one with it: nothing is advised over a board mid-payout
     const wait = map.turn < TURN_LIMIT ? flyIncome() : 0;
     isPaying = !!wait; // an empty board pays nothing and has nothing to wait for
     // Ending the turn is done with whatever was picked up: the selection goes with it, so the
@@ -1950,6 +2002,7 @@ export function GameMapComponent(
   function closeTurn() {
     nextTurn(map);
     select(selected); // the rival may have walked off a tile this selection was aiming at
+    refreshAdvice(); // a fresh turn and a fresh purse: what to do with it is decided again
     render();
 
     if (isRunOver(map)) endGame();
@@ -2084,6 +2137,7 @@ export function GameMapComponent(
     wasStuck = false; // the last board's spent turn must not be the new one's opening line
     isRunning = true; // before render(), which reads it for the turn button
     select(undefined);
+    refreshAdvice(); // after resetBot, so the opening advice is not built on the last board's plans
     render();
     applyZoom(true); // the map row can only be measured once it is on the page, so not before here
 

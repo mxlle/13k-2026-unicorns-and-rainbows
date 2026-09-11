@@ -628,10 +628,16 @@ $board-column-max: calc(100dvh - 5rem);
     background: theme.$glass-4;
   }
 
-  // What a rainbow is earning, written into --i by render() as 💧 or 🍬 and drawn as a disc in the
-  // bottom-right of its tile. Bottom rather than top, which is a fact about the glyph it labels
-  // and not a preference: the 🌈 is an arch, so its own emoji box is empty along the bottom on
-  // most fonts, and a badge put there sits under the arc instead of over it.
+  // A token in the bottom-right corner of a tile, whatever the tile has to say there: written
+  // into --i by render() and drawn by whichever of the two things that use it set it. A rainbow
+  // says what it is earning, 💧 or 🍬; the tutorial's standing advice says 👆 on the piece to pick
+  // up, which is the one thing its amber ring cannot say. One rule for both, because they are
+  // the same object — a badge on a tile — and they can never land on one tile at once: nothing
+  // stands on a rainbow, so nothing is ever advised to be picked up off one.
+  //
+  // Bottom rather than top, which is a fact about the glyph it labels and not a preference: the
+  // 🌈 is an arch, so its own emoji box is empty along the bottom on most fonts, and a badge put
+  // there sits under the arc instead of over it.
   //
   // ::before, the price tag having ::after — which is what lets a rainbow the unicorn could step
   // onto carry both marks at once.
@@ -643,7 +649,7 @@ $board-column-max: calc(100dvh - 5rem);
   //
   // Bigger than $badge-scale, at which a single emoji in a corner was a smudge rather than a
   // currency. The size is still em of the tile, so it follows the zoom the way every other tag does.
-  &.paying::before {
+  &.badged::before {
     content: var(--i);
     position: absolute;
     inset: auto 0.1em 0.1em auto;
@@ -1013,7 +1019,7 @@ $board-column-max: calc(100dvh - 5rem);
       // scale being ranked rather than numbered, the two themes' percentages meaning nothing to
       // each other. It has to be said here at all because the light value is 45% white, and over
       // near-black that is not a surface under an icon but the brightest thing on the board.
-      &.paying::before {
+      &.badged::before {
         background: theme.$night-glass-1;
       }
 

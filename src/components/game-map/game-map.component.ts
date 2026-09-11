@@ -1061,6 +1061,10 @@ export function GameMapComponent(
       // Either side's tub, since both are the same piece of furniture at the same size.
       ground.classList.toggle(styles.big, isTub);
       ground.classList.toggle(styles.small, isVisible && tile.object === GameObjectType.CUSTARD);
+      // The boulder is drawn down too, but not through .small: that class carries the custards'
+      // hue as well as their size (see the stylesheet), and a boulder tinted by where it is
+      // standing would read as a thing with a flavour rather than a thing in the way.
+      ground.classList.toggle(styles.rock, isVisible && tile.object === GameObjectType.ROCK);
       // A present says what it holds, in the colour it is wrapped in. Only once it has been found:
       // under a cloud the glyph is the cloud, and tinting that would say there is something here.
       // `loot` is set and cleared with the present itself (see openChest), so this needs no second

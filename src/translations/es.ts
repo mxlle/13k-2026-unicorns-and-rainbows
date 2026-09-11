@@ -29,6 +29,7 @@ export function getEsTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_TREE]: "Caramelo|Alinea 🦄🍭🌈. Sus 🌈 hacen 🍬. Los 🍬 compran unicornios.",
     [TranslationKey.INFO_DONUT]: "Dona|Un portal. Toca otra 🍩 para saltar por 2 💧.",
     [TranslationKey.INFO_CUSTARD]: "Flan|Rebota. Los pasos desde aquí son gratis.",
+    [TranslationKey.INFO_ROCK]: "Roca|Estorba a los unicornios y a la luz.",
     [TranslationKey.INFO_CHEST]: "Regalo|Písalo para abrirlo.",
     [TranslationKey.INFO_TUB_SITE]: "Ducha|Un unicornio al lado puede construir una bañera.",
     [TranslationKey.INFO_FOUNTAIN_SITE]: "Cántaro vacío|Un unicornio al lado puede construir una fuente.",

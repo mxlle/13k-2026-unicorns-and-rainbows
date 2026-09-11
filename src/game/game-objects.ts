@@ -11,21 +11,25 @@ export const GameObjectType = defineEnum({
   DONUT: 5,
   CUSTARD: 6,
   CHEST: 7,
+  // The one thing on the board whose whole job is to be in the way. Numbered here rather than
+  // appended, because the two rules the enum's *order* carries are the sites being consecutive
+  // and the dark three being last, and neither cares what comes before them.
+  ROCK: 8,
   // The three build sites. They must stay consecutive: the build table is indexed by "site
   // type less the first site", which is what makes it a three-entry array instead of a lookup
   // with holes in it where the real objects are. Anything numbered past them falls off the end
   // of that table and comes back undefined, which is exactly what the dark things below want.
-  TUB_SITE: 8,
-  FOUNTAIN_SITE: 9,
-  TREE_SITE: 10,
+  TUB_SITE: 9,
+  FOUNTAIN_SITE: 10,
+  TREE_SITE: 11,
   // The opponent's own things, and they must stay last. Which side owns a thing is read off
   // the enum — "at or past the first dark one" (see getSide) — so a side is a comparison
   // rather than a field carried by every tile on the board. It is also why there is no
   // DARK_TREE or DARK_FOUNTAIN: those are scenery both sides use, and only the three things
   // that can *belong* to somebody are doubled.
-  DARK_UNICORN: 11,
-  DARK_RAINBOW: 12,
-  DARK_BATHTUB: 13,
+  DARK_UNICORN: 12,
+  DARK_RAINBOW: 13,
+  DARK_BATHTUB: 14,
 });
 
 /**
@@ -144,6 +148,20 @@ export const OBJECT_CONFIG: Record<GameObjectType, GameObjectConfig> = {
     blocksMove: false,
     glows: false,
     info: TranslationKey.INFO_CHEST,
+  },
+  // The boulder, and the only thing on the board that does nothing at all. A source's eight
+  // neighbours are the four lines its light can travel along, so a thing standing on that ring
+  // costs it a whole line — which is what a lollipop tree used to do to every fountain by
+  // accident, back when a tree was scenery. Promoting the tree to a light source took the
+  // game's only blocker out with it, and this is what puts it back, deliberately and where it
+  // can be tuned: see MAX_ROCKS.
+  // It blocks movement as well as light, so it is also the one obstacle a walk has to go round.
+  // PLACEHOLDER art: 🗿 is Emoji 0.6, so it draws everywhere the rest of the board does.
+  [GameObjectType.ROCK]: {
+    emoji: "🗿",
+    blocksMove: true,
+    glows: false,
+    info: TranslationKey.INFO_ROCK,
   },
   // PLACEHOLDER art for the three build sites: an unfinished version of the thing each one
   // becomes, drawn small (see .site in the stylesheet) so it reads as a promise rather than a

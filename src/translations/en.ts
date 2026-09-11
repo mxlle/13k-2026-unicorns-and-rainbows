@@ -97,6 +97,7 @@ export const enTranslations: Record<TranslationKey, string> = {
   // such a ring — so the two cannot meet on any board as dealt, and a rule that never fires is
   // a line of the panel spent on nothing.
   [TranslationKey.INFO_CUSTARD]: "Custard|Bouncy. Steps off it are free.",
+  [TranslationKey.INFO_ROCK]: "Rock|In the way of unicorns and light.",
   // What is inside is *shown* rather than described: the colour it is wrapped in on the board,
   // and the glyph this panel puts in place of the 🎁 (see LOOT_EMOJIS, which is also why a
   // player who cannot tell two tints apart still gets the answer by tapping). That leaves the

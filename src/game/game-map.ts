@@ -1,4 +1,4 @@
-import { random, setSeed } from "../utils/random-utils";
+import { getRandomInt, random, setSeed } from "../utils/random-utils";
 import { getRandomItem } from "../utils/array-utils";
 import {
   ChestLoot,
@@ -39,6 +39,7 @@ export const MAP_SIZES = [5, 7, 9, 13, 17, 21, 25];
 export let MAP_SIZE = MAP_SIZES[0];
 export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are none in the open any more
 export let TREE_COUNT = 0; // the other kind of light source, and the only way onto the board of sweets
+export let ROCKS_PER_SOURCE = 0; // the roll for how much of a source's own ring is taken away from it
 export let CUSTARD_COUNT = 0; // springboards scattered over the meadow — see getMoveCost
 export let CHEST_COUNT = 0; // what the fog is worth walking into
 // What one of them holds. Derived from the board like the counts above rather than fixed, so a
@@ -61,6 +62,20 @@ export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
  * rules, and every one of them is still true on the 25x25.
  */
 const TREE_SIZE = 7; // and with the trees comes candy, which is what gives the tub its second job
+/**
+ * PLACEHOLDER: the most boulders that may stand on one source's ring. A source's ring is the
+ * four lines its light can travel along, so every boulder on it is a line the board cannot cast
+ * a rainbow along, and this is the one knob that says how contested the light is.
+ *
+ * Rolled per source over 0..MAX_ROCKS rather than placed flat, because what matters is that
+ * sources *differ*: a board where every source is worth the same is a board where it does not
+ * matter which one you walk to. Two is the roll that comes out at one apiece on average, which
+ * is roughly what a fountain used to lose to the tree beside it before a tree became a source.
+ *
+ * Not on the tutorial, which shares the lollipops' rung of the ladder: that board is one
+ * fountain and the whole of what it teaches, and a blocked line there is a lesson in nothing.
+ */
+const MAX_ROCKS = 2;
 /**
  * PLACEHOLDER: how often a light source is allowed to stand on the ring of a source of the
  * *other* kind — a lollipop on a fountain's eight tiles, or the other way round.
@@ -150,8 +165,17 @@ function setMapSize(size: number) {
   const tiles = size * size;
   MAP_SIZE = size;
   isTutorial = size === MAP_SIZES[0];
-  FOUNTAIN_COUNT = (tiles / 27 + 0.5) | 0;
-  TREE_COUNT = size < TREE_SIZE ? 0 : FOUNTAIN_COUNT;
+  // The lollipops keep the density the fountains used to have and the fountains are halved, so a
+  // board carries half again as much light as it did rather than twice as much — and two thirds
+  // of it is the sweet kind. PLACEHOLDER split, and the reason for this side of it is what the
+  // first measurement of the new rule said: water was the currency nobody could spend (half the
+  // purse left at the whistle on the 21x21), sweets the one a run is always short of, because
+  // sweets buy unicorns and the price of a unicorn is the size of the herd.
+  // Floored at one fountain, which only the tutorial reaches: that board is one fountain and the
+  // whole of what it teaches, and a rounding that took it away would take the lesson with it.
+  TREE_COUNT = size < TREE_SIZE ? 0 : (tiles / 27 + 0.5) | 0;
+  ROCKS_PER_SOURCE = size < TREE_SIZE ? 0 : MAX_ROCKS;
+  FOUNTAIN_COUNT = (tiles / 54 + 0.5) | 0 || 1;
   CUSTARD_COUNT = (tiles / 12 + 0.5) | 0;
   // Rarer than anything else on the board. Floored at one, because the smallest board rounds
   // down to none and its single present is the whole point of it.
@@ -487,8 +511,11 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // off each other through their rings instead (see crowdsSource), which is what lets a pair of
   // them turn up close enough to share a unicorn.
   // Fussiest first, so the sources get the emptiest board there is to find room on.
-  for (let i = 0; i < FOUNTAIN_COUNT; i++) placeObject(map, GameObjectType.FOUNTAIN, FOUNTAIN_COUNT, 1);
-  for (let i = 0; i < TREE_COUNT; i++) placeObject(map, GameObjectType.TREE, TREE_COUNT, 1);
+  // Each of them gets its own boulders as it lands, rather than all of them afterwards: a source
+  // placed later has to find a ring that is empty *including* the boulders already down, which is
+  // what keeps two sources from quietly sharing one blocker and both keeping their four lines.
+  for (let i = 0; i < FOUNTAIN_COUNT; i++) placeRocks(map, placeObject(map, GameObjectType.FOUNTAIN, FOUNTAIN_COUNT, 1));
+  for (let i = 0; i < TREE_COUNT; i++) placeRocks(map, placeObject(map, GameObjectType.TREE, TREE_COUNT, 1));
 
   // The portal network: placed early, because its rule is the hardest on the board to satisfy.
   // The donuts keep their distance along *both* axes rather than as the crow flies, so no two
@@ -544,6 +571,45 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   map.drops = [...map.dropIncome];
 
   return map;
+}
+
+/**
+ * The boulders that take a source's own ring away from it, rolled per source — see MAX_ROCKS.
+ * Placed directly rather than through placeObject, exactly as the tree beside every fountain
+ * used to be: this is the one thing on the board whose whole point is to be on a ring, so the
+ * rule that keeps everything else off one (see crowdsSource) is not the rule it plays by.
+ *
+ * The roll is skipped rather than rolled and ignored on a board with no boulders on it, so the
+ * tutorial draws the same numbers out of the seeded generator that it always did.
+ */
+function placeRocks(map: GameMap, position: Position | undefined) {
+  if (!ROCKS_PER_SOURCE || !position) return;
+
+  for (let rocks = getRandomInt(ROCKS_PER_SOURCE + 1); rocks > 0; rocks--) {
+    // One tile of clearance from every boulder already down, anywhere on the board and not only
+    // the ones this source put there. Two of them side by side read as a wall somebody built,
+    // which is the one thing the board must not look like: everything on it is meadow that
+    // happens to be in the way, and a wall is a thing with an author.
+    const spots = getFreeNeighbours(map, position).filter((spot) =>
+      getPositionsOf(map, GameObjectType.ROCK).every((rock) => getDistance(spot, rock) > 1),
+    );
+    if (!spots.length) return; // a ring with no room left keeps the line it still has
+    getTile(map, getRandomItem(spots))!.object = GameObjectType.ROCK;
+  }
+}
+
+/** The free tiles of the surrounding 3x3 — where a source's own boulders may land. */
+function getFreeNeighbours(map: GameMap, { x, y }: Position): Position[] {
+  const free: Position[] = [];
+
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const position = { x: x + dx, y: y + dy };
+      if ((dx || dy) && isFree(getTile(map, position))) free.push(position);
+    }
+  }
+
+  return free;
 }
 
 /**

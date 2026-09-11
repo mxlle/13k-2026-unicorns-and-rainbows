@@ -25,6 +25,7 @@ export function getDeTranslationMap(): Record<TranslationKey, string> {
     [TranslationKey.INFO_TREE]: "Lolli|Reihe 🦄🍭🌈 auf. Seine 🌈 machen 🍬. 🍬 kaufen Einhörner.",
     [TranslationKey.INFO_DONUT]: "Donut|Ein Portal. Tippe einen anderen 🍩 an, um für 2 💧 dorthin zu springen.",
     [TranslationKey.INFO_CUSTARD]: "Pudding|Federnd. Jeder Schritt von hier ist gratis.",
+    [TranslationKey.INFO_ROCK]: "Fels|Steht Einhörnern und Licht im Weg.",
     [TranslationKey.INFO_CHEST]: "Geschenk|Betritt es, um es zu öffnen.",
     [TranslationKey.INFO_TUB_SITE]: "Dusche|Ein Einhorn daneben kann eine Wanne bauen.",
     [TranslationKey.INFO_FOUNTAIN_SITE]: "Leerer Krug|Ein Einhorn daneben kann einen Brunnen bauen.",

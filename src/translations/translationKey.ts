@@ -73,4 +73,8 @@ export const TranslationKey = defineEnum({
   // all naming one thing. A label rather than a whole sentence: the amount and its currency
   // follow it, and neither is translatable.
   INCOME: 30,
+  // The boulder. It earns nothing, costs nothing and cannot be moved, so its description is the
+  // whole of what it does — which is to stand in the way of exactly the two things the board is
+  // made of, the walking and the light.
+  INFO_ROCK: 31,
 });

@@ -43,7 +43,6 @@ import {
   MAP_SIZE,
   MAP_SIZES,
   moveCharacter,
-  MOVE_COST,
   nextTurn,
   openChest,
   PORTAL_COST,
@@ -221,16 +220,18 @@ function getPriceTag([, drops, candy]: NonNullable<ReturnType<typeof getBuild>>)
   return `−${drops ? `${drops}${DROP_EMOJI}` : ""}${candy ? `${candy}${CANDY_EMOJI}` : ""}`;
 }
 
-// What a step and a jump cost, written on every tile that is offering one. Neither number can
-// move — a step is MOVE_COST wherever it is taken and a jump is PORTAL_COST wherever it lands —
-// so both are built once for the whole game rather than once per render. The tub's price used
-// to be the third of these and was the one that could not be a constant — it is the size of
-// the herd; it is written on the tub itself now (see isSelling).
+// What a jump costs, written on the far donuts a portal is offering. It cannot move — a jump is
+// PORTAL_COST wherever it lands — so it is built once for the whole game rather than once per
+// render. The other two prices that used to live here are both gone: the tub's could not be a
+// constant at all — it is the size of the herd, and it is written on the tub itself now (see
+// isSelling) — and a plain step's was dropped because MOVE_COST is the same on every tile and
+// in every turn, so eight copies of it around the selected unicorn annotated nothing the player
+// did not already know and crowded the board doing it. The one thing about a step worth saying
+// is said in the ring's colour instead: green when it is free off a springboard.
 //
 // Signed, because a bare number on a tile reads as something the tile is worth rather than
-// something it takes: every one of these is money leaving the purse. The same − the zoom step
-// out wears, so the two are one character rather than two lookalikes.
-const MOVE_TAG = `−${MOVE_COST}${DROP_EMOJI}`;
+// something it takes: this is money leaving the purse. The same − the zoom step out wears, so
+// the two are one character rather than two lookalikes.
 const JUMP_TAG = `−${PORTAL_COST}${DROP_EMOJI}`;
 
 /**
@@ -316,8 +317,8 @@ export function GameMapComponent(
   // has tapped directly lights *itself* — so a build is always finished by tapping the site,
   // whichever end of it was picked up first. Kept apart from `targets` on purpose: those are
   // tiles something moves onto, and folding the two together would have a unicorn on a
-  // springboard drawing its build sites as free steps and rubbing out their prices with
-  // .free's own rule.
+  // springboard drawing its build sites as free steps, and a site's price is the one price left
+  // on the board.
   let buildTargets: Position[] = [];
   // What the hint is pointing at, as a tile index: the tile the bot would act on if it were
   // playing this side — see showHint. Set only by 💡 and dropped again by the next thing the
@@ -979,10 +980,11 @@ export function GameMapComponent(
       const isBecoming = isPriced && !!siteBuild;
       element.classList.toggle(styles.becoming, isBecoming);
       // Only the lit tiles are written on, and only they read it — a stale tag on a tile that
-      // has stopped being a target is a property nothing draws. A tub's fields are the one
-      // kind of target with nothing to say: their price is on the tub, and an empty string is
-      // how a tile that has just stopped quoting one rubs the last one out.
-      if (isTarget) element.style.setProperty("--p", isTubSelected ? `""` : `"${portalIndices.includes(index) ? JUMP_TAG : MOVE_TAG}"`);
+      // has stopped being a target is a property nothing draws. Of the lit tiles only the far
+      // donuts have anything to say: a plain step and a tub's fields are all quoted elsewhere or
+      // not worth quoting, and an empty string is how a tile that has just stopped quoting a
+      // price rubs the last one out.
+      if (isTarget) element.style.setProperty("--p", portalIndices.includes(index) ? `"${JUMP_TAG}"` : `""`);
       else if (isPriced) {
         // A tub is quoted exactly as a site is, by borrowing the site's own shape: nothing in
         // water, the herd in sweets, and — truthfully, as it happens — a unicorn in the slot

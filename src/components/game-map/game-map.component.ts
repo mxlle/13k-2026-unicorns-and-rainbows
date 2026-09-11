@@ -451,7 +451,7 @@ export function GameMapComponent(
   const turnDisplay = counter(TURN_EMOJI, turnCounter);
   // Reached for through counter() rather than built by hand, so every counter in the bar is
   // still made the same way: the emoji span is always the first child of the row.
-  const turnEmoji = turnDisplay.firstChild as HTMLElement;
+  const turnEmoji = turnDisplay.firstChild!;
   // The score opens its own working: the same breakdown that closes a run, on demand while
   // it is still being played, so "where are my points coming from" is answerable in time to
   // act on the answer rather than only afterwards.
@@ -1093,12 +1093,6 @@ export function GameMapComponent(
     const isLastTurn = map.turn >= TURN_LIMIT;
     turnEmoji.textContent = isLastTurn ? LAST_TURN_EMOJI : TURN_EMOJI;
     turnDisplay.classList.toggle(styles.lastTurn, isLastTurn);
-    // A turn with nothing left to spend on it, said in the one way the screen can still say
-    // anything: the sand pulses. The panel says it in words and the button says it in colour,
-    // and both of those are already there when the player looks — this is the bit that asks
-    // them to look. On the glyph rather than on the button beside it, which is the shape the
-    // pulse was drawn for: 12% of an hourglass is a nudge, 12% of a bar is a lurch.
-    turnEmoji.classList.toggle(CssClass.HINT, needsIncome && !isOver);
     dropCount.textContent = `${map.drops[PLAYER]}`;
     candyCount.textContent = `${map.candy[PLAYER]}`;
     // What the board will pay next turn, reacting when it moves. It is the one number in the
@@ -1163,12 +1157,23 @@ export function GameMapComponent(
     // be confused, for all that they wear the same colour — the guard only ever arms while there
     // is something else the player could be doing, which is precisely when this is otherwise
     // plain, and the armed one is the one with the question mark on it.
-    // The fill is the whole of it: this button stretches across the bar, and the pulse every
-    // other hint in the game wears is a scale — 12% of a tile is a nudge, 12% of a bar is a
-    // lurch. So the four states that used to pulse it say so in colour instead, which is what
-    // three of them were already doing; the bulb's own answer ("just end the turn") joins them.
+    // The fill is most of it: the four states that ask for this button say so in colour, which
+    // is what three of them were already doing, and the bulb's own answer ("just end the turn")
+    // joins them there.
     endTurnButton.classList.toggle(CssClass.PRIMARY, (needsIncome || confirmsEndTurn || hintsEndTurn) && !isOver);
     endTurnButton.classList.toggle(CssClass.PRIMARY_HIGHLIGHT, isOver);
+    // And the nudge on top, for the one state that is a dead end: a spent turn the player has
+    // gone back to reading the board in. Not while the selection is empty, because that is the
+    // moment the turn went spent — the panel is saying so in words right then (see showGoal),
+    // and a button that starts moving in the same instant is two things asking at once. Tapping
+    // anything is the signal that the words have been read and the board is being looked over;
+    // from there the way out of the turn is the thing that has not been done yet.
+    //
+    // The game's own pulse, whatever its width: 12% of a button this wide does reach into the
+    // gap beside it, and that is accepted rather than worked around — by the time it runs, the
+    // taps it is answering are aimless ones, and a button that swells into the room next to it
+    // is exactly the wrong thing to be subtle about.
+    endTurnButton.classList.toggle(CssClass.HINT, needsIncome && !isOver && !!selected);
     // The hint asks the bot, and the bot answers about a board that is standing still: nothing
     // to advise while the income is flying, the rival is walking or the run is over.
     hintButton.disabled = isLocked() || !isRunning;

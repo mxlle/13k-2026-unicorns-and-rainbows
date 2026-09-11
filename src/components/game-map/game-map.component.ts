@@ -418,7 +418,7 @@ export function GameMapComponent(
 
   // PLACEHOLDER turn bar: turn count on the left, end-turn button on the right.
   // Only the emoji gets the emoji font — digits inside it would render as emoji glyphs too.
-  const turnCounter = createElement({ tag: "span" });
+  const turnCounter = createElement({ tag: "span", cssClass: CssClass.EMPHASIS });
   const dropCount = createElement({ tag: "span" });
   const candyCount = createElement({ tag: "span" });
   const scoreCount = createElement({ tag: "span" });

@@ -1,7 +1,7 @@
 // "Candy Clouds" — background loop for Unicorns and Rainbows.
 // C major, 90 BPM, 16 bars ≈ 42.7 s seamless loop. Sine-only (CPlayerSimple-safe).
 // Cozy Sims-build-mode flavour: soft piano-ish melody over rolling maj7/9 broken chords,
-// a walking-ish bass, light kick and ticks.
+// a walking-ish bass and a light kick. (The off-beat ticks are commented out below — see there.)
 //
 // Harmony trick: the chord channel is one instrument with a *major* arpeggio (root, +4, +7),
 // so every chord is a major triad; the colour comes from which triad sits on which bass note:
@@ -23,8 +23,14 @@ const pianoInstrument = [0, 110, 128, 0, 0, 70, 140, 6, 0, 0, 4, 20, 90, 14, 0, 
 // plucked twice a bar and left to fade — a harp/piano left hand.
 const chordInstrument = [0, 95, 128, 0, 0, 55, 140, 4, 0, 0, 5, 30, 105, 6, 0x47, 1, 0, 0, 0, 0, 2, 180, 0, 0, 36, 70, 2, 40, 4];
 
-// Airy tick: pure noise through a highpass, very short, touch of echo.
-const tickInstrument = [0, 0, 128, 0, 0, 0, 128, 0, 0, 40, 3, 4, 25, 30, 0, 0, 0, 0, 0, 0, 1, 190, 0, 0, 34, 120, 5, 40, 3];
+// Airy tick: pure noise through a highpass, very short, touch of echo. Taken out of the loop —
+// without it the track drifts rather than leans, which suits a board you stare at while thinking.
+// Kept here because the decision is a taste one and reversible: uncomment this and the channel
+// below, and put numChannels back to 5. The FX_DRIVE here is 20 rather than the 34 it shipped
+// with, which is where it was mixed to before it went entirely — start from that if it comes back.
+// It costs nothing to keep: comments are stripped from the build, and the whole channel was
+// measured at ~5 bytes packed anyway (one pattern played eight times compresses to almost nothing).
+// const tickInstrument = [0, 0, 128, 0, 0, 0, 128, 0, 0, 40, 3, 4, 25, 30, 0, 0, 0, 0, 0, 0, 1, 190, 0, 0, 20, 120, 5, 40, 3];
 
 // Soft kick: low sine with pitch envelope (xenv) and exponential decay.
 const kickInstrument = [0, 180, 128, 60, 0, 0, 128, 0, 0, 0, 2, 10, 45, 60, 0, 0, 0, 0, 0, 0, 2, 50, 0, 0, 26, 0, 0, 0, 0];
@@ -70,12 +76,13 @@ export const candyCloudsSong = {
         { n: [147, , , , , , 144, , 142, , , , 139] },
       ],
     },
-    {
-      // Off-beat ticks, running through the whole loop so the seam has no texture jump
-      i: tickInstrument,
-      p: [1, 1, 1, 1, 1, 1, 1, 1],
-      c: [{ n: [, , 140, , , , 140, , , , 140, , , , 140, , , , 140, , , , 140, , , , 140, , , , 140] }],
-    },
+    // Off-beat ticks, running through the whole loop so the seam had no texture jump. Out of the
+    // track — see tickInstrument above for why and for how to put it back.
+    // {
+    //   i: tickInstrument,
+    //   p: [1, 1, 1, 1, 1, 1, 1, 1],
+    //   c: [{ n: [, , 140, , , , 140, , , , 140, , , , 140, , , , 140, , , , 140, , , , 140, , , , 140] }],
+    // },
     {
       // Kick on 1 and the "and" of 2 in bar one, 1 and 3 in bar two — a lazy two-bar groove
       i: kickInstrument,
@@ -86,5 +93,5 @@ export const candyCloudsSong = {
   rowLen: 7350, // 90 BPM, rows are 16th notes
   patternLen: 32, // 2 bars of 4/4 per pattern
   endPattern: 7,
-  numChannels: 5,
+  numChannels: 4, // load-bearing, not metadata: it must equal songData.length — 5 again if the ticks come back
 };

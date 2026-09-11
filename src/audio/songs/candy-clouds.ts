@@ -39,13 +39,17 @@ export const candyCloudsSong = {
   songData: [
     {
       // Bass — root on 1, again on the "and" of 2, fifth on 3, walk-up into the next bar.
-      // Nothing later than row 28: the loop is a hard cut, and a bass note still sustaining there clicks.
+      // Row 30 is the latest anything sits, and only on slot 8's pattern: a walk-up into the next bar
+      // is what every other bar transition has, and the loop point had none, which is what made the
+      // seam read as a gap. The note is truncated by the hard cut — measured, the discontinuity is
+      // 881 against the 846 of the largest ordinary sample step in the second before it, so it lands
+      // inside the waveform's own noise floor and does not click. Do not push anything past row 30.
       i: bassInstrument,
       p: [1, 2, 1, 2, 3, 1, 2, 3],
       c: [
         { n: [123, , , , , , 123, , , , , , 130, , , , 120, , , , , , 120, , , , , , 125, , 127] }, // C | Am (walks D-E up into F)
         { n: [128, , , , , , 128, , , , , , 123, , , , 118, , , , , , 118, , , , , , 120, , 122] }, // F | G (walks A-B up into C)
-        { n: [125, , , , , , 125, , , , , , 120, , , , 118, , , , , , 118, , , , , , 125] }, // Dm | G (fifth on 4, then quiet into the loop seam)
+        { n: [125, , , , , , 125, , , , , , 120, , , , 118, , , , , , 118, , , , , , 125, , 122] }, // Dm | G (fifth on 4, then D-B into C)
       ],
     },
     {
@@ -72,8 +76,11 @@ export const candyCloudsSong = {
         { n: [149, , 147, , 144, , , , 147, , , , 144, , , , 149, , , , 151, , 149, , , , 147, , 146] },
         // D over Dm | G7 (closing): descends to E, then the leading tone with a little turn
         { n: [144, , 147, , 149, , , , 147, , 144, , 142, , , , 139, , , , 142, , 144, , 142, , 139, , 146] },
-        // E over C | Am (loop start): C5 on the downbeat, sighs down to E, silent through the Am bar
-        { n: [147, , , , , , 144, , 142, , , , 139] },
+        // E over C | Am (loop start): C5 on the downbeat, sighs stepwise down to E over the first
+        // half-bar, then silent through the Am bar. The sigh used to be spread over rows 0-12 with
+        // nothing on rows 2 and 4 — the only melody pattern here without them — which put a hole
+        // directly after the loop's downbeat. Same contour, same breather, just not straddling the seam.
+        { n: [147, , 146, , 144, , 142, , 139] },
       ],
     },
     // Off-beat ticks, running through the whole loop so the seam had no texture jump. Out of the

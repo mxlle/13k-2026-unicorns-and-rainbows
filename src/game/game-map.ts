@@ -70,19 +70,29 @@ const TREE_SIZE = 7; // and with the trees comes candy, which is what gives the 
  */
 const TREES_PER_FOUNTAIN = 2;
 /**
- * The tutorial's run, which is the one board whose turns are not its width. Five turns were
- * three turns of playing and two of watching: 25 tiles are walkable inside three turns' drops,
- * and the ceiling — 100% uncovered, the two unicorns the board can hold, the two rainbows its
- * one fountain can hold — is 400 on every seed and is reached on turn 3. Nothing on the board
- * compounds, so nothing can happen after it: adding a second fountain or a second present
- * raises that ceiling and is reached *sooner*, not later.
+ * The tutorial's run, which is the one board whose turns are not its width. The ceiling — 100%
+ * uncovered, the two unicorns the board can hold, the two rainbows its one fountain can hold —
+ * is 400 on every seed, and nothing on the board compounds, so the run is over the moment it is
+ * reached: adding a second fountain or a second present raises that ceiling and gets there
+ * *sooner*, not later. The turn count is therefore the turn the ceiling falls on, and nothing else.
  *
- * Three, then, and the level ends where it was already over. It is deliberately the one
- * exception on the ladder rather than a second list beside MAP_SIZES: every other board is
- * still as many turns as it is wide, because from the 7x7 up there are trees, and an economy
- * that compounds is what gives a later turn something an earlier one could not do.
+ * Five was three turns of playing and two of watching. Three was one, measured on the level's
+ * own seed: perfect play is five steps and finishes in the middle of turn 2 with a drop still in
+ * hand, and the game's own bot — which gets 384 of the 400 — spends the whole of turn 3 doing
+ * nothing at all, having no legal step left that is worth more than the rainbow it would walk
+ * out of. Two, then, and the level ends where it was already over.
+ *
+ * What the cut costs is slack, and it is worth knowing which way: of every position the board
+ * can be left in, 0.7% score 400 over three turns against 0.4% over two, and 7% reach 300
+ * against 5%. The third turn was where a fumbled first one was recovered — so the floor moved,
+ * not the ceiling.
+ *
+ * It is deliberately the one exception on the ladder rather than a second list beside MAP_SIZES:
+ * every other board is still as many turns as it is wide, because from the 7x7 up there are
+ * trees, and an economy that compounds is what gives a later turn something an earlier one
+ * could not do.
  */
-const TUTORIAL_TURNS = 3;
+const TUTORIAL_TURNS = 2;
 const DONUT_SIZE = 9;
 const DONUT_DENSITY = 6; // tiles of width per donut — see setMapSize
 const SITE_SIZE = 13;

@@ -1702,7 +1702,7 @@ export function GameMapComponent(
     // Stepping on is the whole of opening one, so this runs on every step and comes back
     // empty-handed on all but a few of them. Before the fog and the rainbows: a chest can
     // hold a unicorn, and that unicorn has its own vision and its own light to bring.
-    const loot = openChest(map, target, PLAYER);
+    const loot = openChest(map, target, PLAYER, selected!);
     // A jump is a move at the portal's price, and nothing else ever costs that.
     if (cost === PORTAL_COST) playSoundEffect(SoundEffect.PORTAL);
 

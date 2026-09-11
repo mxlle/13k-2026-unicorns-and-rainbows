@@ -36,10 +36,12 @@ export const LEVEL_SEEDS = [10, 12, 8, 14, 11, 35, 16];
  * Level 1 is the exception and always will be: 400 is the board's ceiling — two rainbows, two
  * unicorns, no cloud left (see LEVEL_SEEDS) — so its 100% is perfection rather than a best.
  *
- * Where the bot now sits, which is the honest measure of how hard these are: 96% on the
- * tutorial, then 78 / 55 / 53 / 59 / 64 / 94. The 9x9 and the 13x13 are the steepest boards on
- * the ladder — the bot is barely past half of what has been got out of them — and the 25x25 is
- * the one board where it is nearly the best there has been.
+ * Where the bot now sits, which is the honest measure of how hard these are: 92% on the
+ * tutorial, then 78 / 62 / 51 / 62 / 68 / 97. The 13x13 is the steepest board on the ladder —
+ * the bot is barely past half of what has been got out of it — and the 25x25 is the one board
+ * where it is nearly the best there has been. Its own best tie-break roll there is 9700, which
+ * is *past* the target: a record set before a present stopped putting its unicorn down on a
+ * random neighbour is a record the board can now be played past.
  *
  * **Updating one after a better run:** multiply the old target by the percentage the run came
  * out at. It pins exactly, and not by luck — the panel rounds the percentage to a whole number,
@@ -66,17 +68,18 @@ export const LEVEL_TARGETS = [400, 1296, 1600, 2283, 3910, 6966, 9600];
  * the packed zip.
  *
  * The run a player actually faces is neither row: it is `mixed` seeded from the *map* seed,
- * which is what the game does (resetBot in game-map.component.ts) — 384, 1008, 880, 1204,
- * 2322, 4450, 9000. It sits near the bottom of the band on the 13x13 and the 21x21 and near
- * the top on the 25x25, because one seeded run is a fact about that seed and not about the bot.
+ * which is what the game does (resetBot in game-map.component.ts) — 368, 1008, 996, 1162,
+ * 2430, 4732, 9306. It is the very bottom of the band on the 13x13, mid-band on the 17x17 and
+ * the 21x21, and near the top on the tutorial, the 9x9 and the 25x25 — one seeded run is a fact
+ * about that seed and not about the bot.
  * Whichever row a target ends up reading, the number the player watches on screen on the three
  * boards with a rival is lower again — the dark side gives up the closing turn (see hasGo).
  *
  * MAX is a lower bound rather than a ceiling: twenty seeds is what was rolled, and rolling more
  * can only ever find a better run. Re-measure both when the economy moves.
  */
-export const BOT_MIN_SCORES = [368, 936, 800, 960, 2187, 4230, 6111];
-export const BOT_MAX_SCORES = [384, 1032, 1080, 1914, 3420, 6048, 9212];
+export const BOT_MIN_SCORES = [276, 936, 880, 1162, 2160, 4459, 6528];
+export const BOT_MAX_SCORES = [384, 1032, 1020, 2002, 3496, 5664, 9700];
 
 /**
  * A score as its share of the level's target, as a whole percent. It is what fills the level's

@@ -523,7 +523,7 @@ export function applyBotAction(map: GameMap, action: BotAction, side: Side) {
   // Off the tile it is leaving, and so necessarily before moveCharacter empties it.
   map.drops[side] -= action.kind === BotActionKind.PORTAL ? PORTAL_COST : getMoveCost(map, action.from!, side);
   moveCharacter(map, action.from!, action.to!);
-  openChest(map, action.to!, side); // before the fog and the light: a present can hold a unicorn
+  openChest(map, action.to!, side, action.from!); // before the fog and the light: a present can hold a unicorn
   revealAround(map, action.to!, side);
   updateRainbows(map);
 }

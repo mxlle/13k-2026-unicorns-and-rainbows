@@ -78,14 +78,15 @@ const TREES_PER_FOUNTAIN = 2;
  *
  * Five was three turns of playing and two of watching. Three was one, measured on the level's
  * own seed: perfect play is five steps and finishes in the middle of turn 2 with a drop still in
- * hand, and the game's own bot — which gets 384 of the 400 — spends the whole of turn 3 doing
+ * hand, and the game's own bot — which gets 368 of the 400 — spends the whole of turn 3 doing
  * nothing at all, having no legal step left that is worth more than the rainbow it would walk
  * out of. Two, then, and the level ends where it was already over.
  *
- * What the cut costs is slack, and it is worth knowing which way: of every position the board
- * can be left in, 0.7% score 400 over three turns against 0.4% over two, and 7% reach 300
- * against 5%. The third turn was where a fumbled first one was recovered — so the floor moved,
- * not the ceiling.
+ * What the cut costs is slack, and it costs less of it than it did: of every position the board
+ * can be left in, 0.7% score 400 over three turns against 0.7% over two, and 7.4% reach 300
+ * against 6.2%. It was 0.7 against 0.4 while a present put its unicorn down on a random
+ * neighbour — making that placement the opener's own (see openChest) is what closed the gap,
+ * because what the ceiling now needs is play rather than luck with where a newcomer landed.
  *
  * It is deliberately the one exception on the ladder rather than a second list beside MAP_SIZES:
  * every other board is still as many turns as it is wide, because from the 7x7 up there are
@@ -1226,15 +1227,24 @@ export function build(map: GameMap, position: Position, side: Side) {
  * asking first. The chest is spent either way: the ground goes back to plain meadow, so the
  * tile can take a rainbow from then on.
  *
- * A unicorn needs somewhere to stand, and there is always somewhere: the tile the opener came
- * from is a neighbour of this one and it was vacated a moment ago, so the list is never empty
- * and the prize can never be lost for want of room. It lights its own surroundings on arrival,
- * the same as any character stepping out of the fog.
+ * A unicorn comes out onto the tile the opener came from. It is vacated a step ago, so it is
+ * always free and the prize can never be lost for want of room — and it is the tile the player
+ * was looking at a moment before, which a random free neighbour was not: a newcomer put down on
+ * one of eight tiles was the only thing in the game that happened where nobody was watching.
+ * The reading it buys is "the one you were moving brought another one with it", and the two
+ * tiles it happens on are the two the eye is already on.
+ *
+ * The origin is a neighbour whatever the step was: a jump lands on a donut, and a tile holds one
+ * object, so a portal can never land on a present at all.
+ *
+ * Nothing is revealed around the newcomer, and that is not an omission: the opener has just been
+ * standing there, so that square is out of its own side's cloud by definition — every way onto a
+ * tile lifts the fog around it (see revealAround's callers).
  *
  * Called before the rainbows are recomputed — a unicorn out of a chest may be standing next to
  * a fountain, and a chest lifted off a tile may have been in a rainbow's way.
  */
-export function openChest(map: GameMap, position: Position, side: Side): ChestLoot | undefined {
+export function openChest(map: GameMap, position: Position, side: Side, from: Position): ChestLoot | undefined {
   const tile = getTile(map, position)!;
   const loot = tile.loot;
 
@@ -1244,11 +1254,7 @@ export function openChest(map: GameMap, position: Position, side: Side): ChestLo
 
   if (loot === ChestLoot.DROPS) map.drops[side] += CHEST_DROPS;
   else if (loot === ChestLoot.CANDY) map.candy[side] += CHEST_CANDY;
-  else {
-    const spot = getRandomItem(getMoveTargets(map, position));
-    getTile(map, spot)!.living = SIDE_UNICORN[side];
-    revealAround(map, spot, side);
-  }
+  else getTile(map, from)!.living = SIDE_UNICORN[side];
 
   return loot;
 }

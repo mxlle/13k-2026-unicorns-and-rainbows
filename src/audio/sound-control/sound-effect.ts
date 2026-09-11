@@ -22,4 +22,5 @@ export const SoundEffect = defineEnum({
   PORTAL: 5,
   WIN: 6,
   LOSE: 7,
+  STUCK: 8,
 });

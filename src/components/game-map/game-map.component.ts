@@ -1609,6 +1609,11 @@ export function GameMapComponent(
     if (!isRunning || isLocked() || index < 0) return;
     showsScore = false; // the board takes the panel back, whether the tap moves or just looks
     clearHint(); // whatever the tap is, it is the player deciding for themselves again
+    // With the turn spent there is nothing a tap can do but look, and the board has no other way
+    // of saying so — every tile still picks up and explains itself. So the tap is answered in
+    // sound instead. wasStuck is the same question the end-turn button is already asking (see
+    // render), asked once a repaint rather than again per tap.
+    if (wasStuck) playSoundEffect(SoundEffect.STUCK);
 
     // A build is finished by tapping the site, whichever end of it was picked up: with a
     // unicorn in hand this is the one tap, and with the site in hand it is the second one on

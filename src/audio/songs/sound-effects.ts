@@ -21,6 +21,11 @@ const whistle = [0, 130, 128, 30, 0, 60, 152, 8, 30, 0, 60, 14, 40, 6, 0, 0, 0, 
 // Hi-hat: pure noise through a highpass, a fast exponential decay of about 40 ms, no tone at all.
 const hihat = [0, 0, 128, 0, 0, 0, 128, 0, 0, 70, 2, 3, 22, 30, 0, 0, 0, 0, 0, 0, 1, 170, 0, 0, 64, 0, 0, 0, 0];
 
+// Dull: a low sine with a soft attack and no exponential decay, so it has neither an attack
+// transient nor a sparkle — osc2 an octave under it, slightly detuned, for body, and a low
+// lowpass. The one instrument here that is deliberately lifeless.
+const dull = [0, 160, 128, 0, 0, 110, 116, 8, 0, 0, 10, 20, 45, 0, 0, 0, 0, 0, 0, 0, 2, 40, 0, 0, 40, 0, 0, 0, 0];
+
 // Thump: a low sine whose pitch falls with its envelope, over in a tenth of a second — a kick
 // at a low note.
 const thump = [0, 200, 128, 60, 0, 0, 128, 0, 0, 0, 2, 8, 40, 60, 0, 0, 0, 0, 0, 0, 2, 60, 0, 0, 42, 0, 0, 0, 0];
@@ -91,6 +96,17 @@ export const loseSound = {
   songData: [{ i: bell, p: [1], c: [{ n: [151, , 149, , 147, , , , 144, , , , , , 147] }] }],
   rowLen: 4400,
   patternLen: 24,
+  endPattern: 0,
+  numChannels: 1,
+};
+
+// 8 — a tap with nothing left to spend: two low notes a semitone apart, falling. It answers a
+// tap on the board rather than an action, because when the turn is spent a tap is all there is —
+// so it is deliberately soft and short: it says "nothing here", not "wrong".
+export const stuckSound = {
+  songData: [{ i: dull, p: [1], c: [{ n: [116, , 115] }] }],
+  rowLen: 2200,
+  patternLen: 8,
   endPattern: 0,
   numChannels: 1,
 };

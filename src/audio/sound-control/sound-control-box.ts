@@ -1,11 +1,11 @@
-import { buildSound, countSound, loseSound, portalSound, rainbowSound, unicornSound, winSound } from "../songs/sound-effects";
+import { buildSound, countSound, loseSound, portalSound, rainbowSound, stuckSound, unicornSound, winSound } from "../songs/sound-effects";
 import { generateUntilDone, isSoundOn } from "../music-control";
 import { CPlayerSimple as CPlayer } from "../small-player-simple";
 import { HAS_SIMPLE_SOUND_EFFECTS } from "../../env-utils";
 import type { SoundEffect } from "./sound-effect";
 
 // In SoundEffect order: the enum is the index into this list. Both currencies count the same way.
-const SOUNDS = [countSound, countSound, unicornSound, rainbowSound, buildSound, portalSound, winSound, loseSound];
+const SOUNDS = [countSound, countSound, unicornSound, rainbowSound, buildSound, portalSound, winSound, loseSound, stuckSound];
 
 // The rival's sounds are the player's, slowed down. With preservesPitch off a slower playback is
 // also a lower one, so every effect has a darker cousin for no song bytes at all.

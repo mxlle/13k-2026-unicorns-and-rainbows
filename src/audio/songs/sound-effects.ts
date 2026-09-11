@@ -3,8 +3,7 @@
 // of its own so it can have its own tempo (rowLen), which is what makes a run of bell notes a
 // sparkle in one sound and a swoosh in another. Instruments cost bytes; notes are nearly free.
 //
-// The rival's versions of these are not composed: the same sound is played at a lower playback
-// rate (see sound-control-box.ts), which is what makes it the dark cousin.
+// All of them are the player's. The rival's turn makes no sound at all — see playSoundEffect.
 //
 // The first three are indexed by what they announce: DROPS 0 and CANDY 1 match the currency
 // indices (and so ChestLoot) and are the same counting sound, UNICORN 2 matches ChestLoot.UNICORN —

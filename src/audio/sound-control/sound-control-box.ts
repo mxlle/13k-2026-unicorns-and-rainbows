@@ -7,10 +7,6 @@ import type { SoundEffect } from "./sound-effect";
 // In SoundEffect order: the enum is the index into this list. Both currencies count the same way.
 const SOUNDS = [countSound, countSound, unicornSound, rainbowSound, buildSound, portalSound, winSound, loseSound, stuckSound];
 
-// The rival's sounds are the player's, slowed down. With preservesPitch off a slower playback is
-// also a lower one, so every effect has a darker cousin for no song bytes at all.
-const DARK_PLAYBACK_RATE = 0.6;
-
 // One rendered WAV per effect, as object URLs, in SoundEffect order.
 let soundUrls: string[] = [];
 
@@ -29,15 +25,13 @@ export async function initSoundEffects() {
 }
 
 /**
- * Plays one effect, if sound is on at all. `dark` is the rival's voice — the same sound an
- * octave-ish lower and slower.
+ * Plays one effect, if sound is on at all. The rival has no voice of its own: its turn is watched
+ * rather than heard — the ring says where it is and the board says what it did, and a sound on top
+ * of that was either a celebration of the wrong side or 58 bytes saying what was already said.
  * A fresh Audio element per play, so sounds can overlap rather than cut each other off.
  */
-export function playSoundEffect(effect: SoundEffect, dark = false) {
+export function playSoundEffect(effect: SoundEffect) {
   if (!HAS_SIMPLE_SOUND_EFFECTS || !isSoundOn() || !soundUrls[effect]) return;
 
-  const audio = new Audio(soundUrls[effect]);
-  audio.preservesPitch = false;
-  audio.playbackRate = dark ? DARK_PLAYBACK_RATE : 1;
-  void audio.play();
+  void new Audio(soundUrls[effect]).play();
 }

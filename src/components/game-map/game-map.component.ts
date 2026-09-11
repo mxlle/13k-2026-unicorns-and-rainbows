@@ -1994,25 +1994,10 @@ export function GameMapComponent(
         return;
       }
 
-      const previousRainbowCount = map.rainbowCounts[RIVAL];
       applyBotAction(map, action, RIVAL);
       // Where it just acted: the tile it stepped onto, or the one it stood on to build. After the
       // action rather than before, so the ring lands where the unicorn now is.
       markRivalAction(action.to ?? action.from);
-      // Its big moments are heard too — a build, a new unicorn, a rainbow lit — in the darker
-      // voice, and only where the ring shows: the fog withholds the sound for the same reason it
-      // withholds the ring. Not its steps: sixty milliseconds apart they would be a rattle.
-      if (rivalMark) {
-        const effect =
-          action.kind === BotActionKind.BUILD
-            ? SoundEffect.BUILD
-            : action.kind === BotActionKind.BUY
-              ? SoundEffect.UNICORN
-              : map.rainbowCounts[RIVAL] > previousRainbowCount
-                ? SoundEffect.RAINBOW
-                : undefined;
-        if (effect !== undefined) playSoundEffect(effect, true);
-      }
       // Re-selected rather than only redrawn: the rival may have walked onto the very tile
       // this selection was offering as a step, and a highlight that outlives what it was
       // offering is worse than none. The board is locked either way, so nothing can be acted

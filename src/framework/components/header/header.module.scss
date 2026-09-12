@@ -48,13 +48,30 @@
 @include theme.stackedHeader {
   .host {
     flex-wrap: wrap;
-    gap: 0.5rem; // a row gap as well now, and 1rem between the two lines is a gulf
+    gap: 0.4rem; // a row gap as well now, and 1rem between the two lines is a gulf
+    // Half the side padding the wide header takes. Two lines is the budget (see .title), and
+    // on a 320px phone the first of them is 18px short of holding what is on it at 1rem —
+    // which is exactly this. The row is still symmetric, so the chip that centres on the
+    // header when it is floating still centres.
+    padding: 0.5rem;
   }
 
-  // space-between has the whole first line to spread once the end group dissolves below;
-  // this keeps the title at one edge and the controls grouped at the other.
+  // Two lines and never three, whatever the title says. `flex: 1` gives it a basis of zero, so
+  // the title is no longer what decides whether the controls beside it fit — the line is sized
+  // by the controls and the title takes what is left, down to the ellipsis it has always had.
+  // Without it a title one character too long for the row pushes the zoom chip onto a line of
+  // its own, which is a third header line on the screen that can least afford one.
+  // It also does what the auto margin it replaces did: with nothing left to grow into, a grown
+  // title still holds the controls at the far edge.
+  //
+  // The size is what buys the room for that on the narrowest phone there is. At 1rem the name
+  // is 116px and the line leaves it 108 — eight pixels, so a 320px screen showed "Empire of
+  // Su…" while every wider one had room to spare. `min` spends the shrink only where it is
+  // needed: 5vw is under 1rem below 360px and nowhere else, so an iPhone SE gets 16px type and
+  // every other phone keeps the full size.
   .title {
-    margin-right: auto;
+    flex: 1;
+    font-size: min(1rem, 5vw);
   }
 
   // Dissolved, so that what it holds becomes items of the header's own row and can wrap

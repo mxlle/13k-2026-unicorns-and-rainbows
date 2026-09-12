@@ -7,7 +7,34 @@
 // instead of shrinking its tiles past legibility. .mapArea scrolls to reach the rest.
 // The info row and the turn bar keep a comfortable reading width of their own, independent
 // of however wide the board has become.
-$panel-width: min(92vw, 55vh);
+//
+// A **width**, and nothing but a width. This was `min(92vw, 55vh)` when it was $board-width and
+// sized the board, where the height term was the point: a square has to fit the window both
+// ways. A panel of text does not, and the term survived the rename into a cap that had nothing
+// to do with reading — on a 320x430 phone 55vh is 236px, so the panel stood 35px in from each
+// side of a screen that had none to spare, and the smaller the screen the harder it bit.
+//
+// PLACEHOLDER: 26rem, which is about 70 characters at the panel's own 0.8rem and matches what
+// 55vh gave a tablet in portrait to within ten pixels. It is a cap no phone ever reaches — the
+// narrowest window it bites on is around 470px across — so on a phone the panels are simply as
+// wide as the host lets them be, which is the window less $air. In rem rather than px so the
+// measure grows with the type when the scale steps up (see globals.scss).
+$panel-width: 26rem;
+// Air: the gap between the board and the panels under it, the gap between the panels, the
+// padding round the lot, and the gap inside the info panel. One quantity, because on a phone in
+// portrait every one of them is height the board does not get — an iPhone SE with a browser bar
+// is about 430px tall, and at a flat 1rem the two gaps and the two paddings alone were 68 of
+// them. `min` spends the whole rem wherever there is room for it and thins it where there is
+// not, in proportion to the window rather than at a breakpoint — so there is no width at which
+// the layout jumps, and the phone that has 430px of height gets 8px of air where the one with
+// 660px gets 12 and anything taller gets the full rem.
+//
+// 1.8dvh puts that last point at 1000px of window height, or at 1222px once the type scale
+// steps up (see globals.scss), which is well above a phone on purpose: the thinning is a mild
+// rule everywhere rather than a phone-only one, so a laptop is a few pixels tighter than it was
+// and the board a few wider. dvh rather than vh for the same reason $board-column-max uses it —
+// a phone's browser chrome is the whole point here.
+$air: min(1rem, 1.8dvh);
 // Tall enough for the longest description, so switching objects never resizes the row and the
 // board never moves. Raise it if a description ever wraps to a fourth line on a phone.
 //
@@ -18,10 +45,29 @@ $panel-width: min(92vw, 55vh);
 // min-height, so too small costs a board that jumps when the selection changes rather than text
 // that is cut off — which is exactly what this height exists to prevent.
 //
-// To re-measure after changing a description or adding a language: narrowest screen, longest
-// string, three ✨ after the name (a fully grown unicorn), the ladder showing. In the builds that
-// carry German, that is the language to measure — its lines are the longer ones.
-$info-height: 7rem;
+// To re-measure after changing a description or adding a language: narrowest screen, nothing
+// selected, both languages — the resting panel is the one that has to fit, and the German lines
+// are the longer ones wherever the two differ.
+//
+// It is not the longest *description* that sets it, though, and it is not the worst case
+// either. Re-measured on a 320x430 screen with the panel at its full width (2026-09-12): the
+// **resting** panel — the goal and the tap hint, which is what is up before the first tap — is
+// 99px in both languages, an ordinary selection 43 to 67px, the spent-turn prompt over a
+// selection 91px in English and 113 in German. The genuine worst case, a fully grown unicorn
+// carrying INFO_UNICORN_SHINE and its ladder under the spent-turn prompt, is 163px in English
+// and 203 in German, and nothing short of half the screen would reserve for that — it is a
+// min-height rather than a height precisely so that case can simply push the row taller.
+//
+// So what this is set against is the resting panel, the one state the board is *already* laid
+// out around when the first tap lands. 6rem + air clears its 99px by 17, which is the slack to
+// spend if the board ever needs another few pixels on a small phone. Which is also why it is
+// written as a sum
+// rather than as a flat 7rem: the only part of that 99px a short window changes is the panel's
+// own gap, so the reserved height gives back exactly what $air takes and nothing else. At full
+// air the two are the same 7rem this has always been; on a 430px window the panel's gap and the
+// height it reserves come down by the same 10px, which is what keeps the board from jumping on
+// the first tap at either size.
+$info-height: calc(6rem + #{$air});
 // Beam thickness, in em against the board font-size — a fraction of a tile, whatever the screen.
 $beam-width: 0.08em;
 // PLACEHOLDER: how far the ground glyph peeks out from behind a character standing on it.
@@ -73,20 +119,30 @@ $sidebar-width: clamp(11rem, 30vw, 24rem);
 $board-column-max: calc(100dvh - 5rem);
 
 // Map / info panel / score panel / turn bar, top to bottom. The info row is always there — that
-// is what keeps it from ever covering the board or shifting it when the selection changes. The
-// score panel's row collapses to nothing while it is closed, which is most of a stacked run.
+// is what keeps it from ever covering the board or shifting it when the selection changes.
+//
+// The rows are **auto-placed** rather than declared, and that is what makes the score panel's
+// row disappear rather than merely empty while it is closed — which is most of a stacked run.
+// A declared track is still a track with a closed panel in it, and a grid puts its gap between
+// every pair of tracks whether or not either holds anything: four declared rows around a
+// zero-height third one spent 2rem of a phone's screen on a gap under the info panel that
+// looked like a mistake and was one. Placed in DOM order, which is already the reading order —
+// so what the rows are is said once, by the order the component appends them in, rather than
+// again here in row numbers that have to be kept in step with it. Every one of them is placed
+// explicitly again by the sidePanels block at the foot of this file, which is the layout that
+// does need to say where things go.
 .host {
   display: grid;
-  grid-template-rows: 1fr min-content min-content min-content;
+  grid-template-rows: 1fr; // the map row; the panels below take a track each as they are placed
+  grid-auto-rows: min-content;
   justify-items: center;
-  gap: 1rem;
-  padding: 1rem;
+  gap: $air;
+  padding: $air;
   min-height: 0;
   overflow: hidden; // only the map row scrolls, never the page
 }
 
 .mapArea {
-  grid-area: 1 / 1;
   display: grid;
   // `safe` keeps the top-left of an oversized board reachable instead of clipping it —
   // which is now the normal case rather than an edge one, since the board is regularly
@@ -201,7 +257,11 @@ $board-column-max: calc(100dvh - 5rem);
 }
 
 .turnBar {
-  grid-area: 4 / 1;
+  // Last, whatever the DOM says. The rows are auto-placed (see .host), and the score panel is
+  // *moved* between the info panel and the host as a run starts and ends (see startRun and
+  // endGame) — an append, which puts it after this one. The layout does not depend on where
+  // those two moves leave it: the turn is the foot of the screen either way.
+  order: 1;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -364,11 +424,10 @@ $board-column-max: calc(100dvh - 5rem);
 }
 
 .info {
-  grid-area: 2 / 1;
   @extend %gridCentered;
   min-height: $info-height;
   text-align: center;
-  gap: 1rem;
+  gap: $air;
 }
 
 // The easing is per keyframe, and that is what makes it read as a ball rather than a
@@ -414,8 +473,9 @@ $board-column-max: calc(100dvh - 5rem);
 // with the working closed keeps the info row at exactly its old height.
 // The result, once it is in the panel above: not a panel any more but the lower half of one —
 // no glass of its own, no padding, and no cell of the host's grid to be placed in, which is what
-// `auto` undoes for both layouts at once (see endGame, which moves it here and is the only thing
-// that ever does).
+// `auto` undoes — the stacked layout auto-places and needs nothing said, so what this has to beat
+// is the column the sidePanels block puts it in (see endGame, which moves it here and is the only
+// thing that ever does).
 .info > .scoreBoard {
   grid-area: auto;
   padding: 0;
@@ -428,7 +488,6 @@ $board-column-max: calc(100dvh - 5rem);
 // visible: the working is rebuilt on every render of a running board, and the result replaces
 // it when the run ends, so there is no empty-panel case left to hide.
 .scoreBoard {
-  grid-area: 3 / 1;
   display: none;
   gap: 0.1rem;
   line-height: 1.4;
@@ -1103,9 +1162,9 @@ $board-column-max: calc(100dvh - 5rem);
 
   // Centred down the column rather than pinned to its top — the middle of the board's edge
   // is the shortest trip from wherever on the board the player just tapped.
-  // The column is what bounds it now, not $panel-width: that cap is measured against the
-  // *viewport* (92vw / 55vh), which on a short window is narrower than the column it is
-  // sitting in and would leave a gutter for no reason. And it may not grow past the row it
+  // The column is what bounds it now, not $panel-width: the column is already narrower than
+  // that reading measure at every width it is given, so the cap could only ever leave a gutter
+  // inside it for no reason. And it may not grow past the row it
   // was given — on a 400px-tall window the reserved $info-height plus a long description can
   // outrun it, and .host clips rather than scrolls.
   .info {

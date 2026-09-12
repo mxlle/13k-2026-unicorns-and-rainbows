@@ -13,9 +13,11 @@ export const LocalStorageKey = defineEnum({
   // The best score on each level's own board, comma-joined and indexed by level. The digit is a
   // version: a record is only meaningful against the rules it was set under, so a change to the
   // economy that moves what a board is worth gets a new key rather than a migration — the old
-  // one is simply left behind, and every stripe starts empty again. Last bumped when the flower
-  // became the custard springboard (see getMoveCost), which changed what a drop buys everywhere.
-  SCORES: "l1",
+  // one is simply left behind, and every stripe starts empty again. Last bumped when the lollipop
+  // became a second kind of fountain (2026-09-12): the light rule, the source counts, the
+  // boulders and every level seed changed together, so a record from before it is a record on a
+  // board that no longer exists.
+  SCORES: "l2",
   SIZE: "s1", // the board the launch screen is offering next — one rung above the last one played
   DARK_SIDE: "d", // "1" while the player is playing the dark unicorn (see dark-side.ts)
   // Dev-only (see HAS_DEV_TOOLS): which level was on the screen, so a reload comes back to the

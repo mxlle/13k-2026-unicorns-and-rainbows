@@ -752,13 +752,23 @@ function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin
   // the board. The ring flip is rolled once here, per placement, and a placement that wins it is
   // off both rules at once — the ring and the spacing — which is what makes it one exception to
   // one rule rather than two rules disagreeing (see SHARES_RING).
+  // A tub site is spaced against the tubs already standing as well as against the other sites,
+  // by the same argument: it is a tub that has not happened yet. Without it a shower can land
+  // three tiles from a base that already has a tub, which is worth nothing to raise — and three
+  // tiles from the *rival's* base, which is worth raising for them.
   const light = isLightish(objectType);
+  const isTubSite = objectType === GameObjectType.TUB_SITE;
+  const bases = (HAS_RIVAL ? SIDES : [PLAYER]).map((side) => mirror(TUB_POSITION, side));
   const sharesRing = !!TREE_COUNT && light && random() < SHARES_RING;
   const free = getPlaceableSpots(map, objectType, margin, sharesRing);
-  const taken = light ? getLightPositions(map) : getPositionsOf(map, objectType);
+  const taken = light ? getLightPositions(map) : [...getPositionsOf(map, objectType), ...(isTubSite ? bases : [])];
   let candidates = free;
 
-  for (let spacing = getSpacing(light ? FOUNTAIN_COUNT + TREE_COUNT + 2 * SITE_COUNT : count); spacing > 1; spacing--) {
+  for (
+    let spacing = getSpacing(light ? FOUNTAIN_COUNT + TREE_COUNT + 2 * SITE_COUNT : isTubSite ? count + bases.length : count);
+    spacing > 1;
+    spacing--
+  ) {
     const spaced = free.filter((position) =>
       taken.every((other) => {
         const distance = (diagonal ? getAxisDistance : getDistance)(position, other);

@@ -15,6 +15,7 @@
 .title {
   min-width: 0; // the title is what gives way when the end elements need the room
   color: theme.$main-color;
+  cursor: pointer; // it is the way back to the levels — see HeaderComponent
   // The end elements carry live counters that change width; the words shorten rather than
   // wrap — a second line would change the header height and push the board down mid-game.
   // They are never dropped: an ellipsis still says which game this is, and nothing else on

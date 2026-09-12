@@ -31,7 +31,7 @@ function init() {
   if (isInitialized) return;
   isInitialized = true;
 
-  const [gameArea, startNewGame, headerControls] = GameMapComponent(() => showLaunchScreen(true));
+  const [gameArea, startNewGame, headerControls, leaveRun] = GameMapComponent(() => showLaunchScreen(true));
   const [launchScreen, updateLaunchScreen, startPickedLevel] = LaunchScreenComponent((level, random) => {
     // Shown before the run starts, or applyZoom would be measuring a hidden map row and
     // every board would open at the wrong step.
@@ -64,7 +64,9 @@ function init() {
   // are the outermost thing at that end: the toggles are there whether or not a board is up and
   // keep their place when one appears, and the zoom steps end up next to the board they act on
   // rather than with a switch between them.
-  document.body.append(HeaderComponent(GAME_TITLE, [...AudioButtons(), headerControls]), gameArea, launchScreen);
+  // The title is the way back to the levels, from anywhere: it leaves a run in progress (see
+  // leaveRun) and does nothing worth noticing on the launch screen, which is already up.
+  document.body.append(HeaderComponent(GAME_TITLE, leaveRun, [...AudioButtons(), headerControls]), gameArea, launchScreen);
 
   // Dev-only: back to whatever was on the screen before the reload, which on a dev machine is
   // a board being looked at far more often than it is the launch screen. Read *before* the

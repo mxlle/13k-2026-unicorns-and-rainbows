@@ -279,7 +279,7 @@ function flyGlyph(emoji: string, [x, y]: number[], keyframe: Keyframe, options: 
 // the random one behind the 🎲, and that is the same level again rather than a different one.
 export function GameMapComponent(
   onExit: () => void,
-): [hostElement: HTMLElement, startNewGame: (level: number, random?: boolean) => void, headerControls: HTMLElement] {
+): [hostElement: HTMLElement, startNewGame: (level: number, random?: boolean) => void, headerControls: HTMLElement, leaveRun: () => void] {
   let map: GameMap;
   let isRunning = false;
   // Which rung of the ladder is being played, and whether it is being played on its own board.
@@ -2103,6 +2103,25 @@ export function GameMapComponent(
   }
 
   /**
+   * Out of a run and back to the levels, from the header's title — which is the one way out that
+   * does not wait for the turns to run out. The run is abandoned rather than paused: a score
+   * belongs to a run that was played to the whistle, so there is nothing here to keep.
+   *
+   * The rival's timer is the reason this is a function rather than a call to onExit: it walks
+   * the opponent through its turn a step at a time and reads `map`, which the next run replaces.
+   * startRun clears it on the way in, so nothing could actually go wrong today — but a timer
+   * left ticking against a board nobody is looking at is a bug waiting for the next person to
+   * add a second way in, and stopping it here costs a line.
+   */
+  function leaveRun() {
+    isRunning = false;
+    clearInterval(rivalTimer);
+    rivalTimer = undefined;
+    isRivalTurn = false;
+    onExit();
+  }
+
+  /**
    * The result takes over the info panel and the turn button — no dialog on top of the board.
    * There is only one way to get here: the turns ran out. The board cannot seize up while a
    * bathtub is paying, so every run is played to the end and every ending is celebrated.
@@ -2187,5 +2206,5 @@ export function GameMapComponent(
     pubSubService.publish(PubSubEvent.GAME_START);
   }
 
-  return [hostElement, startNewGame, headerControls];
+  return [hostElement, startNewGame, headerControls, leaveRun];
 }

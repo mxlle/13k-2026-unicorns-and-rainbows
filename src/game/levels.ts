@@ -6,13 +6,28 @@ import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../ut
  * built from — there is no level data in the bundle, and replaying one costs a call to
  * createGameMap rather than a snapshot.
  *
- * PLACEHOLDER seeds, picked with `npm run bot` over seeds 1-40 on every board. For each rung,
- * the seed whose score under the `mixed` bot sits closest to the median of the forty — a map
- * that is neither a gift nor a punishment, so the ladder climbs on the board getting bigger
- * rather than on the luck of the deal. On the three boards with an opponent, closeness of the
- * two sides' scores counts as well: a seed the rival runs away with, or one the player's corner
- * owns, is not a race whatever its median says. Small numbers because nothing needs them to be
- * large and short numbers cost less.
+ * PLACEHOLDER seeds, re-picked 2026-09-12 over seeds 1-40 on every board. For each rung, the
+ * seed whose score under the `mixed` bot sits closest to the median of the forty — a map that is
+ * neither a gift nor a punishment, so the ladder climbs on the board getting bigger rather than
+ * on the luck of the deal. On the three boards with an opponent, closeness of the two sides'
+ * scores counts as well: a seed the rival runs away with, or one the player's corner owns, is
+ * not a race whatever its median says. Small numbers because nothing needs them to be large and
+ * short numbers cost less.
+ *
+ * The medians they were picked against: 264, 1078, 1302, 2162, 2871, 4700, 6365.
+ *
+ * The shortlist was then *looked at*, which is the half no median can do — a custard sitting in
+ * a board corner is a tile nobody will ever walk in to use, a portal pair that skips four tiles
+ * is not a portal, and a shower three tiles from a base is a building worth nothing to raise.
+ * The last of those turned out to be common enough to fix in the generator instead (see
+ * placeObject), which is why these seeds are younger than the sweep above them.
+ *
+ * Level 3 is picked on a third thing again: its *band*. All forty 9x9 seeds were played twenty
+ * times over with nothing varied but the seed the bot's tie-breaks come off, and three of them —
+ * including the one the median first chose — came back with the same score twenty times out of
+ * twenty. A board with one run in it is a board where nothing a player decides can matter, which
+ * no median will ever report. Seed 2's band is 47% of its median wide and its own run sits on
+ * that median, so it is a middling board that can still be played well or badly.
  *
  * The tutorial is the one picked against that rule. Its ceiling is 400 — two rainbows, two
  * unicorns, no cloud left — and half the seeds have no way to reach it: the second unicorn is
@@ -25,23 +40,22 @@ import { getLocalStorageItem, LocalStorageKey, setLocalStorageItem } from "../ut
  * a different map from the same number — and the targets below, which were measured on these
  * maps, stop describing them. Re-run the bot and re-pick both lists when that happens.
  */
-export const LEVEL_SEEDS = [10, 12, 8, 14, 11, 35, 16];
+export const LEVEL_SEEDS = [10, 32, 2, 14, 24, 31, 7];
 
 /**
- * What 100% is worth on each level: the best run played on that board. These started out as the
- * `mixed` bot's own scores and are now Almut's, which is a change of meaning as much as of
- * number — full marks is "as well as this board has ever been played" rather than "as well as
- * the game's opponent plays it", and the bar moves when somebody plays better.
+ * What 100% is worth on each level: the best run played on that board.
+ *
+ * **PLACEHOLDER, and a weaker claim than usual right now.** These were Almut's own bests, which
+ * is what the number is *for* — full marks as "as well as this board has ever been played" — but
+ * those bests were set on boards that no longer exist: the lollipop became a light source, the
+ * fountains halved, every source took a boulder, and the seeds were re-picked underneath them.
+ * So these are the shipped bot's best tie-break roll on each board (BOT_MAX_SCORES below),
+ * which makes full marks temporarily mean "as well as the opponent has ever played it". They go
+ * back to being records the moment Almut plays these seven boards.
  *
  * Level 1 is the exception and always will be: 400 is the board's ceiling — two rainbows, two
- * unicorns, no cloud left (see LEVEL_SEEDS) — so its 100% is perfection rather than a best.
- *
- * Where the bot now sits, which is the honest measure of how hard these are: 92% on the
- * tutorial, then 78 / 62 / 51 / 62 / 68 / 97. The 13x13 is the steepest board on the ladder —
- * the bot is barely past half of what has been got out of it — and the 25x25 is the one board
- * where it is nearly the best there has been. Its own best tie-break roll there is 9700, which
- * is *past* the target: a record set before a present stopped putting its unicorn down on a
- * random neighbour is a record the board can now be played past.
+ * unicorns, no cloud left (see LEVEL_SEEDS) — so its 100% is perfection rather than a best, and
+ * the bot's 384 is a board played nearly perfectly rather than a target.
  *
  * **Updating one after a better run:** multiply the old target by the percentage the run came
  * out at. It pins exactly, and not by luck — the panel rounds the percentage to a whole number,
@@ -53,7 +67,7 @@ export const LEVEL_SEEDS = [10, 12, 8, 14, 11, 35, 16];
  * `npm run levels` re-measures. Read them whenever the economy moves and the ladder has to be
  * re-read: what the bot makes of a board is the one reading of it that does not need playing.
  */
-export const LEVEL_TARGETS = [400, 1296, 1600, 2283, 3910, 6966, 9600];
+export const LEVEL_TARGETS = [400, 1000, 1700, 2673, 4320, 6693, 7178];
 
 /**
  * What the game's own opponent scores on each level, as the two ends of one band: the shipped
@@ -68,18 +82,24 @@ export const LEVEL_TARGETS = [400, 1296, 1600, 2283, 3910, 6966, 9600];
  * the packed zip.
  *
  * The run a player actually faces is neither row: it is `mixed` seeded from the *map* seed,
- * which is what the game does (resetBot in game-map.component.ts) — 368, 1008, 996, 1162,
- * 2430, 4732, 9306. It is the very bottom of the band on the 13x13, mid-band on the 17x17 and
- * the 21x21, and near the top on the tutorial, the 9x9 and the 25x25 — one seeded run is a fact
+ * which is what the game does (resetBot in game-map.component.ts) — 368, 1000, 1400, 2475,
+ * 2871, 4655, 6270. It is at the top of the band on the tutorial and the 7x7, exactly on the
+ * median on the 9x9, and below it on the three boards with a rival — one seeded run is a fact
  * about that seed and not about the bot.
+ *
+ * How wide these bands are is worth reading on its own: the 17x17's runs 2200 to 4320 on one
+ * board with nothing changed but which way a tie fell. That is the game having genuinely
+ * different runs in it, and it is also why a single-seed reading of anything should be taken
+ * lightly — `explore` beats `mixed` on level 6 in the strategy table `npm run levels` prints,
+ * and the 30-seed sweep behind STRATEGY_WEIGHTS says that is this seed, not the weights.
  * Whichever row a target ends up reading, the number the player watches on screen on the three
  * boards with a rival is lower again — the dark side gives up the closing turn (see hasGo).
  *
  * MAX is a lower bound rather than a ceiling: twenty seeds is what was rolled, and rolling more
  * can only ever find a better run. Re-measure both when the economy moves.
  */
-export const BOT_MIN_SCORES = [276, 936, 880, 1162, 2160, 4459, 6528];
-export const BOT_MAX_SCORES = [384, 1032, 1020, 2002, 3496, 5664, 9700];
+export const BOT_MIN_SCORES = [276, 784, 1045, 2112, 2200, 3610, 4680];
+export const BOT_MAX_SCORES = [384, 1000, 1700, 2673, 4320, 6693, 7178];
 
 /**
  * A score as its share of the level's target, as a whole percent. It is what fills the level's

@@ -1,4 +1,4 @@
-import { getRandomInt, random, setSeed } from "../utils/random-utils";
+import { random, setSeed } from "../utils/random-utils";
 import { getRandomItem } from "../utils/array-utils";
 import {
   ChestLoot,
@@ -39,7 +39,6 @@ export const MAP_SIZES = [5, 7, 9, 13, 17, 21, 25];
 export let MAP_SIZE = MAP_SIZES[0];
 export let FOUNTAIN_COUNT = 0; // all of them hidden in the fog — there are none in the open any more
 export let TREE_COUNT = 0; // the other kind of light source, and the only way onto the board of sweets
-export let ROCKS_PER_SOURCE = 0; // the roll for how much of a source's own ring is taken away from it
 export let CUSTARD_COUNT = 0; // springboards scattered over the meadow — see getMoveCost
 export let CHEST_COUNT = 0; // what the fog is worth walking into
 // What one of them holds. Derived from the board like the counts above rather than fixed, so a
@@ -63,31 +62,42 @@ export const VISION_RADIUS = 1; // Chebyshev: radius 1 = the surrounding 3x3
  */
 const TREE_SIZE = 7; // and with the trees comes candy, which is what gives the tub its second job
 /**
- * PLACEHOLDER: the most boulders that may stand on one source's ring. A source's ring is the
- * four lines its light can travel along, so every boulder on it is a line the board cannot cast
- * a rainbow along, and this is the one knob that says how contested the light is.
+ * Whether the boards on this rung carry boulders at all. Everything above the tutorial does: that
+ * board is one fountain and the whole of what it teaches, and a blocked line there is a lesson
+ * in nothing, so it shares the lollipops' rung of the ladder and stays clear.
  *
- * Rolled per source over 0..MAX_ROCKS rather than placed flat, because what matters is that
- * sources *differ*: a board where every source is worth the same is a board where it does not
- * matter which one you walk to. Two is the roll that comes out at one apiece on average, which
- * is roughly what a fountain used to lose to the tree beside it before a tree became a source.
- *
- * Not on the tutorial, which shares the lollipops' rung of the ladder: that board is one
- * fountain and the whole of what it teaches, and a blocked line there is a lesson in nothing.
+ * One boulder per piece of light, exactly, and the "exactly" is the rule rather than a tuning.
+ * A source's ring is the four lines its light can travel along, so a ring with nothing on it is
+ * a source worth twice one hemmed in — and a quarter of them came out that way when the count
+ * was rolled, which made a board's best tile a thing the deal handed you rather than a thing you
+ * found. What makes sources differ from one another is the rest of the board around them: the
+ * next piece of light, the border, a donut, a present. That is variety a player can read.
  */
-const MAX_ROCKS = 2;
+let hasRocks = false;
 /**
- * PLACEHOLDER: how often a light source is allowed to stand on the ring of a source of the
- * *other* kind — a lollipop on a fountain's eight tiles, or the other way round.
+ * PLACEHOLDER: how often a piece of light is allowed to stand on another's ring — a lollipop on
+ * a fountain's eight tiles, a seedling on a lollipop's, a fountain on a fountain's.
  *
- * A ring is the four lines a source can cast along, so anything owning the ground there costs it
- * a pairing, and everything else keeps off both rings entirely (see crowdsSource). The two kinds
- * of source are the one exception, because what they cost each other they also give back: the
- * tile beside both of them is the one tile on the board where a single unicorn lights a rainbow
- * of each currency at once. Half the time, so a board carries a few of those without the two
- * kinds ending up welded together in pairs.
+ * Light keeps its distance from light, one rule over every fountain, lollipop and site that will
+ * become one (see placeObject), and this is the single hole in it. The hole is deliberate: what
+ * two sources cost each other by standing close they also give back, since the tile beside both
+ * of them is a tile where one unicorn lights two rainbows: two currencies at once where the two
+ * pieces are of different kinds, and simply twice over where they are not.
+ *
+ * It also turns out to be the thing that *stops* the board getting cluttered rather than the
+ * thing that clutters it. A source refused the ring does not go away, it lands one tile further
+ * out — and two sources two tiles apart hand a unicorn standing between them two rainbows, while
+ * two sources side by side block one of each other's lines and hand it none. Measured over 200
+ * seeds, letting sites take the flip as well took the 13x13 from 11.5 tiles casting two rainbows
+ * down to 7.8, and tiles casting three from 1.4 to 0.1.
+ *
+ * The number is the knob that says how clustered a board comes out, and it wants re-measuring
+ * whenever what the flip *applies to* changes. It came down from a half when the flip stopped
+ * asking which currencies were meeting, since every pair of light then qualified where only half
+ * of them used to: at a half the 13x13 went back up to 6.8 two-rainbow tiles and 0.4 three, and
+ * at 0.3 it sits at 5.7 and 0.1 with a shared ring still turning up on most boards.
  */
-const SHARES_RING = 0.5;
+const SHARES_RING = 0.3;
 /**
  * The tutorial's run, which is the one board whose turns are not its width. The ceiling — 100%
  * uncovered, the two unicorns the board can hold, the two rainbows its one fountain can hold —
@@ -174,7 +184,7 @@ function setMapSize(size: number) {
   // Floored at one fountain, which only the tutorial reaches: that board is one fountain and the
   // whole of what it teaches, and a rounding that took it away would take the lesson with it.
   TREE_COUNT = size < TREE_SIZE ? 0 : (tiles / 27 + 0.5) | 0;
-  ROCKS_PER_SOURCE = size < TREE_SIZE ? 0 : MAX_ROCKS;
+  hasRocks = size >= TREE_SIZE;
   FOUNTAIN_COUNT = (tiles / 54 + 0.5) | 0 || 1;
   CUSTARD_COUNT = (tiles / 12 + 0.5) | 0;
   // Rarer than anything else on the board. Floored at one, because the smallest board rounds
@@ -517,6 +527,21 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   for (let i = 0; i < FOUNTAIN_COUNT; i++) placeRocks(map, placeObject(map, GameObjectType.FOUNTAIN, FOUNTAIN_COUNT, 1));
   for (let i = 0; i < TREE_COUNT; i++) placeRocks(map, placeObject(map, GameObjectType.TREE, TREE_COUNT, 1));
 
+  // The two source-sites go down with the light rather than with the other build sites, and they
+  // keep a source's own margin, because that is what they become: rubble is a fountain that has
+  // not happened yet, a seedling a lollipop that has not, and a site on the border would be one
+  // with no tile opposite to cast a rainbow onto. Here rather than last so that they are spaced
+  // while there is still board to be spaced on: placed after the meadow had filled up, the rule
+  // stepped down for every one of them and they came to rest exactly two tiles from a source,
+  // which is the distance that hands one unicorn two rainbows.
+  //
+  // Boulders too, and that is the half of this the player reads: a site with two of them beside
+  // it will be a source with two lines, and one standing in the open will be a source with four.
+  // What raising it is worth is then on the board before it is paid for, which is the one thing
+  // a price tag cannot say.
+  for (let i = 0; i < SITE_COUNT; i++) placeRocks(map, placeObject(map, GameObjectType.FOUNTAIN_SITE, SITE_COUNT, 1));
+  for (let i = 0; i < SITE_COUNT; i++) placeRocks(map, placeObject(map, GameObjectType.TREE_SITE, SITE_COUNT, 1));
+
   // The portal network: placed early, because its rule is the hardest on the board to satisfy.
   // The donuts keep their distance along *both* axes rather than as the crow flies, so no two
   // of them share a row or a column — a jump that only slides sideways reads as a move rather
@@ -558,13 +583,6 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // is always somewhere a run can work around rather than pinned against an edge.
   for (let i = 1; i < SITE_COUNT; i++) placeObject(map, GameObjectType.TUB_SITE, SITE_COUNT, 1);
 
-  // The two site kinds keep a source's own margin, because that is what they become: a source on
-  // the border has sides with no tile opposite to cast a rainbow onto, and a raised one is no
-  // different from a found one. They are placed alike for the same reason their buildings are —
-  // rubble is a fountain that has not happened yet, a seedling a lollipop that has not.
-  for (let i = 0; i < SITE_COUNT; i++) placeObject(map, GameObjectType.FOUNTAIN_SITE, SITE_COUNT, 1);
-  for (let i = 0; i < SITE_COUNT; i++) placeObject(map, GameObjectType.TREE_SITE, SITE_COUNT, 1);
-
   updateRainbows(map);
   // The opening purse is one turn's income — the tub's, since nothing shines yet. Both sides
   // open with their own, which on a mirrored board is the same number twice.
@@ -574,7 +592,7 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
 }
 
 /**
- * The boulders that take a source's own ring away from it, rolled per source — see MAX_ROCKS.
+ * The boulder that takes one of a source's four lines away from it — see hasRocks.
  * Placed directly rather than through placeObject, exactly as the tree beside every fountain
  * used to be: this is the one thing on the board whose whole point is to be on a ring, so the
  * rule that keeps everything else off one (see crowdsSource) is not the rule it plays by.
@@ -583,19 +601,16 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
  * tutorial draws the same numbers out of the seeded generator that it always did.
  */
 function placeRocks(map: GameMap, position: Position | undefined) {
-  if (!ROCKS_PER_SOURCE || !position) return;
+  if (!hasRocks || !position) return;
 
-  for (let rocks = getRandomInt(ROCKS_PER_SOURCE + 1); rocks > 0; rocks--) {
-    // One tile of clearance from every boulder already down, anywhere on the board and not only
-    // the ones this source put there. Two of them side by side read as a wall somebody built,
-    // which is the one thing the board must not look like: everything on it is meadow that
-    // happens to be in the way, and a wall is a thing with an author.
-    const spots = getFreeNeighbours(map, position).filter((spot) =>
-      getPositionsOf(map, GameObjectType.ROCK).every((rock) => getDistance(spot, rock) > 1),
-    );
-    if (!spots.length) return; // a ring with no room left keeps the line it still has
-    getTile(map, getRandomItem(spots))!.object = GameObjectType.ROCK;
-  }
+  // One tile of clearance from every boulder already down, anywhere on the board and not only the
+  // one this source is placing. Two of them side by side read as a wall somebody built, which is
+  // the one thing the board must not look like: everything on it is meadow that happens to be in
+  // the way, and a wall is a thing with an author.
+  const spots = getFreeNeighbours(map, position).filter((spot) =>
+    getPositionsOf(map, GameObjectType.ROCK).every((rock) => getDistance(spot, rock) > 1),
+  );
+  if (spots.length) getTile(map, getRandomItem(spots))!.object = GameObjectType.ROCK;
 }
 
 /** The free tiles of the surrounding 3x3 — where a source's own boulders may land. */
@@ -682,13 +697,30 @@ function getPositionsOf(map: GameMap, objectType: GameObjectType): Position[] {
  * it is the step-down rather than a second constant that finds what such a board does allow.
  */
 function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin = 0, diagonal = false): Position | undefined {
-  const free = getPlaceableSpots(map, objectType, margin);
-  const taken = getPositionsOf(map, objectType);
+  // Light is spaced against *all* the light on the board rather than against its own kind, and
+  // the two kinds of site are light for this purpose: a seedling is a lollipop that has not
+  // happened yet, and a board that spaces each kind only among itself ends up with the kinds
+  // laid over one another. `count` is what the spacing of everything else is worked out from;
+  // for light it is every source and every site together, which is the number actually sharing
+  // the board. The ring flip is rolled once here, per placement, and a placement that wins it is
+  // off both rules at once — the ring and the spacing — which is what makes it one exception to
+  // one rule rather than two rules disagreeing (see SHARES_RING).
+  const light = isLightish(objectType);
+  const sharesRing = !!TREE_COUNT && light && random() < SHARES_RING;
+  const free = getPlaceableSpots(map, objectType, margin, sharesRing);
+  const taken = light ? getLightPositions(map) : getPositionsOf(map, objectType);
   let candidates = free;
 
-  for (let spacing = getSpacing(count); spacing > 1; spacing--) {
+  for (let spacing = getSpacing(light ? FOUNTAIN_COUNT + TREE_COUNT + 2 * SITE_COUNT : count); spacing > 1; spacing--) {
     const spaced = free.filter((position) =>
-      taken.every((other) => (diagonal ? getAxisDistance : getDistance)(position, other) >= spacing),
+      taken.every((other) => {
+        const distance = (diagonal ? getAxisDistance : getDistance)(position, other);
+        // A placement that won the flip may stand *on* another piece of light, and nowhere else
+        // nearer than the spacing — the ring or the full distance, with nothing in between. The
+        // gap it refuses is the one that matters: two pieces of light two tiles apart hand a
+        // unicorn between them a rainbow off each, and there is no walking away from that.
+        return distance >= spacing || (sharesRing && distance === 1);
+      }),
     );
 
     if (spaced.length) {
@@ -707,18 +739,32 @@ function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin
   return position;
 }
 
-/**
- * A lollipop, or the seedling that becomes one — and below it, either of those or a fountain or
- * its rubble. A site counts as the thing it will be for every purpose that is about where light
- * will come out: a raised source is no different from a found one, so anything that gives a
- * source room has to give a site the same room, or the room is gone by the time it is raised.
- */
-function isSweet(objectType: GameObjectType | undefined): boolean {
-  return objectType === GameObjectType.TREE || objectType === GameObjectType.TREE_SITE;
+/** Every source on the board and every site that will become one — what light is spaced against. */
+function getLightPositions(map: GameMap): Position[] {
+  const positions: Position[] = [];
+
+  map.tiles.forEach((tile, index) => {
+    if (isLightish(tile.object)) positions.push(getPosition(index));
+  });
+
+  return positions;
 }
 
+/**
+ * A light source, or the site that becomes one. A site counts as the thing it will be for every
+ * purpose that is about where light will come out: a raised source is no different from a found
+ * one, so anything that gives a source room has to give a site the same room, or the room is gone
+ * by the time it is raised — and by the same argument a site is spaced like one, takes boulders
+ * like one and may share a ring like one. Which of the two currencies a piece of light carries is
+ * asked nowhere in the generator: a board is laid out in light, not in water and sweets.
+ */
 function isLightish(objectType: GameObjectType | undefined): boolean {
-  return objectType === GameObjectType.FOUNTAIN || objectType === GameObjectType.FOUNTAIN_SITE || isSweet(objectType);
+  return (
+    objectType === GameObjectType.FOUNTAIN ||
+    objectType === GameObjectType.FOUNTAIN_SITE ||
+    objectType === GameObjectType.TREE ||
+    objectType === GameObjectType.TREE_SITE
+  );
 }
 
 /**
@@ -744,6 +790,7 @@ function isLightish(objectType: GameObjectType | undefined): boolean {
  */
 function crowdsSource(map: GameMap, { x, y }: Position, objectType: GameObjectType, sharesRing: boolean): boolean {
   const isLight = isLightish(objectType);
+  let shared = 0; // how much of this placement's one allowance it has spent
 
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
@@ -752,8 +799,16 @@ function crowdsSource(map: GameMap, { x, y }: Position, objectType: GameObjectTy
       if (!dx && !dy) continue;
       // The shared ring, and it is one rule read from both ends at once: this tile is on that
       // source's ring exactly as that source is on this one's, so allowing it here allows it
-      // there. Only ever between a watery source and a sweet one.
-      if (sharesRing && isLightish(object) && isSweet(object) !== isSweet(objectType)) continue;
+      // there. Any two pieces of light, whichever currencies they carry: a fountain beside a
+      // fountain costs the pair a line each in exactly the way a fountain beside a lollipop
+      // does, and which tile reads best is not the business of a spacing rule.
+      //
+      // **One of them, and that is what keeps a pair a pair.** Light that may touch anything it
+      // likes gathers: three of them around one tile hand a single unicorn three rainbows at
+      // once, which is a prize nobody played for. With one allowed here and the full spacing held
+      // against everything else (see placeObject), a chain of three cannot be built — the third
+      // piece is two tiles from the first, and two is a distance no rule here allows.
+      if (sharesRing && isLightish(object) && !shared++) continue;
 
       // A source arriving: whatever else is already on the ring is what it would have to work
       // around, so it goes somewhere emptier instead.
@@ -775,18 +830,10 @@ function crowdsSource(map: GameMap, { x, y }: Position, objectType: GameObjectTy
  * The whole board comes back rather than nothing at all when the rule cannot be met, so a
  * filling board still places what it is asked to, as close to the rule as it can.
  *
- * The shared-ring flip is rolled here, once per placement rather than once per candidate tile:
- * this is a thing being placed asking where it may go, and "may I share a ring this time" is a
- * question about that thing and not about each tile it is looking at.
- *
- * Not rolled at all on a board with no lollipops on it, and that is not a saving — a draw that
- * nothing can act on still moves the seeded generator on, and the tutorial is a board whose deal
- * has been measured to the last tile (see TUTORIAL_TURNS). A flip with no second kind of source
- * to share a ring with would have rebuilt it for nothing.
+ * `sharesRing` is the placement's own coin flip, rolled by placeObject — see SHARES_RING.
  */
-function getPlaceableSpots(map: GameMap, objectType: GameObjectType, margin: number): Position[] {
+function getPlaceableSpots(map: GameMap, objectType: GameObjectType, margin: number, sharesRing = false): Position[] {
   const free = getFreePositions(map, margin);
-  const sharesRing = !!TREE_COUNT && isLightish(objectType) && random() < SHARES_RING;
   const clear = free.filter((position) => !crowdsSource(map, position, objectType, sharesRing));
 
   return clear.length ? clear : free;

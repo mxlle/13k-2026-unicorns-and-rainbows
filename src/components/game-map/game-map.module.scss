@@ -747,11 +747,10 @@ $board-column-max: calc(100dvh - 5rem);
       --g: #{$big-scale};
     }
 
-    // Ground cover, drawn down — and, today, the springboards and nothing else, which is what
-    // lets the colour below be written against this class rather than against a second one
-    // toggled per tile per render. The boulder wanted the same size and took a class of its own
-    // rather than this one (see .rock), which is the other way of settling that: a rule with one
-    // declaration in it is cheaper than splitting the colour off this one.
+    // Ground cover, drawn down: the springboards underfoot, and the boulders, which at full tile
+    // size are a face staring out of the meadow rather than a thing lying in the way. Both take
+    // the colour below as well as the size, which is what keeps this one class: a boulder is
+    // grey, and grey is what hue-rotate has almost nothing to do to.
     //
     // No two springboards on a board are quite the same colour: --h is where the tile is (see
     // buildBoard), so the hue walks along the diagonals and a scattering of them comes out as a
@@ -811,15 +810,6 @@ $board-column-max: calc(100dvh - 5rem);
     // tile *holds*, they are stamped at different times, and no tile is ever both.
     &.loot {
       filter: hue-rotate(var(--l, 0deg));
-    }
-
-    // The boulder, at the springboards' size and for a different reason: drawn at full tile size
-    // the 🗿 is a face staring out of the meadow and owns the tile, when what it is is the one
-    // thing on the board with nothing to say. Small, it reads as something lying in the way.
-    // No filter, unlike everything else drawn down on this layer — it is not anybody's and it
-    // has no flavour.
-    &.rock {
-      --g: #{$small-scale};
     }
 
     // A build site is a promise rather than a thing, and the size is what says so — small

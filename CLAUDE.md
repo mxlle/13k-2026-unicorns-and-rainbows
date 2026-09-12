@@ -143,14 +143,14 @@ flag too**, or a sentence nothing reads goes into the zip.
   broad plateau is noise, and where the cliff is matters more than where the peak is.
   A full default grid is thousands of runs and takes a while, so it prints each combination as
   it finishes rather than only at the end.
-  **`mixed` is the one bot whose weights are not both constants.** Its economy weight is a
-  function of the board — `(37 - width) / 16`, capped at 1.5 — because exploring is the score's
-  multiplier and how hard that is to shift depends entirely on how much board there is: a 9x9
-  reaches 90% seen whatever the bot does, a 25x25 does not. The sweep switches that off via
-  `setUsesBoardWeights(false)` and restores it afterwards, or every row would set a number
-  nothing reads and the grid would come out flat. Tune that line one board at a time
-  (`--size=17`): a grid over the whole ladder can only ever find the best *constant*, and the
-  big boards outvote the small ones in any average.
+  **Both of `mixed`'s weights are plain constants** (`[2, 0.75]`), and the sweep therefore
+  measures exactly what it sets. Its economy weight used to be a function of the board —
+  `(37 - width) / 16`, capped at 1.5 — which the 2026-09-12 sweep retired: at 30 seeds a flat
+  0.75 beat that line by 11% on the 9x9 and the 13x13 and 5% on the 21x21, and matched it
+  elsewhere, because two thirds of a board's light now pays in sweets and the economy half no
+  longer wants weighting up anywhere. Sweeping one board at a time (`--size=17`) is still the
+  more informative way to read the grid, since the big boards outvote the small ones in any
+  average — but it is no longer a thing the code demands.
 
 **When the rules change, change the bot.** Nothing will break if you don't — it will quietly
 go on playing a game that no longer exists and hand you balancing numbers for it. After a

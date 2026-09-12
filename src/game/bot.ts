@@ -84,46 +84,27 @@ export const BOT_STRATEGY_EMOJIS = ["🎲", "🧭", "💰", "⚖️"];
 export const BOT_STRATEGY_NAMES = ["random", "explore", "economy", "mixed"];
 
 /**
- * MIXED's economy weight, and the one number in this file that is a function of the board
- * rather than a constant. It falls as the board grows: `(37 - width) / 16`, which is not a
- * curve fitted to anything but the four measurements themselves — swept at 40 seeds, the best
- * economy weight came out 1.5, 1.25, 1.0 and 0.75 for widths 13, 17, 21 and 25, which is that
- * line exactly. Capped for the smaller boards, where the line would run off above 1.5 and
- * where the measurements are flat enough not to care either way.
+ * What a strategy weighs the two halves of the game by. MIXED's economy weight used to be a
+ * function of the board here — `(37 - width) / 16`, capped at 1.5 — on the reading that a small
+ * board reaches 90% seen whatever the bot does, so the points are in the economy there, while a
+ * 25x25's multiplier is genuinely hard to shift and every step into the fog is worth more than
+ * the rainbow it walks away from.
  *
- * Why the board should matter at all: exploring is the score's multiplier, and how hard it is
- * to move depends entirely on how much board there is. A 9x9 gets to 90% seen almost whatever
- * the bot does, so weighting the fog higher buys nothing and the economy is where the points
- * are. A 25x25 is 625 tiles in 25 turns — the multiplier is genuinely hard to shift, so every
- * step into the fog is worth more than the rainbow it walks away from.
+ * It is a flat weight again, and the reason is a measurement rather than a change of mind: swept
+ * at 30 seeds on all five boards after the lollipop became a light source, a flat 0.75 beat the
+ * line by 11% on the 9x9 and the 13x13, by 5% on the 21x21, and matched it on the other two. The
+ * line's *shape* was not what went stale — the cap was. Handing the small boards 1.5 was the
+ * worst cell in the whole grid on four of the five rungs, and 0.75 was already what the line gave
+ * the biggest board. What changed underneath it is that two thirds of a board's light now pays in
+ * sweets, so the economy half no longer needs weighting up anywhere.
  *
- * It is also why the whole-ladder mean wanted a single [2, 1]: the big boards score in the
- * thousands and simply outvote the small ones in any average.
+ * The explore half came out of the same sweep as noise: 2 against 3 differed by under 3% on four
+ * of the five boards, so it kept the value it had.
  */
-const MIXED_ECONOMY_CAP = 1.5; // what the small boards get, and the value stored in the table
-const MIXED_ECONOMY_AT_ZERO = 37; // the width at which the line would reach nothing
-const MIXED_ECONOMY_SLOPE = 16; // how many tiles of width it takes to shed one point of weight
-
-/**
- * Whether MIXED's economy weight comes off the board (normally) or is taken verbatim from
- * STRATEGY_WEIGHTS (while the sweep harness is running). Without this the sweep would go on
- * setting an entry nothing reads, and quietly stop measuring the thing it exists to measure —
- * which is the exact failure the sweep was written to catch in the first place.
- */
-let usesBoardWeights = true;
-
-export function setUsesBoardWeights(uses: boolean) {
-  usesBoardWeights = uses;
-}
-
-/** What a strategy weighs the two halves of the game by, on the board being played. */
 function getWeights(strategy: BotStrategy): [explore: number, economy: number] {
   // MIXED is the only strategy a shipped build ever plays, so the other three rows of the
   // table go with the rest of the working — see HAS_BOT_LOGS.
-  const [explore, economy] = HAS_BOT_LOGS ? STRATEGY_WEIGHTS[strategy] : STRATEGY_WEIGHTS[BotStrategy.MIXED];
-  const board = Math.min(MIXED_ECONOMY_CAP, (MIXED_ECONOMY_AT_ZERO - MAP_SIZE) / MIXED_ECONOMY_SLOPE);
-
-  return [explore, strategy === BotStrategy.MIXED && usesBoardWeights ? board : economy];
+  return HAS_BOT_LOGS ? STRATEGY_WEIGHTS[strategy] : STRATEGY_WEIGHTS[BotStrategy.MIXED];
 }
 
 /**
@@ -132,25 +113,21 @@ function getWeights(strategy: BotStrategy): [explore: number, economy: number] {
  * anything — what matters is their ratio to each other and their size against the tuning
  * constants below. Random ignores both: it does not score anything at all.
  *
- * Read through getWeights rather than directly, because MIXED's economy weight is not in here:
- * it is a function of the board. See MIXED_ECONOMY_AT_ZERO.
+ * Read through getWeights rather than directly, which is where the one row a shipped build
+ * carries is picked out from the four.
  */
 export const STRATEGY_WEIGHTS: [explore: number, economy: number][] = [
   [0, 0], // RANDOM — unused
   [1, 0.25], // EXPLORE
   [0.25, 1], // ECONOMY
-  // Swept with `npm run sweep` after lollipop trees began earning per rainbow, which is what
-  // made the old [0.8, 0.6] stale: with candy feeding itself, the plain `explore` bot started
-  // beating `mixed` outright on the biggest boards, and a yardstick that loses to one of the
-  // things it is measuring is no yardstick.
+  // Swept with `npm run sweep` after the lollipop became a second kind of fountain, which is
+  // what made the board-dependent economy weight stale — see getWeights above for what replaced
+  // it and why. Both halves are read straight out of here again, on every board.
   //
-  // What the sweep found, over three grids: the good region is a broad plateau defined by the
-  // *ratio*, at roughly 2 parts exploring to 1 part economy, and it is flat in overall scale
-  // once that is past about 3 — [2, 1], [3, 1.5], [4, 2] and [6, 3] all score within 2% of each
-  // other, while ratios of 4 and above fall off a cliff. So the fix was to lean harder into the
-  // fog, not to care less about money: the price constants below came out exonerated.
-  // The economy half is the entry that is ignored; it is written here as the small-board cap.
-  [2, MIXED_ECONOMY_CAP], // MIXED
+  // Read the grid it came from as a landscape: explore 2 to 3 against economy 0.75 to 1.5 is one
+  // broad plateau, and inside it only the economy axis says anything. A single cell 44% below its
+  // two neighbours (the 13x13 at 3 / 0.75) is a seed where the bot stalled, not a cliff.
+  [2, 0.75], // MIXED
 ];
 
 // PLACEHOLDER tuning. Everything is in "score points", the unit the game's own score is in,

@@ -157,11 +157,11 @@ const OPENING_REACH = 4;
 // build flag, so the whole feature folds away with it.
 export let HAS_RIVAL = false;
 /**
- * The opponent switched off for a measurement — `npm run sweep` and `npm run bot --solo`. It
- * exists for the same reason setUsesBoardWeights does: a tool that quietly measures a
- * different game than the one it says it is measuring is worse than no tool. The sweep turns
- * a bot's weights against the *board*, and a second player on two rungs of the ladder and not
- * the other five is noise in exactly the comparison it is making.
+ * The opponent switched off for a measurement — `npm run sweep` and `npm run bot --solo`,
+ * because a tool that quietly measures a different game than the one it says it is measuring is
+ * worse than no tool. The sweep compares one set of weights against another on the same board,
+ * and a second player on two rungs of the ladder and not the other five is noise in exactly the
+ * comparison it is making.
  *
  * Free in a build without the feature: HAS_OPPONENT folds to false, the `&&` short-circuits
  * and the setter goes out with the tree-shaking.

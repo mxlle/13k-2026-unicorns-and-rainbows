@@ -8,7 +8,6 @@ import {
   BotStrategy,
   getBotAction,
   resetBot,
-  setUsesBoardWeights,
   STRATEGY_WEIGHTS,
 } from "../src/game/bot";
 
@@ -104,14 +103,7 @@ const weight = (value: number) => value.toFixed(2).padStart(5);
 const original = STRATEGY_WEIGHTS[STRATEGY];
 const rows: Row[] = [];
 
-// MIXED normally reads its economy weight off the board rather than out of STRATEGY_WEIGHTS
-// (see MIXED_ECONOMY_AT_ZERO in bot.ts). Sweeping has to switch that off, or every row here
-// would set a number nothing reads and the whole grid would come out flat — which is worth
-// knowing about, because a sweep that quietly measures nothing is the one failure this tool
-// cannot report. Sweep one board at a time when tuning that line: the weight is a function of
-// the width, so a grid over the whole ladder can only ever find the best *constant*.
-setUsesBoardWeights(false);
-// And the opponent off, for a related reason: what this grid compares is one set of weights
+// The opponent off: what this grid compares is one set of weights
 // against another *on the same board*, and an opponent that turns up on 21x21 and 25x25 and
 // nowhere else would put a different game under two of the seven rungs. Whether a set of
 // weights wins a race is a real question, but it is `npm run bot`'s question, not this one.
@@ -157,9 +149,8 @@ for (const explore of EXPLORE) {
   }
 }
 
-// Leave the bot exactly as we found it, both the weights and where it reads them from.
+// Leave the bot exactly as we found it.
 STRATEGY_WEIGHTS[STRATEGY] = original;
-setUsesBoardWeights(true);
 
 const best = Math.max(...rows.map((row) => row.mean));
 const width = SIZES.length * 7;

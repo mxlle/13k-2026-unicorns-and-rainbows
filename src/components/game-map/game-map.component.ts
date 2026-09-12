@@ -1,5 +1,6 @@
 import styles from "./game-map.module.scss";
 import { createButton, createElement, createElements } from "../../utils/html-utils";
+import { LocalStorageKey, setLocalStorageItem } from "../../utils/local-storage";
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
 import { HAS_COUNTER_POPS, HAS_DEV_TOOLS, HAS_GAMEPLAY_NICE_TO_HAVES, HAS_OPPONENT, HAS_SIDE_CHOICE } from "../../env-utils";
@@ -637,6 +638,35 @@ export function GameMapComponent(
   }
 
   /**
+   * Dev-only: two steps along the ladder, for looking at every level's board one after another
+   * without going back out to the launch screen between them. It wraps at both ends, so the
+   * seven boards are a ring rather than a line with two dead stops.
+   *
+   * The fog toggle survives the switch for free, and that is the point of doing it from in here:
+   * `xray` belongs to the component and only the *board* is replaced (see startRun), so a walk
+   * along the ladder with the clouds off stays a walk with the clouds off.
+   *
+   * Built by a function for the same reason createFogButton is: an uncalled declaration once
+   * HAS_DEV_TOOLS folds to false.
+   */
+  function createLevelButtons(): HTMLElement[] {
+    return [-1, 1].map((step) => {
+      const button = createButton(
+        {
+          cssClass: CssClass.ICON_BTN,
+          // `level` is read at the tap rather than captured: it moves with every switch.
+          onClick: () => startNewGame((level + step + MAP_SIZES.length) % MAP_SIZES.length),
+        },
+        [createElement({ tag: "span", cssClass: CssClass.EMOJI, text: step < 0 ? "⏮" : "⏭" })],
+      );
+
+      button.title = `level ${step < 0 ? "back" : "on"}`; // the bot's own buttons title themselves the same way
+
+      return button;
+    });
+  }
+
+  /**
    * Dev-only: the bot's controls — which bot is playing, one action from it, and the rest of
    * the run at once. It is for balancing rather than for playing: a run driven by a bot with
    * a stated policy is a reading of what the board is worth to *that* policy, and four of
@@ -767,7 +797,7 @@ export function GameMapComponent(
   ]);
   const headerControls = createElement({ cssClass: styles.headerControls }, [
     status,
-    ...(HAS_DEV_TOOLS ? [createFogButton(), ...createBotControls()] : []),
+    ...(HAS_DEV_TOOLS ? [createFogButton(), ...createLevelButtons(), ...createBotControls()] : []),
     zoomChip,
   ]);
   // The clock leads, and the button that moves it on takes all the room left over — it is the
@@ -2115,6 +2145,9 @@ export function GameMapComponent(
   function startNewGame(playedLevel: number, random = false) {
     level = playedLevel;
     isRandom = random;
+    // Dev-only: what a reload comes back to. Written here rather than in startRun, because 🔁
+    // deals the same level again and has nothing new to say about which screen is up.
+    if (HAS_DEV_TOOLS) setLocalStorageItem(LocalStorageKey.SCREEN, `${playedLevel}`);
     // The flag first, so that a build without the random board folds the whole branch away and
     // takes createSeed out with it — the level's own seed is then the only board there is.
     startRun(HAS_GAMEPLAY_NICE_TO_HAVES && random ? createSeed() : LEVEL_SEEDS[level]);

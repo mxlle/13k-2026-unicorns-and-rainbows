@@ -4,8 +4,8 @@ import { initPoki, pokiSdk } from "./poki-integration";
 import { CssClass } from "./utils/css-class";
 import { sleep } from "./utils/promise-utils";
 import { initAudio } from "./audio/music-control";
-import { getLocalStorageItem, LocalStorageKey } from "./utils/local-storage";
-import { GAME_TITLE, HAS_SIDE_CHOICE, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
+import { getLocalStorageItem, LocalStorageKey, removeLocalStorageItem } from "./utils/local-storage";
+import { GAME_TITLE, HAS_DEV_TOOLS, HAS_SIDE_CHOICE, HAS_VISUAL_NICE_TO_HAVES, IS_POKI_ENABLED } from "./env-utils";
 import { initDarkSide } from "./utils/dark-side";
 import { initSoundEffects, playSoundEffect } from "./audio/sound-control/sound-control-box";
 import { SoundEffect } from "./audio/sound-control/sound-effect";
@@ -49,6 +49,9 @@ function init() {
     // the stripe it belongs to is what says so. The screen holds nothing of its own about a
     // level, so showing it and bringing it up to date are the same act.
     if (show) updateLaunchScreen();
+    // Dev-only: and this screen is now the one to come back to. Written as the *absence* of a
+    // level rather than as a name of its own, which is what makes the restore below one read.
+    if (HAS_DEV_TOOLS && show) removeLocalStorageItem(LocalStorageKey.SCREEN);
     gameArea.classList.toggle(CssClass.HIDDEN, show);
     headerControls.classList.toggle(CssClass.HIDDEN, show);
     launchScreen.classList.toggle(CssClass.HIDDEN, !show);
@@ -63,7 +66,18 @@ function init() {
   // rather than with a switch between them.
   document.body.append(HeaderComponent(GAME_TITLE, [...AudioButtons(), headerControls]), gameArea, launchScreen);
 
+  // Dev-only: back to whatever was on the screen before the reload, which on a dev machine is
+  // a board being looked at far more often than it is the launch screen. Read *before* the
+  // launch screen goes up, since showing it is what clears the key — and the run is started
+  // after it, so applyZoom still measures a visible map row (see showLaunchScreen).
+  const lastScreen = HAS_DEV_TOOLS ? getLocalStorageItem(LocalStorageKey.SCREEN) : null;
+
   showLaunchScreen(true);
+
+  if (lastScreen) {
+    showLaunchScreen(false);
+    startNewGame(+lastScreen);
+  }
 
   pubSubService.subscribe(PubSubEvent.GAME_START, () => {
     document.body.classList.remove(CssClass.WON);

@@ -18,6 +18,10 @@ export const LocalStorageKey = defineEnum({
   SCORES: "l1",
   SIZE: "s1", // the board the launch screen is offering next — one rung above the last one played
   DARK_SIDE: "d", // "1" while the player is playing the dark unicorn (see dark-side.ts)
+  // Dev-only (see HAS_DEV_TOOLS): which level was on the screen, so a reload comes back to the
+  // board being looked at instead of to the launch screen. Absent means the launch screen. It
+  // is written and read behind the flag, so a build without the dev tools never names it.
+  SCREEN: "v",
 });
 
 // Every access is guarded because the storage getter itself can throw rather than return null:

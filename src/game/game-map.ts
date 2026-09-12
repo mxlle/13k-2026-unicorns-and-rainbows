@@ -135,6 +135,23 @@ const SITE_SIZE = 13;
  * than simply walk.
  */
 const RIVAL_SIZE = 17;
+/**
+ * PLACEHOLDER: how far from a side's opening unicorn its guaranteed fountain may be. Two to four
+ * tiles in practice, the nearer ones being under the opening vision already and so not free to
+ * place on — which is about where the nearest fountain used to fall by luck when fountains were
+ * spaced only against each other.
+ *
+ * It exists because the one spacing over all light (see placeObject) has no idea where anybody is
+ * standing. The light pushes itself evenly apart, which is what a board wants everywhere except
+ * at the two corners a run actually begins in: measured over 300 seeds, a third of boards were
+ * dealing the nearest fountain six or more tiles from the tub, and one 25x25 put it fourteen
+ * away. That is not a harder board, it is a board that cannot be started — steps are paid for in
+ * water, the tub pays two a turn, and the lollipop three tiles away pays in sweets, which buy no
+ * steps at all. Raising the fountain count barely touched it: at the old count, nine to fifteen
+ * percent of boards still dealt it six or more away, because the tail is about where the light is
+ * allowed to be and not about how much of it there is.
+ */
+const OPENING_REACH = 4;
 // Whether the board being played has an opponent on it. Derived from the width like everything
 // else, so it follows the ladder rather than being a second list of levels — and gated on the
 // build flag, so the whole feature folds away with it.
@@ -524,7 +541,37 @@ export function createGameMap(seed: number, size = MAP_SIZE): GameMap {
   // Each of them gets its own boulders as it lands, rather than all of them afterwards: a source
   // placed later has to find a ring that is empty *including* the boulders already down, which is
   // what keeps two sources from quietly sharing one blocker and both keeping their four lines.
-  for (let i = 0; i < FOUNTAIN_COUNT; i++) placeRocks(map, placeObject(map, GameObjectType.FOUNTAIN, FOUNTAIN_COUNT, 1));
+  //
+  // The first fountain (or two) is the opening one, put within reach of where the run starts —
+  // see OPENING_REACH for what it is for. The rival's is the mirror of the player's rather than a
+  // draw of its own, which is what the tub and the opening unicorn already do: the two corners
+  // are the one part of a board that is symmetric on purpose, and a guarantee given to one side
+  // only is an edge on exactly the three boards that are a race. The mirrored tile is always
+  // free — it lies two to four tiles from the rival's own start, and all that is down at this
+  // point is the two tubs and the two unicorns, every one of them nearer its corner than that.
+  //
+  // Not on the tutorial: one fountain on a board five tiles wide is never far, and that deal is
+  // pinned to the turn count measured on it (see TUTORIAL_TURNS).
+  const openers = isTutorial ? 0 : HAS_RIVAL ? 2 : 1;
+
+  if (openers) {
+    const spots = getPlaceableSpots(map, GameObjectType.FOUNTAIN, 1).filter(
+      (position) => getDistance(position, UNICORN_START) <= OPENING_REACH,
+    );
+
+    if (spots.length) {
+      const opener = getRandomItem(spots);
+
+      (HAS_RIVAL ? SIDES : [PLAYER]).forEach((side) => {
+        const position = mirror(opener, side);
+
+        getTile(map, position)!.object = GameObjectType.FOUNTAIN;
+        placeRocks(map, position);
+      });
+    }
+  }
+
+  for (let i = openers; i < FOUNTAIN_COUNT; i++) placeRocks(map, placeObject(map, GameObjectType.FOUNTAIN, FOUNTAIN_COUNT, 1));
   for (let i = 0; i < TREE_COUNT; i++) placeRocks(map, placeObject(map, GameObjectType.TREE, TREE_COUNT, 1));
 
   // The two source-sites go down with the light rather than with the other build sites, and they

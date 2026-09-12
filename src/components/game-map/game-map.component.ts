@@ -3,7 +3,7 @@ import { createButton, createElement, createElements } from "../../utils/html-ut
 import { LocalStorageKey, setLocalStorageItem } from "../../utils/local-storage";
 import { PubSubEvent, pubSubService } from "../../utils/pub-sub-service";
 import { CssClass } from "../../utils/css-class";
-import { HAS_COUNTER_POPS, HAS_DEV_TOOLS, HAS_GAMEPLAY_NICE_TO_HAVES, HAS_OPPONENT, HAS_SIDE_CHOICE } from "../../env-utils";
+import { GAME_EMOJI, HAS_COUNTER_POPS, HAS_DEV_TOOLS, HAS_GAMEPLAY_NICE_TO_HAVES, HAS_OPPONENT, HAS_SIDE_CHOICE } from "../../env-utils";
 import { getTranslation } from "../../translations/i18n";
 import { TranslationKey } from "../../translations/translationKey";
 import {
@@ -459,9 +459,21 @@ export function GameMapComponent(
   // the button, the bulb — and a fourth control in it pushed the way out off the edge of a
   // narrow phone. The panel is the one part of the screen that is already growing to fit what a
   // finished run has to say, so a button that only exists after a run belongs in it.
-  const retryButton = createButton({ cssClass: [CssClass.SECONDARY, styles.retry], onClick: () => startRun(seed) }, [
+  const retryButton = createButton({ cssClass: CssClass.SECONDARY, onClick: () => startRun(seed) }, [
     createElement({ tag: "span", cssClass: CssClass.EMOJI, text: RETRY_EMOJI }),
     ` ${getTranslation(TranslationKey.RETRY)}`,
+  ]);
+  // And the way on, beside it: the rung above, dealt straight from the result rather than through
+  // the launch screen. Climbing the ladder was three taps — out to the levels, the next stripe,
+  // play — and two of them only ever confirmed what finishing a level already said.
+  //
+  // It borrows CONTINUE rather than asking for a word of its own, and that is a saving rather
+  // than a compromise: the translation maps compact into one joined string (see vite.config.ts),
+  // so every key's text is in the zip whether anything reads it or not — a new word would have
+  // cost three languages' worth of bytes to say what this one already says.
+  const nextButton = createButton({ cssClass: CssClass.SECONDARY, onClick: () => startNewGame(level + 1) }, [
+    createElement({ tag: "span", cssClass: CssClass.EMOJI, text: GAME_EMOJI }),
+    ` ${getTranslation(TranslationKey.CONTINUE)}`,
   ]);
   // How far through the turns, next to the button that spends them. It is the one number that
   // stayed down here when the scores went up to the chip: the clock and the thing that moves
@@ -1553,10 +1565,13 @@ export function GameMapComponent(
     // brackets, so the two can be read against each other.
     const targetLine =
       isRunning || isRandom ? [] : [line(TARGET_EMOJI, ` ${getPercent(level, getScore(map, PLAYER))}% (${LEVEL_TARGETS[level]})`)];
-    // The way back into the board just played, last and under everything the result has to say.
-    // Only once there is a result: mid-run this panel is the score's working, and there is
-    // nothing to go back to.
-    const retryLine = isRunning ? [] : [retryButton];
+    // The two ways on, last and under everything the result has to say: the same board again,
+    // and the next one. Only once there is a result — mid-run this panel is the score's working,
+    // and there is nowhere to go from a run still being played. The top of the ladder has no
+    // rung above it, so up there it is the one button it always was.
+    const retryLine = isRunning
+      ? []
+      : [createElement({ cssClass: styles.endButtons }, level + 1 < MAP_SIZES.length ? [retryButton, nextButton] : [retryButton])];
     // The rival's total gets a row of its own under the player's, and only its total: it is
     // playing off its own clouds, so its working is arithmetic over a board the player has
     // never seen and would explain nothing. What the row is for is the gap.

@@ -481,8 +481,14 @@ $board-column-max: calc(100dvh - 5rem);
 // a button pulled out to the full width of the panel would read as the panel's own footer
 // rather than as one more thing the result has to offer. The gap is what keeps it from looking
 // like a sixth row of the working.
-.retry {
-  justify-self: center;
+// The result's own controls, on one row under the working: play this board again, or take the
+// next one. A row rather than two centred buttons, so the pair reads as one offer with two
+// answers — and it wraps on a narrow phone rather than pushing the panel wider.
+.endButtons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
   margin-top: 0.4rem;
 }
 

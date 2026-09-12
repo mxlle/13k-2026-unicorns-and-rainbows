@@ -756,12 +756,12 @@ function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin
   // by the same argument: it is a tub that has not happened yet. Without it a shower can land
   // three tiles from a base that already has a tub, which is worth nothing to raise — and three
   // tiles from the *rival's* base, which is worth raising for them.
-  const light = isLightish(objectType);
+  const light = bendsLight(objectType);
   const isTubSite = objectType === GameObjectType.TUB_SITE;
   const bases = (HAS_RIVAL ? SIDES : [PLAYER]).map((side) => mirror(TUB_POSITION, side));
   const sharesRing = !!TREE_COUNT && light && random() < SHARES_RING;
   const free = getPlaceableSpots(map, objectType, margin, sharesRing);
-  const taken = light ? getLightPositions(map) : [...getPositionsOf(map, objectType), ...(isTubSite ? bases : [])];
+  const taken = light ? getLightBenders(map) : [...getPositionsOf(map, objectType), ...(isTubSite ? bases : [])];
   let candidates = free;
 
   for (
@@ -796,26 +796,27 @@ function placeObject(map: GameMap, objectType: GameObjectType, count = 1, margin
   return position;
 }
 
-/** Every source on the board and every site that will become one — what light is spaced against. */
-function getLightPositions(map: GameMap): Position[] {
+/** Everything on the board that bends light, the sites included — what the spacing below counts. */
+function getLightBenders(map: GameMap): Position[] {
   const positions: Position[] = [];
 
   map.tiles.forEach((tile, index) => {
-    if (isLightish(tile.object)) positions.push(getPosition(index));
+    if (bendsLight(tile.object)) positions.push(getPosition(index));
   });
 
   return positions;
 }
 
 /**
- * A light source, or the site that becomes one. A site counts as the thing it will be for every
- * purpose that is about where light will come out: a raised source is no different from a found
- * one, so anything that gives a source room has to give a site the same room, or the room is gone
- * by the time it is raised — and by the same argument a site is spaced like one, takes boulders
- * like one and may share a ring like one. Which of the two currencies a piece of light carries is
- * asked nowhere in the generator: a board is laid out in light, not in water and sweets.
+ * Something a unicorn's light can bend through — a fountain or a lollipop — or the site that will
+ * become one. A site counts as the thing it will be for every purpose that is about where a
+ * rainbow will land: a raised one is no different from a found one, so anything that gives a
+ * fountain room has to give rubble the same room, or the room is gone by the time it is raised.
+ * By the same argument a site is spaced like one, takes a boulder like one and may share a ring
+ * like one. Which of the two currencies comes out is asked nowhere in the generator: a board is
+ * laid out in where rainbows can be made, not in water and sweets.
  */
-function isLightish(objectType: GameObjectType | undefined): boolean {
+function bendsLight(objectType: GameObjectType | undefined): boolean {
   return (
     objectType === GameObjectType.FOUNTAIN ||
     objectType === GameObjectType.FOUNTAIN_SITE ||
@@ -825,13 +826,13 @@ function isLightish(objectType: GameObjectType | undefined): boolean {
 }
 
 /**
- * Whether putting `objectType` here would crowd a light source out of its own light.
+ * Whether putting `objectType` here would crowd a fountain or a lollipop out of its own lines.
  *
- * A source's eight neighbours are not ordinary tiles: they pair up into the four lines its light
- * can travel along, and each line needs a tile to stand a unicorn on at one end and empty ground
- * to land a rainbow on at the other. So anything that owns the ground layer and lands on that
- * ring does not merely sit near the source — it costs it a whole pairing, and a source ringed by
- * scenery is a source that cannot be used at all. That was being decided by the roll of the
+ * Their eight neighbours are not ordinary tiles: they pair up into the four lines light can
+ * travel along, and each line needs a tile to stand a unicorn on at one end and empty ground to
+ * land a rainbow on at the other. So anything that owns the ground layer and lands on that ring
+ * does not merely sit nearby — it costs a whole pairing, and one ringed by scenery is one that
+ * cannot be used at all. That was being decided by the roll of the
  * dice, and this is what decides it on purpose instead.
  *
  * Read from both sides, because a ring can be crowded either way round:
@@ -846,7 +847,7 @@ function isLightish(objectType: GameObjectType | undefined): boolean {
  * satisfies this, the same way the spacing rule steps down rather than dropping a placement.
  */
 function crowdsSource(map: GameMap, { x, y }: Position, objectType: GameObjectType, sharesRing: boolean): boolean {
-  const isLight = isLightish(objectType);
+  const isLight = bendsLight(objectType);
   let shared = 0; // how much of this placement's one allowance it has spent
 
   for (let dy = -1; dy <= 1; dy++) {
@@ -865,7 +866,7 @@ function crowdsSource(map: GameMap, { x, y }: Position, objectType: GameObjectTy
       // once, which is a prize nobody played for. With one allowed here and the full spacing held
       // against everything else (see placeObject), a chain of three cannot be built — the third
       // piece is two tiles from the first, and two is a distance no rule here allows.
-      if (sharesRing && isLightish(object) && !shared++) continue;
+      if (sharesRing && bendsLight(object) && !shared++) continue;
 
       // A source arriving: whatever else is already on the ring is what it would have to work
       // around, so it goes somewhere emptier instead.
@@ -874,7 +875,7 @@ function crowdsSource(map: GameMap, { x, y }: Position, objectType: GameObjectTy
         continue;
       }
 
-      if (isLightish(object)) return true;
+      if (bendsLight(object)) return true;
     }
   }
 
@@ -929,10 +930,12 @@ function glows(objectType: GameObjectType | undefined): boolean {
 }
 
 /**
- * The two things a unicorn's light bends through. They are one kind of thing in every respect
- * the rules read — same line-up, same reach, same empty tile needed opposite — and differ only
- * in what comes out at the far end, which is the whole of the game's economy: 🦄⛲🌈 pays water,
- * 🦄🍭🌈 pays sweets.
+ * The two things a unicorn's light bends through. **The unicorn is the light** — it is the only
+ * thing in OBJECT_CONFIG that glows — and these two do nothing on their own: they take the glow
+ * of a unicorn beside them and throw it out the other side as a rainbow. They are one kind of
+ * thing in every respect the rules read — same line-up, same reach, same empty tile needed
+ * opposite — and differ only in what comes out at the far end, which is the whole of the game's
+ * economy: 🦄⛲🌈 pays water, 🦄🍭🌈 pays sweets.
  */
 function refracts(objectType: GameObjectType | undefined): boolean {
   return objectType === GameObjectType.FOUNTAIN || objectType === GameObjectType.TREE;

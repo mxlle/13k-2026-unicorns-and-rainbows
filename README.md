@@ -12,9 +12,10 @@ friends-&-family build, deployed to GitHub Pages from `main` on every push.
 
 *You start with one unicorn, a bathtub in the corner, and no idea what is out there.*
 
-A turn-based game of light and sugar on a board hidden under clouds. Light rainbows on
-fountains, clear the fog, and balance your two incomes (💧 pays for each step, 🍬 buys unicorns)
-while getting as far up the ladder of seven boards as you can, from a three-turn tutorial to a
+A turn-based game of light and sugar on a board hidden under clouds. Line a unicorn up with a
+fountain or a lollipop to cast a rainbow, clear the fog, and balance your two incomes: a rainbow
+cast through a ⛲ pays 💧 for your steps, one cast through a 🍭 pays 🍬 for new unicorns. Get as
+far up the ladder of seven boards as you can, from a two-turn tutorial to a
 25×25. From the fifth board on there is a rival: a dark unicorn from the opposite corner, played
 by the game's own bot.
 

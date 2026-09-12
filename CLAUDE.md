@@ -134,7 +134,7 @@ flag too**, or a sentence nothing reads goes into the zip.
   entry over a grid of `[explore, economy]` pairs, plays the whole ladder at every point, and
   prints the landscape — per board, the mean, and the winner on each board taken alone.
   `npm run sweep -- --seeds=50`, `--size=25`, `--strategy=economy`, or a grid of your own with
-  `--explore=0.8,1,1.2 --economy=0.4,0.6`. The 5×5 is left out by default: no trees, so no
+  `--explore=0.8,1,1.2 --economy=0.4,0.6`. The 5×5 is left out by default: no lollipops, so no
   candy, so it cannot tell the weights apart.
   **Re-sweep whenever the economy changes.** Those weights are the bot's belief about which
   half of the game pays, and a change can make last week's belief false — the sign is `explore`
@@ -200,7 +200,8 @@ Everything about it follows from three decisions, and knowing them is most of re
    `DARK_BATHTUB` are the last three `GameObjectType` members, so `getSide()` is one `>=` and
    no tile carries an owner. Anything doubled goes in one of the `SIDE_*` tables in
    `game-objects.ts` and is looked up by side; only the three things that can *belong* to
-   somebody are doubled. Fountains, trees, donuts, flowers, chests and build sites are neutral.
+   somebody are doubled. Fountains, lollipops, boulders, donuts, custards, chests and build
+   sites are neutral.
 2. **Each side has its own fog.** `Tile.seen` is a bitmask, one bit per side, read through
    `isSeen(tile, side)`. Exploration is the score's own multiplier, so a shared cloud layer
    would have each side handing the other its multiplier for free. This is why nearly every
@@ -214,7 +215,7 @@ Everything about it follows from three decisions, and knowing them is most of re
 
 The contest itself is almost entirely emergent rather than written: a rainbow has always needed
 empty ground, so the first one onto a tile holds it and the other side's light dies in the
-fountain; a tile with somebody standing on it cannot be lit or stepped onto; a build site is
+source; a tile with somebody standing on it cannot be lit or stepped onto; a build site is
 spent by whoever gets a unicorn beside it and can pay first. The one contested *building* is
 the bathtub, which belongs to whoever raises it — which makes the tub site in the middle of the
 board, equidistant from both corners, the sharpest thing on the map.
@@ -228,6 +229,39 @@ When the rules change, the opponent changes with them for free — it is the sam
 🌑 column, `npm run bot -- --solo` is the old single-player reading, and `npm run sweep` turns
 the opponent off entirely (a grid comparing weights must not have a different game under three
 of the six rungs it plays — it drops the 5x5).
+
+## The light rule — one line-up, two currencies
+
+**The unicorn is the light.** It is the only thing in `OBJECT_CONFIG` with `glows: true`, and
+`updateRainbows` walks the glowers first. A fountain and a lollipop give off nothing of their
+own: they *bend* the glow of a unicorn standing beside them and throw it out the far side as a
+rainbow, onto the empty tile directly opposite. `🦄⛲🌈` comes out as 💧, `🦄🍭🌈` as 🍬.
+
+The two benders are the same kind of thing to every rule in the game — same line-up, same reach,
+same empty tile needed, same rank earned for shining — and differ only in the currency at the far
+end, which the rainbow is stamped with as it is cast (`Tile.candy`). `refracts()` is the live
+rule; the generator's version is `bendsLight()`, which covers the two of them *and* the two sites
+that become them.
+
+Three rules keep the boards from making that trivial, and all three are in `createGameMap`:
+
+- **Light keeps its distance from light**, one spacing over benders and their sites together,
+  with `SHARES_RING` (0.3) as the single exception — a placement that wins that flip may touch
+  **one** other piece of light and nothing else nearer than the spacing. That is what makes a
+  tile casting three rainbows impossible rather than merely rare: a chain of three would put the
+  first and third two tiles apart, which no rule here allows.
+- **Every fountain and lollipop takes exactly one 🗿**, on its own ring, one tile clear of every
+  other boulder. That ring is the four lines light can travel along, so the boulder is a line the
+  board cannot use. It exists because promoting the lollipop deleted the game's only blocker:
+  trees used to ring the fountains by accident, and without that every one had all four lines.
+- **One fountain is guaranteed within `OPENING_REACH` of each side's start**, mirrored for the
+  rival. Steps are paid for in water and the spacing has no idea where anybody is standing, so
+  without it a third of boards dealt the nearest fountain six or more tiles from the tub.
+
+`FOUNTAIN_COUNT` is half of `TREE_COUNT` (`tiles/54` against `tiles/27`, floored at one fountain
+for the tutorial), so two thirds of a board's light is the sweet kind. That is deliberate: water
+is the currency a well-played board ends up with a pile of, sweets the one a run is always short
+of, because sweets buy unicorns and a unicorn's price is the size of the herd.
 
 ## Size machinery — read before touching vite.config.ts or adding enums
 
@@ -330,6 +364,25 @@ The unusual parts of this codebase exist to make minification maximally effectiv
 - HTML attributes count too: js13k strips `crossorigin`. The single-letter bundle names
   (`a.js`, `a.css`) now mostly matter as a fallback — `scripts/inline.js` folds both into
   `index.html` and deletes them, so the zip normally holds one entry whose name is fixed.
+
+## The submission text
+
+`DESCRIPTION.md` is what goes into the js13k submission form, and **the form caps it at 2048
+bytes** — bytes, not characters, so every emoji in it costs four. It currently sits at 2016, and
+the version before the lollipop change was 2042, so there has never been more than a line spare.
+Measure after editing it:
+
+```sh
+python3 -c "import io; print(len(io.open('DESCRIPTION.md', encoding='utf-8').read().encode('utf-8')))"
+```
+
+Two rules for what goes in it, both learned by breaking them:
+
+- **It is written in the player's vocabulary, not the code's.** The game says fountain, lollipop,
+  bathtub, present. It never says "light source", "site" or "currency", so neither does this.
+- **Anything the game itself says at the moment it matters is not worth a line here.** The tub's
+  own text already states the unicorn price; a bullet repeating it cost 85 of the 2048 bytes to
+  say the same thing earlier and worse.
 
 ## Conventions
 
